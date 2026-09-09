@@ -205,7 +205,7 @@ export default function OpsSupportScreen() {
       <Header
         title="Member support"
         subtitle={`${openCount} open • ${criticalCount} critical`}
-        rightSlot={
+        right={
           <Button
             label="New ticket"
             variant="primary"
@@ -282,10 +282,14 @@ export default function OpsSupportScreen() {
       <Sheet
         open={composeOpen}
         onOpenChange={setComposeOpen}
-        title="New support ticket"
-        description="Logged for operations follow-up"
       >
         <YStack gap="$3">
+          <YStack gap="$0.5" marginBottom="$1">
+            <Text variant="h2">New support ticket</Text>
+            <Text variant="bodySmall" color="secondary">
+              Logged for operations follow-up
+            </Text>
+          </YStack>
           <Input
             label="Member"
             placeholder="Search member name or ID"

@@ -84,17 +84,30 @@ const slotLabel: Record<SlotType, string> = {
   Blocked: 'Blocked',
 };
 
-function getWeekRange(offsetWeeks: number): string {
+function getMonday(offsetWeeks: number): Date {
   const now = new Date();
-  // Move to Monday of the target week
   const day = (now.getDay() + 6) % 7; // 0 = Mon
   const monday = new Date(now);
   monday.setDate(now.getDate() - day + offsetWeeks * 7);
+  return monday;
+}
+
+function getWeekRange(offsetWeeks: number): string {
+  const monday = getMonday(offsetWeeks);
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
   const fmt = (d: Date) =>
     d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
   return `${fmt(monday)} – ${fmt(sunday)}`;
+}
+
+function getDayNumbers(offsetWeeks: number): number[] {
+  const monday = getMonday(offsetWeeks);
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return d.getDate();
+  });
 }
 
 export default function TrainerSchedule() {
@@ -104,6 +117,7 @@ export default function TrainerSchedule() {
   const [weekOffset, setWeekOffset] = useState(0);
 
   const weekRange = useMemo(() => getWeekRange(weekOffset), [weekOffset]);
+  const dayNumbers = useMemo(() => getDayNumbers(weekOffset), [weekOffset]);
   const weekLabel = weekOffset === 0 ? 'This week' : weekOffset > 0 ? `In ${weekOffset}w` : `${-weekOffset}w ago`;
 
   const handleSlotPress = (slot: Slot) => {
@@ -217,7 +231,7 @@ export default function TrainerSchedule() {
                           {d}
                         </Text>
                         <Text variant="label">
-                          {((i + 1) % 7) + 8}
+                          {dayNumbers[i]}
                         </Text>
                       </YStack>
                     ))}

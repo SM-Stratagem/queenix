@@ -153,7 +153,7 @@ export default function OpsClassesScreen() {
       <Header
         title="Class rosters"
         subtitle="Manage today's check-ins"
-        rightSlot={
+        right={
           <Button
             label="Check-in"
             variant="primary"
@@ -252,16 +252,18 @@ export default function OpsClassesScreen() {
       <Sheet
         open={!!selectedClass}
         onOpenChange={(open) => !open && setSelectedClass(null)}
-        title={selectedClass?.name}
-        description={
-          selectedClass
-            ? `${selectedClass.trainer} • ${selectedClass.room} • ${formatTime(selectedClass.startsAt)}`
-            : undefined
-        }
       >
-        {selectedClass && (
-          <RosterDetail cls={selectedClass} />
-        )}
+        {selectedClass ? (
+          <YStack gap="$3">
+            <YStack gap="$0.5">
+              <Text variant="h2">{selectedClass.name}</Text>
+              <Text variant="bodySmall" color="secondary">
+                {selectedClass.trainer} • {selectedClass.room} • {formatTime(selectedClass.startsAt)}
+              </Text>
+            </YStack>
+            <RosterDetail cls={selectedClass} />
+          </YStack>
+        ) : null}
       </Sheet>
     </Screen>
   );

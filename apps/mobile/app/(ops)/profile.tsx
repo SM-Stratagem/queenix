@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { YStack, XStack, ScrollView, Switch } from 'tamagui';
+import { YStack, XStack, ScrollView } from 'tamagui';
 import { useRouter } from 'expo-router';
 import {
   Screen,
@@ -12,6 +12,7 @@ import {
   Divider,
   Input,
   Sheet,
+  Switch,
 } from '@queenix/ui';
 import { useAuth } from '@/lib/auth';
 import {
@@ -260,13 +261,10 @@ export default function OpsProfileScreen() {
               description="Door alerts, incidents, shift reminders"
               right={
                 <Switch
-                  size="$3"
-                  checked={notifEnabled}
-                  onCheckedChange={setNotifEnabled}
+                  value={notifEnabled}
+                  onValueChange={setNotifEnabled}
                   accessibilityLabel="Toggle push notifications"
-                >
-                  <Switch.Thumb animation="quick" />
-                </Switch>
+                />
               }
             />
             <SettingsRow
@@ -326,10 +324,14 @@ export default function OpsProfileScreen() {
       <Sheet
         open={handoverOpen}
         onOpenChange={setHandoverOpen}
-        title="Handover notes"
-        description="Visible to the next shift"
       >
         <YStack gap="$3">
+          <YStack gap="$0.5" marginBottom="$1">
+            <Text variant="h2">Handover notes</Text>
+            <Text variant="bodySmall" color="secondary">
+              Visible to the next shift
+            </Text>
+          </YStack>
           <Input
             label="Notes"
             placeholder="Anything the next team should know…"

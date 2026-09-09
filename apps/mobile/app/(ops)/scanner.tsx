@@ -150,7 +150,7 @@ export default function ScannerScreen() {
       <Header
         title="Check-in scanner"
         subtitle={session?.fullName?.split(' ')[0] ?? 'Front desk'}
-        rightSlot={
+        right={
           <XStack
             backgroundColor="$brand50"
             paddingHorizontal="$3"

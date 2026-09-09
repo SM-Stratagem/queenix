@@ -347,20 +347,32 @@ export default function IncidentsScreen() {
       <Sheet
         open={!!selected}
         onOpenChange={(o) => !o && setSelected(null)}
-        title={selected?.title}
-        description={selected ? `${selected.code} • ${selected.location}` : undefined}
       >
-        {selected && <IncidentDetail incident={selected} />}
+        {selected ? (
+          <YStack gap="$3">
+            <YStack gap="$0.5">
+              <Text variant="h2">{selected.title}</Text>
+              <Text variant="bodySmall" color="secondary">
+                {selected.code} • {selected.location}
+              </Text>
+            </YStack>
+            <IncidentDetail incident={selected} />
+          </YStack>
+        ) : null}
       </Sheet>
 
       {/* Report sheet */}
       <Sheet
         open={reportOpen}
         onOpenChange={setReportOpen}
-        title="Report an incident"
-        description="Logged immediately for the operations team"
       >
         <YStack gap="$3">
+          <YStack gap="$0.5" marginBottom="$1">
+            <Text variant="h2">Report an incident</Text>
+            <Text variant="bodySmall" color="secondary">
+              Logged immediately for the operations team
+            </Text>
+          </YStack>
           <YStack gap="$1">
             <Text variant="caption" color="secondary" fontWeight="600">
               Type
