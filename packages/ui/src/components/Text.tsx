@@ -1,9 +1,9 @@
-import React from 'react';
-import { Text as TamaguiText, TextProps as TamaguiTextProps, GetProps } from 'tamagui';
+import React, { PropsWithChildren } from 'react';
+import { Text as TamaguiText, TextProps as TamaguiTextProps } from 'tamagui';
 
 type Variant = 'display' | 'h1' | 'h2' | 'h3' | 'h4' | 'body' | 'bodySmall' | 'caption' | 'label' | 'mono';
 
-export interface TextProps extends TamaguiTextProps {
+export interface TextProps extends Omit<TamaguiTextProps, 'children'> {
   variant?: Variant;
   color?: 'primary' | 'secondary' | 'muted' | 'brand' | 'inverse' | 'success' | 'warning' | 'danger';
   weight?: '400' | '500' | '600' | '700' | '800';
@@ -34,7 +34,7 @@ const colorMap = {
   danger: '$textDanger',
 };
 
-export const Text: React.FC<TextProps> = ({
+export const Text: React.FC<PropsWithChildren<TextProps>> = ({
   variant = 'body',
   color = 'primary',
   weight,

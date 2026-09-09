@@ -11,7 +11,7 @@
     "./tokens": "./src/tokens.ts"
   },
   "dependencies": {
-    "@tamagui/config": "^3.1.0",
+    "@tamagui/config": "^1.130.0",
     "@tamagui/core": "^1.130.0",
     "tamagui": "^1.130.0"
   },

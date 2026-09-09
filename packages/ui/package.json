@@ -13,7 +13,6 @@
     "@queenix/theme": "workspace:*",
     "@queenix/types": "workspace:*",
     "tamagui": "^1.130.0",
-    "@tamagui/icons": "^1.130.0",
     "lucide-react-native": "^0.469.0",
     "react-native-svg": "^15.10.1"
   },

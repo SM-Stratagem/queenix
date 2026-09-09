@@ -11,9 +11,8 @@
     "./auth": "./convex/auth.config.ts"
   },
   "dependencies": {
-    "@queenix/payments": "workspace:*",
     "@queenix/types": "workspace:*",
-    "convex": "^1.18.2",
+    "convex": "^1.45.0",
     "better-auth": "^1.1.10",
     "zod": "^3.24.1"
   },

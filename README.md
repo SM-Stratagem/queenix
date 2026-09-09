@@ -22,8 +22,9 @@ Women's gym platform — role-based mobile app + web admin built on React Native
 
 ```bash
 pnpm install
-pnpm convex:dev          # in one terminal
-pnpm dev                  # in another
+pnpm convex               # Convex backend (one terminal)
+pnpm dev                  # Expo mobile (another terminal)
+pnpm --filter @queenix/web dev   # Next.js web admin (optional)
 ```
 
 ## Project structure
