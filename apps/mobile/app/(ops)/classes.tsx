@@ -190,14 +190,14 @@ export default function OpsClassesScreen() {
                   <Text
                     variant="caption"
                     weight="600"
-                    color={active ? 'onBrand' : 'muted'}
+                    color={active ? 'inverse' : 'muted'}
                     textTransform="uppercase"
                   >
                     {d.isToday ? 'Today' : d.day}
                   </Text>
                   <Text
                     variant="h3"
-                    color={active ? 'onBrand' : 'primary'}
+                    color={active ? 'inverse' : 'primary'}
                     marginTop="$0.5"
                   >
                     {d.num}

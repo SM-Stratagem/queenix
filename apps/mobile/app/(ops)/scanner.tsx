@@ -34,64 +34,13 @@ interface CheckIn {
 }
 
 const MOCK_CHECKINS: CheckIn[] = [
-  {
-    id: '1',
-    name: 'Aisha Al-Mansoori',
-    initials: 'AM',
-    memberId: 'QNX-08421',
-    time: 'Just now',
-    status: 'granted',
-  },
-  {
-    id: '2',
-    name: 'Daniel Pereira',
-    initials: 'DP',
-    memberId: 'QNX-07209',
-    time: '2 min ago',
-    status: 'granted',
-  },
-  {
-    id: '3',
-    name: 'Yusuf Khan',
-    initials: 'YK',
-    memberId: 'QNX-09112',
-    time: '5 min ago',
-    status: 'denied',
-    reason: 'Membership expired',
-  },
-  {
-    id: '4',
-    name: 'Sara Al-Maktoum',
-    initials: 'SM',
-    memberId: 'QNX-06550',
-    time: '7 min ago',
-    status: 'granted',
-  },
-  {
-    id: '5',
-    name: 'Mohammed Ali',
-    initials: 'MA',
-    memberId: 'QNX-10298',
-    time: '12 min ago',
-    status: 'granted',
-  },
-  {
-    id: '6',
-    name: 'Priya Sharma',
-    initials: 'PS',
-    memberId: 'QNX-05833',
-    time: '15 min ago',
-    status: 'denied',
-    reason: 'Outside access window',
-  },
-  {
-    id: '7',
-    name: 'Khalifa Al-Suwaidi',
-    initials: 'KS',
-    memberId: 'QNX-12044',
-    time: '18 min ago',
-    status: 'granted',
-  },
+  { id: '1', name: 'Aisha Al-Mansoori', initials: 'AM', memberId: 'QNX-08421', time: 'Just now', status: 'granted' },
+  { id: '2', name: 'Daniel Pereira', initials: 'DP', memberId: 'QNX-07209', time: '2 min ago', status: 'granted' },
+  { id: '3', name: 'Yusuf Khan', initials: 'YK', memberId: 'QNX-09112', time: '5 min ago', status: 'denied', reason: 'Membership expired' },
+  { id: '4', name: 'Sara Al-Maktoum', initials: 'SM', memberId: 'QNX-06550', time: '7 min ago', status: 'granted' },
+  { id: '5', name: 'Mohammed Ali', initials: 'MA', memberId: 'QNX-10298', time: '12 min ago', status: 'granted' },
+  { id: '6', name: 'Priya Sharma', initials: 'PS', memberId: 'QNX-05833', time: '15 min ago', status: 'denied', reason: 'Outside access window' },
+  { id: '7', name: 'Khalifa Al-Suwaidi', initials: 'KS', memberId: 'QNX-12044', time: '18 min ago', status: 'granted' },
 ];
 
 export default function ScannerScreen() {

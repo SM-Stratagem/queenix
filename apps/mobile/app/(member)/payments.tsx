@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { YStack, XStack, ScrollView } from 'tamagui';
+import { YStack, XStack, ScrollView, RefreshControl } from 'tamagui';
 import { useRouter } from 'expo-router';
 import {
   Screen,
@@ -142,11 +142,19 @@ export default function PaymentsScreen() {
     toast.warning('To confirm cancellation, please email hello@queenixgym.com');
   };
 
+  const onRefresh = () => {
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 800);
+  };
+
   return (
     <Screen scroll padded={false}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 32 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="$brand" />
+        }
       >
         {/* Header */}
         <YStack paddingTop="$4" paddingHorizontal="$4" paddingBottom="$2">

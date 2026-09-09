@@ -16,7 +16,6 @@ import {
   Gift,
   Sparkles,
   Share2,
-  Users,
   TrendingUp,
   TrendingDown,
   ChevronRight,
@@ -24,7 +23,6 @@ import {
   Coffee,
   ShoppingBag,
   Heart,
-  Star,
   Dumbbell,
   Ticket,
 } from '@tamagui/lucide-icons';

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { YStack, XStack, ScrollView } from 'tamagui';
+import { YStack, XStack, ScrollView, RefreshControl } from 'tamagui';
 import { useRouter } from 'expo-router';
 import {
   Screen,
@@ -10,7 +10,7 @@ import {
   Badge,
   Chip,
 } from '@queenix/ui';
-import { Star, Award, ChevronRight, Dumbbell } from '@tamagui/lucide-icons';
+import { Star, Award, Dumbbell } from '@tamagui/lucide-icons';
 
 const SPECIALTIES = ['All', 'Yoga', 'HIIT', 'Strength', 'Cardio', 'Pilates'] as const;
 type Specialty = (typeof SPECIALTIES)[number];
@@ -107,11 +107,19 @@ export default function TrainersScreen() {
     [filter]
   );
 
+  const onRefresh = () => {
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 800);
+  };
+
   return (
     <Screen scroll padded={false}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 32 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="$brand" />
+        }
       >
         {/* Header */}
         <YStack paddingTop="$4" paddingHorizontal="$4" paddingBottom="$2" gap="$1">
@@ -254,10 +262,7 @@ function TrainerCard({
               label="Book"
               variant="primary"
               size="sm"
-              onPress={(e) => {
-                e?.stopPropagation?.();
-                onBook();
-              }}
+              onPress={onBook}
               icon={<Dumbbell size={14} color="$textOnBrand" />}
             />
           </XStack>

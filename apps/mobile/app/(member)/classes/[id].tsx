@@ -23,7 +23,6 @@ import {
   Dumbbell,
   Zap,
   Sparkles,
-  Users,
   MapPin,
   Star,
   ChevronRight,
