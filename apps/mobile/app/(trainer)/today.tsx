@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { YStack, XStack, ScrollView } from 'tamagui';
 import { useRouter } from 'expo-router';
 import {
@@ -10,10 +10,14 @@ import {
   Badge,
   Logo,
   Spacer,
-  Progress,
+  Skeleton,
+  EmptyState,
+  ErrorState,
   useToast,
 } from '@queenix/ui';
 import { useAuth } from '@/lib/auth';
+import { useConvexQuery } from '@/lib/convex';
+import { api } from '@queenix/convex';
 import {
   Clock,
   Users,
@@ -23,92 +27,15 @@ import {
   CalendarPlus,
   Ban,
   Plane,
-  ChevronRight,
   CheckCircle2,
 } from '@tamagui/lucide-icons';
 
 type SessionStatus = 'completed' | 'in-progress' | 'upcoming';
 
-interface TodaySession {
-  id: string;
-  startTime: string; // "08:00"
-  endTime: string;
-  memberName: string;
-  memberAvatarSeed: string;
-  type: 'PT' | 'Class';
-  durationMin: number;
-  status: SessionStatus;
-  room?: string;
+function formatTime(ts: number): string {
+  const d = new Date(ts);
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
 }
-
-const mockSessions: TodaySession[] = [
-  {
-    id: 's1',
-    startTime: '07:00',
-    endTime: '08:00',
-    memberName: 'Amna Al-Mazrouei',
-    memberAvatarSeed: 'Amna Al-Mazrouei',
-    type: 'PT',
-    durationMin: 60,
-    status: 'completed',
-    room: 'Studio 1',
-  },
-  {
-    id: 's2',
-    startTime: '08:30',
-    endTime: '09:15',
-    memberName: 'Fatima Saeed',
-    memberAvatarSeed: 'Fatima Saeed',
-    type: 'Class',
-    durationMin: 45,
-    status: 'completed',
-    room: 'Studio 2',
-  },
-  {
-    id: 's3',
-    startTime: '10:00',
-    endTime: '11:00',
-    memberName: 'Hala Al-Suwaidi',
-    memberAvatarSeed: 'Hala Al-Suwaidi',
-    type: 'PT',
-    durationMin: 60,
-    status: 'in-progress',
-    room: 'Studio 1',
-  },
-  {
-    id: 's4',
-    startTime: '12:00',
-    endTime: '13:00',
-    memberName: 'Mariam Al-Hashimi',
-    memberAvatarSeed: 'Mariam Al-Hashimi',
-    type: 'PT',
-    durationMin: 60,
-    status: 'upcoming',
-    room: 'Studio 1',
-  },
-  {
-    id: 's5',
-    startTime: '17:30',
-    endTime: '18:30',
-    memberName: 'Noora Al-Naimi',
-    memberAvatarSeed: 'Noora Al-Naimi',
-    type: 'Class',
-    durationMin: 60,
-    status: 'upcoming',
-    room: 'Studio 2',
-  },
-  {
-    id: 's6',
-    startTime: '19:00',
-    endTime: '20:00',
-    memberName: 'Sara Al-Marri',
-    memberAvatarSeed: 'Sara Al-Marri',
-    type: 'PT',
-    durationMin: 60,
-    status: 'upcoming',
-    room: 'Studio 1',
-  },
-];
 
 function getTimeGreeting() {
   const h = new Date().getHours();
@@ -129,6 +56,15 @@ function getStatusLabel(status: SessionStatus): string {
   return 'Upcoming';
 }
 
+function deriveStatus(scheduledAt: number, durationMinutes: number, dbStatus: string): SessionStatus {
+  const now = Date.now();
+  const end = scheduledAt + durationMinutes * 60 * 1000;
+  if (dbStatus === 'completed' || end < now) return 'completed';
+  if (dbStatus === 'no_show' || dbStatus === 'cancelled') return 'completed';
+  if (scheduledAt <= now && now < end) return 'in-progress';
+  return 'upcoming';
+}
+
 export default function TrainerToday() {
   const router = useRouter();
   const { session } = useAuth();
@@ -137,11 +73,20 @@ export default function TrainerToday() {
   const greeting = getTimeGreeting();
   const firstName = session?.fullName?.split(' ')[0] ?? 'Trainer';
 
-  const stats = {
-    sessions: mockSessions.length,
-    hours: mockSessions.reduce((acc, s) => acc + s.durationMin, 0) / 60,
-    clientsSeen: mockSessions.filter((s) => s.status === 'completed').length,
-  };
+  const sessionsQuery = useConvexQuery(api.queries.users.getTodaySessions, {});
+
+  const isLoading = sessionsQuery === undefined;
+  const sessions = sessionsQuery ?? [];
+
+  const stats = useMemo(() => {
+    const totalMinutes = sessions.reduce((acc, s) => acc + s.durationMinutes, 0);
+    const uniqueMembers = new Set(sessions.map((s) => s.memberId as unknown as string)).size;
+    return {
+      sessions: sessions.length,
+      hours: totalMinutes / 60,
+      uniqueMembers,
+    };
+  }, [sessions]);
 
   const handleQuickAction = (label: string) => {
     toast.info(`${label} — coming soon`);
@@ -186,24 +131,34 @@ export default function TrainerToday() {
                 <Badge label="On shift" variant="success" />
               </XStack>
               <XStack gap="$3" marginTop="$2">
-                <HeroStat
-                  icon={<Calendar size={18} color="$brand" />}
-                  value={stats.sessions.toString()}
-                  label="Sessions"
-                  flex={1}
-                />
-                <HeroStat
-                  icon={<Clock size={18} color="$brand" />}
-                  value={`${stats.hours}h`}
-                  label="Hours booked"
-                  flex={1}
-                />
-                <HeroStat
-                  icon={<Users size={18} color="$brand" />}
-                  value={`${stats.clientsSeen}/${mockSessions.length}`}
-                  label="Clients seen"
-                  flex={1}
-                />
+                {isLoading ? (
+                  <>
+                    <Skeleton flex={1} height={88} borderRadius="$md" />
+                    <Skeleton flex={1} height={88} borderRadius="$md" />
+                    <Skeleton flex={1} height={88} borderRadius="$md" />
+                  </>
+                ) : (
+                  <>
+                    <HeroStat
+                      icon={<Calendar size={18} color="$brand" />}
+                      value={stats.sessions.toString()}
+                      label="Sessions"
+                      flex={1}
+                    />
+                    <HeroStat
+                      icon={<Clock size={18} color="$brand" />}
+                      value={`${stats.hours.toFixed(1)}h`}
+                      label="Hours booked"
+                      flex={1}
+                    />
+                    <HeroStat
+                      icon={<Users size={18} color="$brand" />}
+                      value={stats.uniqueMembers.toString()}
+                      label="Unique members"
+                      flex={1}
+                    />
+                  </>
+                )}
               </XStack>
             </YStack>
           </Card>
@@ -249,16 +204,37 @@ export default function TrainerToday() {
               View week
             </Text>
           </XStack>
-          <YStack gap="$2">
-            {mockSessions.map((s) => (
-              <SessionRow
-                key={s.id}
-                session={s}
-                onStart={() => toast.success(`Started ${s.type} with ${s.memberName}`)}
-                onViewNotes={() => toast.info(`Notes for ${s.memberName}`)}
-              />
-            ))}
-          </YStack>
+          {isLoading ? (
+            <YStack gap="$2">
+              <Skeleton height={88} borderRadius="$md" />
+              <Skeleton height={88} borderRadius="$md" />
+              <Skeleton height={88} borderRadius="$md" />
+            </YStack>
+          ) : sessions.length === 0 ? (
+            <EmptyState
+              title="No sessions today"
+              message="Your schedule is clear. Use a quick action above to add availability or a session."
+            />
+          ) : (
+            <YStack gap="$2">
+              {sessions.map((s) => (
+                <SessionRow
+                  key={s._id}
+                  scheduledAt={s.scheduledAt}
+                  durationMinutes={s.durationMinutes}
+                  memberName={s.member?.fullName ?? 'Member'}
+                  memberId={s.memberId}
+                  dbStatus={s.status}
+                  onStart={() =>
+                    toast.success(`Started PT with ${s.member?.fullName ?? 'member'}`)
+                  }
+                  onViewNotes={() =>
+                    router.push(`/(trainer)/clients/${s.memberId}`)
+                  }
+                />
+              ))}
+            </YStack>
+          )}
         </YStack>
       </ScrollView>
     </Screen>
@@ -333,68 +309,69 @@ function QuickAction({
 }
 
 function SessionRow({
-  session,
+  scheduledAt,
+  durationMinutes,
+  memberName,
+  memberId,
+  dbStatus,
   onStart,
   onViewNotes,
 }: {
-  session: TodaySession;
+  scheduledAt: number;
+  durationMinutes: number;
+  memberName: string;
+  memberId: string;
+  dbStatus: string;
   onStart: () => void;
   onViewNotes: () => void;
 }) {
-  const variant = getStatusVariant(session.status);
-  const statusLabel = getStatusLabel(session.status);
+  const status = deriveStatus(scheduledAt, durationMinutes, dbStatus);
+  const variant = getStatusVariant(status);
+  const statusLabel = getStatusLabel(status);
+  const startTime = formatTime(scheduledAt);
+  const endTime = formatTime(scheduledAt + durationMinutes * 60 * 1000);
 
   return (
     <Card
       variant="outlined"
       padding="sm"
-      onPress={
-        session.status === 'upcoming'
-          ? onStart
-          : session.status === 'in-progress'
-            ? onStart
-            : onViewNotes
-      }
-      accessibilityLabel={`${session.type} with ${session.memberName} at ${session.startTime}, ${statusLabel}`}
+      onPress={status === 'upcoming' || status === 'in-progress' ? onStart : onViewNotes}
+      accessibilityLabel={`PT with ${memberName} at ${startTime}, ${statusLabel}`}
     >
       <XStack alignItems="center" gap="$3">
         <YStack alignItems="center" width={56} gap="$0.5">
-          <Text variant="h4" color={session.status === 'completed' ? 'muted' : 'primary'}>
-            {session.startTime}
+          <Text variant="h4" color={status === 'completed' ? 'muted' : 'primary'}>
+            {startTime}
           </Text>
           <Text variant="caption" color="muted">
-            {session.durationMin}m
+            {durationMinutes}m
           </Text>
         </YStack>
         <YStack
           width={3}
           alignSelf="stretch"
-          backgroundColor={
-            session.type === 'PT' ? '$brand' : '$success500'
-          }
+          backgroundColor="$brand"
           borderRadius="$full"
         />
         <YStack flex={1} gap="$1">
           <XStack alignItems="center" gap="$2">
-            <Text variant="label" textDecorationLine={session.status === 'completed' ? 'line-through' : 'none'}>
-              {session.memberName}
+            <Text
+              variant="label"
+              textDecorationLine={status === 'completed' ? 'line-through' : 'none'}
+            >
+              {memberName}
             </Text>
-            <Badge
-              label={session.type}
-              variant={session.type === 'PT' ? 'brand' : 'success'}
-              size="sm"
-            />
+            <Badge label="PT" variant="brand" size="sm" />
           </XStack>
           <Text variant="caption" color="muted">
-            {session.startTime}–{session.endTime}
-            {session.room ? ` • ${session.room}` : ''}
+            {startTime}–{endTime}
           </Text>
           <XStack marginTop="$1">
             <Badge label={statusLabel} variant={variant} size="sm" />
           </XStack>
         </YStack>
         <YStack>
-          {session.status === 'upcoming' ? (
+          {status === 'upcoming' ? (
             <Button
               label="Start"
               size="sm"
@@ -402,19 +379,14 @@ function SessionRow({
               onPress={onStart}
               icon={<Play size={14} color="$textOnBrand" />}
             />
-          ) : session.status === 'in-progress' ? (
-            <Button
-              label="Resume"
-              size="sm"
-              variant="primary"
-              onPress={onStart}
-            />
+          ) : status === 'in-progress' ? (
+            <Button label="Resume" size="sm" variant="primary" onPress={onStart} />
           ) : (
             <XStack
               onPress={onViewNotes}
               pressStyle={{ opacity: 0.6 }}
               accessibilityRole="button"
-              accessibilityLabel="View session notes"
+              accessibilityLabel="View client detail"
               padding="$2"
             >
               <FileText size={20} color="$textMuted" />

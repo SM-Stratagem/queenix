@@ -151,7 +151,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!session) return;
     if (!session.roles.includes(role)) return;
     setSession({ ...session, activeRole: role });
-  }, [session]);
+    // Navigate to the home screen for the new role
+    switch (role) {
+      case 'member':
+        router.replace('/(member)/home');
+        break;
+      case 'trainer':
+        router.replace('/(trainer)/today');
+        break;
+      case 'owner':
+        router.replace('/(owner)/overview');
+        break;
+      case 'operations':
+        router.replace('/(ops)/scanner');
+        break;
+    }
+  }, [session, router]);
 
   const sendOtp = useCallback(async (phone: string) => {
     try {

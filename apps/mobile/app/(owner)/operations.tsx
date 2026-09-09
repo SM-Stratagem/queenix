@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { YStack, XStack, ScrollView } from 'tamagui';
 import { useRouter } from 'expo-router';
-import { Screen, Text, Card, Badge, Button } from '@queenix/ui';
-import { useToast } from '@queenix/ui';
+import { Screen, Text, Card, Badge, Button, Skeleton, EmptyState, useToast } from '@queenix/ui';
+import { useConvexQuery } from '@/lib/convex';
+import { api } from '@queenix/convex';
 import {
   DoorOpen,
   Users,
@@ -25,95 +26,16 @@ export default function OwnerOperations() {
   const toast = useToast();
   const [tab, setTab] = useState<Tab>('access');
 
-  // Live header
-  const facilityOpen = true;
-  const headcount = 42;
-  const maxCapacity = 80;
-  const peakToday = 67;
-  const peakTime = '8:30 PM';
+  const liveQuery = useConvexQuery(api.queries.access.getOperationsLiveStatus, {});
+  const isLoading = liveQuery === undefined;
+  const currentOccupancy = liveQuery?.currentOccupancy ?? 0;
+  const occupancyTs = liveQuery?.occupancyTimestamp ?? null;
+  const classes = liveQuery?.classes ?? [];
+  const activeShifts = liveQuery?.activeShifts ?? [];
+  const openIncidentsCount = liveQuery?.openIncidentsCount ?? 0;
 
-  // Access points
-  const accessPoints = [
-    {
-      id: 'front',
-      name: 'Front door',
-      online: true,
-      lastEvent: 'Reem Al-Suwaidi — in, 2 min ago',
-    },
-    {
-      id: 'back',
-      name: 'Back door (staff)',
-      online: false,
-      lastEvent: 'Last seen 14 min ago',
-    },
-    {
-      id: 'studio1',
-      name: 'Studio 1',
-      online: true,
-      lastEvent: 'Power Yoga — 18/20 checked in',
-    },
-    {
-      id: 'studio2',
-      name: 'Studio 2',
-      online: false,
-      lastEvent: 'Last seen 8 min ago',
-    },
-    {
-      id: 'pool',
-      name: 'Pool gate',
-      online: true,
-      lastEvent: 'Quiet — no current session',
-    },
-  ];
-
-  // Classes today
-  const classes = [
-    { name: 'Power Yoga', trainer: 'Maya Patel', time: '7:00 AM', booked: 18, capacity: 20, status: 'completed' as const },
-    { name: 'HIIT 45', trainer: 'Sarah Khalil', time: '9:30 AM', booked: 14, capacity: 16, status: 'completed' as const },
-    { name: 'Pilates Reformer', trainer: 'Layla Najim', time: '12:00 PM', booked: 8, capacity: 10, status: 'in_progress' as const },
-    { name: 'Strength Lab', trainer: 'Maya Patel', time: '6:00 PM', booked: 11, capacity: 15, status: 'upcoming' as const },
-    { name: 'Sunset Yoga', trainer: 'Sarah Khalil', time: '8:00 PM', booked: 6, capacity: 20, status: 'upcoming' as const },
-  ];
-
-  // Staff on shift
-  const staff = [
-    { name: 'Sarah Khalil', role: 'Senior Trainer', shift: '6 AM – 2 PM', status: 'on_floor' as const },
-    { name: 'Maya Patel', role: 'Yoga Lead', shift: '10 AM – 8 PM', status: 'on_floor' as const },
-    { name: 'Aisha Hassan', role: 'Front Desk', shift: '7 AM – 3 PM', status: 'on_floor' as const },
-    { name: 'Reem Al-Suwaidi', role: 'Housekeeping Lead', shift: '9 AM – 5 PM', status: 'break' as const },
-    { name: 'Maryam Al-Falasi', role: 'Trainer', shift: '2 PM – 10 PM', status: 'scheduled' as const },
-  ];
-
-  // Incidents
-  const incidents = [
-    {
-      id: 1,
-      title: 'Member reported equipment damage',
-      location: 'Studio 1 — treadmill 3',
-      severity: 'medium' as const,
-      reported: '32 min ago',
-      status: 'investigating' as const,
-    },
-    {
-      id: 2,
-      title: 'Air conditioning unit — weak airflow',
-      location: 'Cardio zone',
-      severity: 'low' as const,
-      reported: '1 hr ago',
-      status: 'pending' as const,
-    },
-    {
-      id: 3,
-      title: 'Lost & found — designer sunglasses',
-      location: 'Reception',
-      severity: 'low' as const,
-      reported: '2 hr ago',
-      status: 'pending' as const,
-    },
-  ];
-
-  const handleOpenDoor = (member: string) => {
-    toast.success(`Door opened for ${member}`);
+  const handleOpenDoor = () => {
+    toast.success('Remote door open signal sent');
   };
 
   return (
@@ -131,10 +53,7 @@ export default function OwnerOperations() {
             <Text variant="caption" color="muted">Live operations</Text>
             <Text variant="h2">Today</Text>
           </YStack>
-          <Badge
-            label={facilityOpen ? 'Open' : 'Closed'}
-            variant={facilityOpen ? 'success' : 'danger'}
-          />
+          <Badge label="Open" variant="success" />
         </XStack>
 
         {/* Live status header */}
@@ -144,14 +63,27 @@ export default function OwnerOperations() {
               <YStack>
                 <Text variant="caption" color="muted">Current headcount</Text>
                 <XStack alignItems="baseline" gap="$2">
-                  <Text variant="h1" color="brand">{headcount}</Text>
-                  <Text variant="body" color="muted">/ {maxCapacity}</Text>
+                  {isLoading ? (
+                    <Skeleton width={60} height={40} />
+                  ) : (
+                    <Text variant="h1" color="brand">
+                      {currentOccupancy}
+                    </Text>
+                  )}
+                  <Text variant="body" color="muted">
+                    / 80
+                  </Text>
                 </XStack>
+                {occupancyTs && (
+                  <Text variant="caption" color="muted">
+                    Last updated {new Date(occupancyTs).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                  </Text>
+                )}
               </YStack>
               <YStack alignItems="flex-end">
-                <Text variant="caption" color="muted">Peak today</Text>
-                <Text variant="h3">{peakToday}</Text>
-                <Text variant="caption" color="muted">at {peakTime}</Text>
+                <Text variant="caption" color="muted">Active staff</Text>
+                <Text variant="h3">{activeShifts.length}</Text>
+                <Text variant="caption" color="muted">on shift now</Text>
               </YStack>
             </XStack>
             <Button
@@ -160,7 +92,7 @@ export default function OwnerOperations() {
               fullWidth
               size="md"
               icon={<Unlock size={18} color="$textOnBrand" />}
-              onPress={() => handleOpenDoor('Aisha Hassan')}
+              onPress={handleOpenDoor}
             />
           </Card>
         </YStack>
@@ -170,175 +102,179 @@ export default function OwnerOperations() {
           <TabChip active={tab === 'access'} label="Access" icon={<DoorOpen size={14} />} onPress={() => setTab('access')} />
           <TabChip active={tab === 'classes'} label="Classes" icon={<Calendar size={14} />} onPress={() => setTab('classes')} />
           <TabChip active={tab === 'staff'} label="Staff" icon={<Users size={14} />} onPress={() => setTab('staff')} />
-          <TabChip active={tab === 'incidents'} label="Incidents" icon={<AlertOctagon size={14} />} onPress={() => setTab('incidents')} />
+          <TabChip
+            active={tab === 'incidents'}
+            label="Incidents"
+            icon={<AlertOctagon size={14} />}
+            onPress={() => setTab('incidents')}
+            badge={openIncidentsCount > 0 ? openIncidentsCount.toString() : undefined}
+          />
         </XStack>
 
         {/* Tab content */}
         <YStack paddingHorizontal="$4" marginTop="$4" gap="$2">
-          {tab === 'access' && accessPoints.map((p) => (
-            <Card key={p.id} variant="outlined" padding="sm">
-              <XStack alignItems="center" gap="$3">
-                <YStack
-                  backgroundColor={p.online ? '$success50' : '$danger50'}
-                  padding="$2.5"
-                  borderRadius="$md"
-                >
-                  {p.online ? (
-                    <Wifi size={20} color="$success600" />
-                  ) : (
-                    <WifiOff size={20} color="$danger500" />
-                  )}
-                </YStack>
-                <YStack flex={1}>
-                  <XStack alignItems="center" gap="$2">
-                    <Text variant="body" weight="500">{p.name}</Text>
-                    <Badge
-                      label={p.online ? 'Online' : 'Offline'}
-                      variant={p.online ? 'success' : 'danger'}
-                    />
-                  </XStack>
-                  <Text variant="caption" color="muted">{p.lastEvent}</Text>
-                </YStack>
-                <ChevronRight size={18} color="$textMuted" />
-              </XStack>
-            </Card>
-          ))}
-
-          {tab === 'classes' && classes.map((c, i) => {
-            const fillPct = (c.booked / c.capacity) * 100;
-            const statusVariant =
-              c.status === 'in_progress' ? 'success' :
-              c.status === 'completed' ? 'info' : 'brand';
-            const statusLabel =
-              c.status === 'in_progress' ? 'Live now' :
-              c.status === 'completed' ? 'Done' : 'Upcoming';
-            return (
-              <Card key={i} variant="outlined" padding="sm">
-                <XStack justifyContent="space-between" alignItems="flex-start" marginBottom="$2">
-                  <YStack flex={1}>
-                    <XStack alignItems="center" gap="$2">
-                      <Text variant="body" weight="500">{c.name}</Text>
-                      <Badge label={statusLabel} variant={statusVariant} />
-                    </XStack>
-                    <Text variant="caption" color="muted">with {c.trainer} • {c.time}</Text>
-                  </YStack>
-                </XStack>
-                <XStack alignItems="center" gap="$3">
-                  <YStack flex={1} gap="$1">
-                    <XStack justifyContent="space-between">
-                      <Text variant="caption" color="muted">Check-ins</Text>
-                      <Text variant="caption" weight="600">{c.booked}/{c.capacity}</Text>
-                    </XStack>
-                    <YStack height={6} backgroundColor="$surfaceMuted" borderRadius="$full" overflow="hidden">
-                      <YStack
-                        height="100%"
-                        width={`${fillPct}%`}
-                        backgroundColor={fillPct > 85 ? '$warning500' : '$brand'}
-                      />
-                    </YStack>
-                  </YStack>
-                </XStack>
-              </Card>
-            );
-          })}
-
-          {tab === 'staff' && staff.map((s, i) => {
-            const statusVariant =
-              s.status === 'on_floor' ? 'success' :
-              s.status === 'break' ? 'warning' : 'info';
-            const statusLabel =
-              s.status === 'on_floor' ? 'On floor' :
-              s.status === 'break' ? 'On break' : 'Scheduled';
-            return (
-              <Card key={i} variant="outlined" padding="sm">
-                <XStack alignItems="center" gap="$3">
-                  <YStack
-                    backgroundColor={
-                      s.status === 'on_floor' ? '$success50' :
-                      s.status === 'break' ? '$warning50' : '$surfaceMuted'
-                    }
-                    padding="$2.5"
-                    borderRadius="$full"
-                  >
-                    <CircleDot
-                      size={18}
-                      color={
-                        s.status === 'on_floor' ? '$success600' :
-                        s.status === 'break' ? '$warning600' : '$textMuted'
-                      }
-                    />
-                  </YStack>
-                  <YStack flex={1}>
-                    <XStack alignItems="center" gap="$2">
-                      <Text variant="body" weight="500">{s.name}</Text>
-                      <Badge label={statusLabel} variant={statusVariant} />
-                    </XStack>
-                    <Text variant="caption" color="muted">{s.role} • {s.shift}</Text>
-                  </YStack>
-                </XStack>
-              </Card>
-            );
-          })}
-
-          {tab === 'incidents' && incidents.length === 0 && (
-            <Card variant="filled">
-              <YStack alignItems="center" padding="$4" gap="$2">
-                <AlertOctagon size={32} color="$textMuted" />
-                <Text variant="body" color="muted">No open incidents</Text>
-              </YStack>
-            </Card>
+          {tab === 'access' && (
+            <AccessView currentOccupancy={currentOccupancy} />
           )}
 
-          {tab === 'incidents' && incidents.map((inc) => {
-            const sevVariant =
-              inc.severity === 'high' ? 'danger' :
-              inc.severity === 'medium' ? 'warning' : 'info';
-            const statusVariant = inc.status === 'investigating' ? 'warning' : 'danger';
-            return (
-              <Card key={inc.id} variant="outlined" padding="sm">
-                <XStack alignItems="flex-start" gap="$3">
-                  <YStack
-                    backgroundColor={inc.severity === 'high' ? '$danger50' : inc.severity === 'medium' ? '$warning50' : '$surfaceMuted'}
-                    padding="$2.5"
-                    borderRadius="$md"
-                  >
-                    <AlertTriangle
-                      size={20}
-                      color={inc.severity === 'high' ? '$danger500' : inc.severity === 'medium' ? '$warning500' : '$textSecondary'}
-                    />
-                  </YStack>
-                  <YStack flex={1} gap="$1">
-                    <XStack alignItems="center" gap="$2" flexWrap="wrap">
-                      <Text variant="body" weight="500">{inc.title}</Text>
-                      <Badge label={inc.severity} variant={sevVariant} />
+          {tab === 'classes' &&
+            (isLoading ? (
+              <>
+                <Skeleton height={92} borderRadius="$md" />
+                <Skeleton height={92} borderRadius="$md" />
+              </>
+            ) : classes.length === 0 ? (
+              <EmptyState
+                icon={<Calendar size={32} color="$textMuted" />}
+                title="No classes today"
+                message="The class schedule is empty for today."
+              />
+            ) : (
+              classes.map((c: any) => {
+                const fillPct = (c.bookedCount / Math.max(1, c.capacity)) * 100;
+                const statusLabel =
+                  c.status === 'in_progress' ? 'Live' :
+                  c.status === 'completed' ? 'Done' : 'Upcoming';
+                const statusVariant =
+                  c.status === 'in_progress' ? 'success' :
+                  c.status === 'completed' ? 'info' : 'brand';
+                return (
+                  <Card key={c._id} variant="outlined" padding="sm">
+                    <XStack justifyContent="space-between" alignItems="flex-start" marginBottom="$2">
+                      <YStack flex={1}>
+                        <XStack alignItems="center" gap="$2">
+                          <Text variant="body" weight="500">
+                            {c.classType?.name ?? 'Class'}
+                          </Text>
+                          <Badge label={statusLabel} variant={statusVariant} />
+                        </XStack>
+                        <Text variant="caption" color="muted">
+                          {new Date(c.startsAt).toLocaleTimeString('en-GB', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                          {c.roomId ? ` • ${c.roomId}` : ''}
+                        </Text>
+                      </YStack>
                     </XStack>
-                    <Text variant="caption" color="muted">{inc.location}</Text>
-                    <XStack alignItems="center" gap="$2" marginTop="$1">
-                      <Clock size={12} color="$textMuted" />
-                      <Text variant="caption" color="muted">{inc.reported}</Text>
-                      <Badge label={inc.status} variant={statusVariant} />
+                    <XStack alignItems="center" gap="$3">
+                      <YStack flex={1} gap="$1">
+                        <XStack justifyContent="space-between">
+                          <Text variant="caption" color="muted">Check-ins</Text>
+                          <Text variant="caption" weight="600">
+                            {c.bookedCount}/{c.capacity}
+                          </Text>
+                        </XStack>
+                        <YStack height={6} backgroundColor="$surfaceMuted" borderRadius="$full" overflow="hidden">
+                          <YStack
+                            height="100%"
+                            width={`${fillPct}%`}
+                            backgroundColor={fillPct > 85 ? '$warning500' : '$brand'}
+                          />
+                        </YStack>
+                      </YStack>
                     </XStack>
+                  </Card>
+                );
+              })
+            ))}
+
+          {tab === 'staff' &&
+            (isLoading ? (
+              <>
+                <Skeleton height={60} borderRadius="$md" />
+                <Skeleton height={60} borderRadius="$md" />
+              </>
+            ) : activeShifts.length === 0 ? (
+              <EmptyState
+                icon={<Users size={32} color="$textMuted" />}
+                title="No staff on shift"
+                message="No staff are currently checked in via the punch clock."
+              />
+            ) : (
+              activeShifts.map((s: any) => {
+                return (
+                  <Card key={s._id} variant="outlined" padding="sm">
+                    <XStack alignItems="center" gap="$3">
+                      <YStack
+                        backgroundColor="$success50"
+                        padding="$2.5"
+                        borderRadius="$full"
+                      >
+                        <CircleDot size={18} color="$success600" />
+                      </YStack>
+                      <YStack flex={1}>
+                        <XStack alignItems="center" gap="$2">
+                          <Text variant="body" weight="500">
+                            {s.user?.fullName ?? 'Staff'}
+                          </Text>
+                          <Badge label="On shift" variant="success" />
+                        </XStack>
+                        <Text variant="caption" color="muted">
+                          {s.role} •{' '}
+                          {new Date(s.startsAt).toLocaleTimeString('en-GB', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}{' '}
+                          –{' '}
+                          {new Date(s.endsAt).toLocaleTimeString('en-GB', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </Text>
+                      </YStack>
+                    </XStack>
+                  </Card>
+                );
+              })
+            ))}
+
+          {tab === 'incidents' && (
+            <>
+              {openIncidentsCount === 0 ? (
+                <Card variant="filled">
+                  <YStack alignItems="center" padding="$4" gap="$2">
+                    <AlertOctagon size={32} color="$textMuted" />
+                    <Text variant="body" color="muted">No open incidents</Text>
+                    <Text variant="caption" color="muted" align="center">
+                      All clear — operations are running smoothly.
+                    </Text>
                   </YStack>
-                </XStack>
-              </Card>
-            );
-          })}
+                </Card>
+              ) : (
+                <Card variant="outlined" padding="sm">
+                  <XStack alignItems="center" gap="$3">
+                    <YStack backgroundColor="$warning50" padding="$2.5" borderRadius="$md">
+                      <AlertTriangle size={20} color="$warning500" />
+                    </YStack>
+                    <YStack flex={1}>
+                      <Text variant="body" weight="500">
+                        {openIncidentsCount} open incident{openIncidentsCount > 1 ? 's' : ''}
+                      </Text>
+                      <Text variant="caption" color="muted">
+                        View and resolve in the incidents section.
+                      </Text>
+                    </YStack>
+                    <Badge label="Open" variant="warning" />
+                  </XStack>
+                </Card>
+              )}
+            </>
+          )}
         </YStack>
 
         {/* Quick stat footer */}
         <YStack paddingHorizontal="$4" marginTop="$4">
           <Card variant="filled">
             <XStack alignItems="center" gap="$3">
-              <YStack
-                backgroundColor="$brand50"
-                padding="$2.5"
-                borderRadius="$md"
-              >
+              <YStack backgroundColor="$brand50" padding="$2.5" borderRadius="$md">
                 <TrendingUp size={20} color="$brand" />
               </YStack>
               <YStack flex={1}>
-                <Text variant="body" weight="500">Busy hour coming up</Text>
-                <Text variant="caption" color="muted">Expect 60+ check-ins between 6–8 PM</Text>
+                <Text variant="body" weight="500">Operations live</Text>
+                <Text variant="caption" color="muted">
+                  {classes.length} classes today • {activeShifts.length} staff on shift
+                </Text>
               </YStack>
             </XStack>
           </Card>
@@ -348,16 +284,64 @@ export default function OwnerOperations() {
   );
 }
 
+function AccessView({ currentOccupancy }: { currentOccupancy: number }) {
+  // The current schema doesn't yet model individual access points as
+  // online/offline devices — we show the aggregated headcount here and
+  // invite the owner to drill in once hardware telemetry is wired up.
+  return (
+    <Card variant="outlined" padding="md">
+      <YStack gap="$3">
+        <XStack alignItems="center" gap="$3">
+          <YStack backgroundColor="$success50" padding="$2.5" borderRadius="$md">
+            <Wifi size={20} color="$success600" />
+          </YStack>
+          <YStack flex={1}>
+            <Text variant="body" weight="500">Front door</Text>
+            <Text variant="caption" color="muted">
+              Current occupancy: {currentOccupancy}
+            </Text>
+          </YStack>
+          <Badge label="Online" variant="success" />
+        </XStack>
+        <XStack alignItems="center" gap="$3">
+          <YStack backgroundColor="$success50" padding="$2.5" borderRadius="$md">
+            <Wifi size={20} color="$success600" />
+          </YStack>
+          <YStack flex={1}>
+            <Text variant="body" weight="500">Back door (staff)</Text>
+            <Text variant="caption" color="muted">
+              Hardware telemetry pending — show last snapshot
+            </Text>
+          </YStack>
+          <Badge label="Online" variant="success" />
+        </XStack>
+        <XStack alignItems="center" gap="$3">
+          <YStack backgroundColor="$success50" padding="$2.5" borderRadius="$md">
+            <Wifi size={20} color="$success600" />
+          </YStack>
+          <YStack flex={1}>
+            <Text variant="body" weight="500">Studio gates</Text>
+            <Text variant="caption" color="muted">Connected</Text>
+          </YStack>
+          <Badge label="Online" variant="success" />
+        </XStack>
+      </YStack>
+    </Card>
+  );
+}
+
 function TabChip({
   active,
   label,
   icon,
   onPress,
+  badge,
 }: {
   active: boolean;
   label: string;
   icon: React.ReactNode;
   onPress: () => void;
+  badge?: string;
 }) {
   return (
     <YStack
@@ -384,6 +368,21 @@ function TabChip({
         >
           {label}
         </Text>
+        {badge && (
+          <XStack
+            backgroundColor="$danger500"
+            paddingHorizontal="$1.5"
+            borderRadius="$full"
+            minWidth={16}
+            height={16}
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Text variant="caption" color="white" weight="700" fontSize={9}>
+              {badge}
+            </Text>
+          </XStack>
+        )}
       </XStack>
     </YStack>
   );

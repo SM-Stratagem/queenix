@@ -1,46 +1,49 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { YStack, XStack, ScrollView } from 'tamagui';
 import { useRouter } from 'expo-router';
-import { Screen, Text, Card, Avatar, Badge, Input, Chip } from '@queenix/ui';
-import { Search, ChevronRight, TrendingUp, UserMinus, UserPlus } from '@tamagui/lucide-icons';
+import {
+  Screen,
+  Text,
+  Card,
+  Avatar,
+  Badge,
+  Input,
+  Chip,
+  Skeleton,
+  EmptyState,
+  ErrorState,
+} from '@queenix/ui';
+import { useConvexQuery } from '@/lib/convex';
+import { api } from '@queenix/convex';
+import {
+  Search,
+  ChevronRight,
+  TrendingUp,
+  UserMinus,
+  UserPlus,
+} from '@tamagui/lucide-icons';
 
-type MemberStatus = 'active' | 'trial' | 'frozen' | 'expiring' | 'past_due';
-type Tier = 'Premium' | 'Group' | 'PT' | 'Trial';
+type MembershipStatus =
+  | 'active'
+  | 'trial'
+  | 'frozen'
+  | 'expiring'
+  | 'past_due'
+  | 'pending'
+  | 'cancelled'
+  | 'expired'
+  | 'all';
 
-type Member = {
-  id: string;
-  name: string;
-  tier: Tier;
-  status: MemberStatus;
-  joinedAt: string;
-  lastVisit: string;
-};
-
-const MEMBERS: Member[] = [
-  { id: '1', name: 'Aisha Hassan', tier: 'Premium', status: 'active', joinedAt: 'Mar 2024', lastVisit: 'Today' },
-  { id: '2', name: 'Reem Al-Suwaidi', tier: 'Premium', status: 'active', joinedAt: 'Jan 2024', lastVisit: 'Today' },
-  { id: '3', name: 'Maryam Al-Falasi', tier: 'Group', status: 'active', joinedAt: 'Jun 2025', lastVisit: 'Yesterday' },
-  { id: '4', name: 'Hala Al-Maktoum', tier: 'PT', status: 'active', joinedAt: 'Oct 2023', lastVisit: '2 days ago' },
-  { id: '5', name: 'Noora Al-Khalifa', tier: 'Premium', status: 'expiring', joinedAt: 'Oct 2024', lastVisit: '3 days ago' },
-  { id: '6', name: 'Fatima Al-Blooshi', tier: 'Trial', status: 'trial', joinedAt: 'Sep 2026', lastVisit: 'Today' },
-  { id: '7', name: 'Shamma Al-Ameri', tier: 'Premium', status: 'frozen', joinedAt: 'Feb 2025', lastVisit: '12 days ago' },
-  { id: '8', name: 'Amal Al-Mansoori', tier: 'Group', status: 'past_due', joinedAt: 'May 2024', lastVisit: '9 days ago' },
-  { id: '9', name: 'Latifa Al-Shamsi', tier: 'PT', status: 'active', joinedAt: 'Nov 2023', lastVisit: 'Yesterday' },
-  { id: '10', name: 'Mouza Al-Naqbi', tier: 'Premium', status: 'expiring', joinedAt: 'Oct 2024', lastVisit: 'Today' },
-  { id: '11', name: 'Wadha Al-Mazrouei', tier: 'Group', status: 'active', joinedAt: 'Jul 2025', lastVisit: '4 days ago' },
-  { id: '12', name: 'Shaikha Al-Dhaheri', tier: 'Trial', status: 'trial', joinedAt: 'Sep 2026', lastVisit: 'Today' },
-];
-
-const FILTERS: { key: 'all' | MemberStatus; label: string }[] = [
+const FILTERS: { key: MembershipStatus; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'active', label: 'Active' },
   { key: 'trial', label: 'Trial' },
   { key: 'frozen', label: 'Frozen' },
-  { key: 'expiring', label: 'Expiring' },
-  { key: 'past_due', label: 'Past due' },
+  { key: 'cancelled', label: 'Cancelled' },
+  { key: 'expired', label: 'Expired' },
 ];
 
-function statusVariant(s: MemberStatus) {
+function statusVariant(s: MembershipStatus) {
   switch (s) {
     case 'active':
       return 'success' as const;
@@ -48,33 +51,57 @@ function statusVariant(s: MemberStatus) {
       return 'info' as const;
     case 'frozen':
       return 'warning' as const;
-    case 'expiring':
+    case 'pending':
+      return 'info' as const;
+    case 'cancelled':
+      return 'danger' as const;
+    case 'expired':
       return 'warning' as const;
     case 'past_due':
       return 'danger' as const;
+    default:
+      return 'neutral' as const;
   }
 }
 
-function statusLabel(s: MemberStatus) {
-  return s === 'past_due' ? 'Past due' : s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-function tierVariant(t: Tier) {
-  return t === 'Premium' || t === 'PT' ? 'brand' as const : 'info' as const;
+function statusLabel(s: MembershipStatus) {
+  return s === 'past_due'
+    ? 'Past due'
+    : s === 'all'
+      ? 'All'
+      : s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 export default function OwnerMembers() {
   const router = useRouter();
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<'all' | MemberStatus>('all');
+  const [filter, setFilter] = useState<MembershipStatus>('all');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
 
-  const filtered = useMemo(() => {
-    return MEMBERS.filter((m) => {
-      const matchQuery = query.length === 0 || m.name.toLowerCase().includes(query.toLowerCase());
-      const matchFilter = filter === 'all' || m.status === filter;
-      return matchQuery && matchFilter;
-    });
-  }, [query, filter]);
+  // Debounce search
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 250);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  const membersQuery = useConvexQuery(
+    api.queries.users.getMembersDirectory,
+    {
+      search: debouncedQuery || undefined,
+      status: filter,
+      limit: 100,
+    } as any
+  );
+
+  const isLoading = membersQuery === undefined;
+  const members = membersQuery ?? [];
+
+  const counts = useMemo(() => {
+    const active = members.filter((m: any) => m.membership?.status === 'active').length;
+    const trial = members.filter((m: any) => m.membership?.status === 'trial').length;
+    const frozen = members.filter((m: any) => m.membership?.status === 'frozen').length;
+    return { active, trial, frozen };
+  }, [members]);
 
   return (
     <Screen scroll padded={false}>
@@ -82,7 +109,9 @@ export default function OwnerMembers() {
         {/* Header */}
         <YStack paddingHorizontal="$4" paddingTop="$4" paddingBottom="$2">
           <Text variant="caption" color="muted">Member directory</Text>
-          <Text variant="h2">247 members</Text>
+          <Text variant="h2">
+            {isLoading ? '…' : `${members.length} member${members.length === 1 ? '' : 's'}`}
+          </Text>
         </YStack>
 
         {/* Top stats */}
@@ -91,9 +120,13 @@ export default function OwnerMembers() {
             <YStack gap="$1">
               <XStack alignItems="center" gap="$1.5">
                 <UserPlus size={14} color="$success600" />
-                <Text variant="caption" color="muted">New (30d)</Text>
+                <Text variant="caption" color="muted">Trial</Text>
               </XStack>
-              <Text variant="h3">14</Text>
+              {isLoading ? (
+                <Skeleton width={40} height={24} />
+              ) : (
+                <Text variant="h3">{counts.trial}</Text>
+              )}
             </YStack>
           </Card>
           <Card variant="outlined" padding="sm" flex={1}>
@@ -102,16 +135,24 @@ export default function OwnerMembers() {
                 <TrendingUp size={14} color="$brand" />
                 <Text variant="caption" color="muted">Active</Text>
               </XStack>
-              <Text variant="h3">218</Text>
+              {isLoading ? (
+                <Skeleton width={40} height={24} />
+              ) : (
+                <Text variant="h3">{counts.active}</Text>
+              )}
             </YStack>
           </Card>
           <Card variant="outlined" padding="sm" flex={1}>
             <YStack gap="$1">
               <XStack alignItems="center" gap="$1.5">
-                <UserMinus size={14} color="$danger500" />
-                <Text variant="caption" color="muted">Churned</Text>
+                <UserMinus size={14} color="$warning500" />
+                <Text variant="caption" color="muted">Frozen</Text>
               </XStack>
-              <Text variant="h3">6</Text>
+              {isLoading ? (
+                <Skeleton width={40} height={24} />
+              ) : (
+                <Text variant="h3">{counts.frozen}</Text>
+              )}
             </YStack>
           </Card>
         </XStack>
@@ -119,7 +160,7 @@ export default function OwnerMembers() {
         {/* Search */}
         <YStack paddingHorizontal="$4" marginTop="$4">
           <Input
-            placeholder="Search by name"
+            placeholder="Search by name, email or phone"
             value={query}
             onChangeText={setQuery}
             leftIcon={<Search size={18} color="$textMuted" />}
@@ -145,50 +186,77 @@ export default function OwnerMembers() {
 
         {/* Member list */}
         <YStack paddingHorizontal="$4" gap="$2">
-          {filtered.length === 0 && (
-            <Card variant="filled">
-              <YStack alignItems="center" padding="$4" gap="$2">
-                <Text variant="body" color="muted">No members match your filters</Text>
-              </YStack>
-            </Card>
+          {isLoading ? (
+            <>
+              <Skeleton height={80} borderRadius="$md" />
+              <Skeleton height={80} borderRadius="$md" />
+              <Skeleton height={80} borderRadius="$md" />
+            </>
+          ) : members.length === 0 ? (
+            <EmptyState
+              icon={<Search size={32} color="$textMuted" />}
+              title="No members found"
+              message={
+                query
+                  ? `No results for "${query}"`
+                  : 'No members match the selected filter'
+              }
+            />
+          ) : (
+            members.map((m: any) => {
+              const status: MembershipStatus = (m.membership?.status ?? 'pending') as MembershipStatus;
+              const fullName = m.user?.fullName ?? 'Member';
+              return (
+                <Card
+                  key={m.user._id}
+                  variant="outlined"
+                  padding="sm"
+                  onPress={() => router.push(`/(owner)/members/${m.user._id}` as any)}
+                  accessibilityLabel={`View ${fullName} details`}
+                >
+                  <XStack alignItems="center" gap="$3">
+                    <Avatar name={fullName} size="md" />
+                    <YStack flex={1} gap="$1">
+                      <XStack alignItems="center" gap="$2" flexWrap="wrap">
+                        <Text variant="body" weight="500">
+                          {fullName}
+                        </Text>
+                        {status !== 'all' && m.membership && (
+                          <Badge label={statusLabel(status)} variant={statusVariant(status)} />
+                        )}
+                      </XStack>
+                      <XStack alignItems="center" gap="$2" flexWrap="wrap">
+                        <Text variant="caption" color="muted">
+                          {m.user.email}
+                        </Text>
+                      </XStack>
+                    </YStack>
+                    <YStack alignItems="flex-end" gap="$1">
+                      {m.membership?.endDate && (
+                        <Text variant="caption" color="muted">
+                          Until{' '}
+                          {new Date(m.membership.endDate).toLocaleDateString('en-GB', {
+                            day: '2-digit',
+                            month: 'short',
+                          })}
+                        </Text>
+                      )}
+                      <ChevronRight size={16} color="$textMuted" />
+                    </YStack>
+                  </XStack>
+                </Card>
+              );
+            })
           )}
-
-          {filtered.map((m) => (
-            <Card
-              key={m.id}
-              variant="outlined"
-              padding="sm"
-              onPress={() => router.push(`/(owner)/members/${m.id}` as any)}
-              accessibilityLabel={`View ${m.name} details`}
-            >
-              <XStack alignItems="center" gap="$3">
-                <Avatar name={m.name} size="md" />
-                <YStack flex={1} gap="$1">
-                  <XStack alignItems="center" gap="$2" flexWrap="wrap">
-                    <Text variant="body" weight="500">{m.name}</Text>
-                    <Badge label={m.tier} variant={tierVariant(m.tier)} />
-                  </XStack>
-                  <XStack alignItems="center" gap="$2" flexWrap="wrap">
-                    <Text variant="caption" color="muted">Joined {m.joinedAt}</Text>
-                    <Text variant="caption" color="muted">•</Text>
-                    <Text variant="caption" color="muted">Last visit {m.lastVisit}</Text>
-                  </XStack>
-                </YStack>
-                <YStack alignItems="flex-end" gap="$1">
-                  <Badge label={statusLabel(m.status)} variant={statusVariant(m.status)} />
-                  <ChevronRight size={16} color="$textMuted" />
-                </YStack>
-              </XStack>
-            </Card>
-          ))}
         </YStack>
 
-        {/* Footer summary */}
-        <YStack paddingHorizontal="$4" marginTop="$4">
-          <Text variant="caption" color="muted" align="center">
-            Showing {filtered.length} of {MEMBERS.length}
-          </Text>
-        </YStack>
+        {!isLoading && members.length > 0 && (
+          <YStack paddingHorizontal="$4" marginTop="$4">
+            <Text variant="caption" color="muted" align="center">
+              Showing {members.length} member{members.length === 1 ? '' : 's'}
+            </Text>
+          </YStack>
+        )}
       </ScrollView>
     </Screen>
   );

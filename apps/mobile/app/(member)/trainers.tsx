@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { YStack, XStack, ScrollView, RefreshControl } from 'tamagui';
 import { useRouter } from 'expo-router';
 import {
@@ -9,8 +9,13 @@ import {
   Button,
   Badge,
   Chip,
+  Skeleton,
+  ErrorState,
+  EmptyState,
 } from '@queenix/ui';
 import { Star, Award, Dumbbell } from '@tamagui/lucide-icons';
+import { useConvexQuery } from '@/lib/convex';
+import { api } from '@queenix/convex';
 
 const SPECIALTIES = ['All', 'Yoga', 'HIIT', 'Strength', 'Cardio', 'Pilates'] as const;
 type Specialty = (typeof SPECIALTIES)[number];
@@ -18,7 +23,7 @@ type Specialty = (typeof SPECIALTIES)[number];
 interface Trainer {
   id: string;
   name: string;
-  specialty: Exclude<Specialty, 'All'>;
+  specialty: string;
   rating: number;
   reviewCount: number;
   hourlyRate: number;
@@ -29,88 +34,54 @@ interface Trainer {
   nextAvailable: string;
 }
 
-const TRAINERS: Trainer[] = [
-  {
-    id: 't1',
-    name: 'Maya Patel',
-    specialty: 'Yoga',
-    rating: 4.9,
-    reviewCount: 128,
-    hourlyRate: 220,
-    bio: 'Certified RYT-500 specializing in vinyasa, restorative, and mobility work. Maya tailors each session to your body and goals.',
-    years: 8,
-    certifications: ['RYT-500', 'Mobility Specialist'],
-    languages: ['English', 'Hindi'],
-    nextAvailable: 'Today, 6:00 PM',
-  },
-  {
-    id: 't2',
-    name: 'Sara Al-Mansoori',
-    specialty: 'HIIT',
-    rating: 4.8,
-    reviewCount: 96,
-    hourlyRate: 250,
-    bio: 'Former national athlete. High-intensity programming for fat loss, conditioning, and athletic performance.',
-    years: 6,
-    certifications: ['NSCA-CPT', 'Precision Nutrition L1'],
-    languages: ['English', 'Arabic'],
-    nextAvailable: 'Tomorrow, 7:00 AM',
-  },
-  {
-    id: 't3',
-    name: 'Layla Hassan',
-    specialty: 'Strength',
-    rating: 4.9,
-    reviewCount: 142,
-    hourlyRate: 280,
-    bio: 'Powerlifting coach focused on building strength and lean muscle. Programs built around progressive overload.',
-    years: 10,
-    certifications: ['CSCS', 'USA Powerlifting L1'],
-    languages: ['English', 'Arabic'],
-    nextAvailable: 'Thu, 9:00 AM',
-  },
-  {
-    id: 't4',
-    name: 'Nour Ibrahim',
-    specialty: 'Cardio',
-    rating: 4.7,
-    reviewCount: 64,
-    hourlyRate: 200,
-    bio: 'Marathon runner and certified endurance coach. Friendly, motivating style that makes cardio feel doable.',
-    years: 5,
-    certifications: ['ACE-CPT', 'RRCA'],
-    languages: ['English', 'Arabic', 'French'],
-    nextAvailable: 'Today, 5:00 PM',
-  },
-  {
-    id: 't5',
-    name: 'Yasmin Khalid',
-    specialty: 'Pilates',
-    rating: 5.0,
-    reviewCount: 78,
-    hourlyRate: 240,
-    bio: 'Pilates instructor with a background in physiotherapy. Specializes in posture, alignment, and injury rehab.',
-    years: 7,
-    certifications: ['BASI Pilates', 'Physiotherapy'],
-    languages: ['English', 'Arabic'],
-    nextAvailable: 'Tomorrow, 10:00 AM',
-  },
-];
+function deriveYears(_specialties: string[] | undefined, bio: string | undefined): number {
+  // We don't have yearsExperience in the schema — fall back to a sensible default
+  // or extract from the bio if it has "N years" in it.
+  if (bio) {
+    const m = bio.match(/(\d+)\s*years?/i);
+    if (m && m[1]) return Math.max(1, Math.min(20, Number(m[1])));
+  }
+  return 5;
+}
 
 export default function TrainersScreen() {
   const router = useRouter();
   const [filter, setFilter] = useState<Specialty>('All');
   const [refreshing, setRefreshing] = useState(false);
 
+  const trainersRaw = useConvexQuery(api.queries.users.getAvailableTrainers, {});
+
+  const trainers: Trainer[] = useMemo(() => {
+    if (!trainersRaw) return [];
+    return trainersRaw.map((t) => {
+      const specialties = t.specialties ?? [];
+      const primary = (specialties[0] as Specialty) ?? 'All';
+      return {
+        id: t._id,
+        name: t.user?.fullName ?? 'Trainer',
+        specialty: SPECIALTIES.includes(primary as Specialty) ? primary : 'All',
+        rating: t.rating ?? 0,
+        reviewCount: t.reviewCount ?? 0,
+        hourlyRate: Math.round((t.hourlyRateCents ?? 0) / 100),
+        bio: t.bio ?? 'Certified personal trainer.',
+        years: deriveYears(specialties, t.bio),
+        certifications: (t.certifications ?? []).map((c) => c.name),
+        languages: [],
+        nextAvailable: 'Contact for availability',
+      };
+    });
+  }, [trainersRaw]);
+
   const filtered = useMemo(
-    () => (filter === 'All' ? TRAINERS : TRAINERS.filter((t) => t.specialty === filter)),
-    [filter]
+    () => (filter === 'All' ? trainers : trainers.filter((t) => t.specialty === filter)),
+    [filter, trainers]
   );
 
-  const onRefresh = () => {
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 800);
-  };
+    // Convex will auto-revalidate; we just give a short visual hint
+    setTimeout(() => setRefreshing(false), 600);
+  }, []);
 
   return (
     <Screen scroll padded={false}>
@@ -155,14 +126,47 @@ export default function TrainersScreen() {
 
         {/* List */}
         <YStack paddingHorizontal="$4" gap="$3">
-          {filtered.map((trainer) => (
-            <TrainerCard
-              key={trainer.id}
-              trainer={trainer}
-              onViewProfile={() => router.push('/(member)/book')}
-              onBook={() => router.push('/(member)/book')}
+          {trainersRaw === undefined ? (
+            <YStack gap="$3">
+              {[0, 1].map((i) => (
+                <Card key={i} variant="elevated" padding="md">
+                  <YStack gap="$3">
+                    <XStack gap="$3">
+                      <Skeleton width={56} height={56} circle />
+                      <YStack flex={1} gap="$1">
+                        <Skeleton width="50%" height={18} />
+                        <Skeleton width="30%" height={14} />
+                      </YStack>
+                    </XStack>
+                    <Skeleton width="100%" height={14} />
+                    <Skeleton width="80%" height={14} />
+                  </YStack>
+                </Card>
+              ))}
+            </YStack>
+          ) : trainersRaw === null ? (
+            <ErrorState
+              title="Could not load trainers"
+              message="Please try again in a moment."
+              onRetry={() => {
+                /* Convex auto-revalidates */
+              }}
             />
-          ))}
+          ) : filtered.length === 0 ? (
+            <EmptyState
+              title="No trainers in this category"
+              message="Try a different specialty or check back soon."
+            />
+          ) : (
+            filtered.map((trainer) => (
+              <TrainerCard
+                key={trainer.id}
+                trainer={trainer}
+                onViewProfile={() => router.push('/(member)/book')}
+                onBook={() => router.push('/(member)/book')}
+              />
+            ))
+          )}
         </YStack>
       </ScrollView>
     </Screen>
@@ -212,21 +216,23 @@ function TrainerCard({
         </Text>
 
         {/* Specialty chips */}
-        <XStack gap="$1" flexWrap="wrap">
-          {trainer.certifications.map((c) => (
-            <XStack
-              key={c}
-              backgroundColor="$surfaceMuted"
-              paddingHorizontal="$2"
-              paddingVertical="$1"
-              borderRadius="$full"
-            >
-              <Text variant="caption" color="secondary">
-                {c}
-              </Text>
-            </XStack>
-          ))}
-        </XStack>
+        {trainer.certifications.length > 0 && (
+          <XStack gap="$1" flexWrap="wrap">
+            {trainer.certifications.map((c) => (
+              <XStack
+                key={c}
+                backgroundColor="$surfaceMuted"
+                paddingHorizontal="$2"
+                paddingVertical="$1"
+                borderRadius="$full"
+              >
+                <Text variant="caption" color="secondary">
+                  {c}
+                </Text>
+              </XStack>
+            ))}
+          </XStack>
+        )}
 
         {/* Footer */}
         <XStack

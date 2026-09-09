@@ -8,67 +8,34 @@ import {
   Button,
   Badge,
   Divider,
+  Skeleton,
+  EmptyState,
+  ErrorState,
   useToast,
 } from '@queenix/ui';
+import { useConvexQuery } from '@/lib/convex';
+import { api } from '@queenix/convex';
 import {
   ChevronLeft,
   ChevronRight,
   Calendar,
   Lock,
   Settings,
-  Plus,
 } from '@tamagui/lucide-icons';
 
 type SlotType = 'PT' | 'Class' | 'Free' | 'Blocked';
 type ViewMode = 'week' | 'day';
 
-interface Slot {
+interface GridSlot {
   day: number; // 0..6 (Mon..Sun)
   hour: number; // 6..21
   type: SlotType;
   title?: string;
+  sessionId?: string;
 }
 
 const HOURS = Array.from({ length: 16 }, (_, i) => i + 6); // 6:00 - 21:00
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-const mockSlots: Slot[] = [
-  { day: 0, hour: 7, type: 'PT', title: 'Amna • PT' },
-  { day: 0, hour: 8, type: 'Class', title: 'Power Yoga' },
-  { day: 0, hour: 10, type: 'PT', title: 'Hala • PT' },
-  { day: 0, hour: 12, type: 'PT', title: 'Mariam • PT' },
-  { day: 0, hour: 17, type: 'Class', title: 'HIIT 45' },
-  { day: 0, hour: 19, type: 'PT', title: 'Sara • PT' },
-
-  { day: 1, hour: 8, type: 'Class', title: 'Power Yoga' },
-  { day: 1, hour: 11, type: 'PT', title: 'Fatima • PT' },
-  { day: 1, hour: 16, type: 'Free' },
-  { day: 1, hour: 18, type: 'Class', title: 'Pilates' },
-
-  { day: 2, hour: 7, type: 'PT', title: 'Noora • PT' },
-  { day: 2, hour: 9, type: 'Blocked', title: 'Staff meeting' },
-  { day: 2, hour: 14, type: 'PT', title: 'Reem • PT' },
-  { day: 2, hour: 17, type: 'Class', title: 'HIIT 45' },
-  { day: 2, hour: 19, type: 'PT', title: 'Latifa • PT' },
-
-  { day: 3, hour: 8, type: 'Class', title: 'Power Yoga' },
-  { day: 3, hour: 12, type: 'PT', title: 'Hala • PT' },
-  { day: 3, hour: 18, type: 'Class', title: 'Pilates' },
-  { day: 3, hour: 20, type: 'PT', title: 'Amna • PT' },
-
-  { day: 4, hour: 7, type: 'PT', title: 'Fatima • PT' },
-  { day: 4, hour: 9, type: 'PT', title: 'Aisha • PT' },
-  { day: 4, hour: 17, type: 'Class', title: 'HIIT 45' },
-  { day: 4, hour: 19, type: 'PT', title: 'Sara • PT' },
-
-  { day: 5, hour: 9, type: 'Class', title: 'Weekend Yoga' },
-  { day: 5, hour: 11, type: 'PT', title: 'Mariam • PT' },
-  { day: 5, hour: 14, type: 'Free' },
-  { day: 5, hour: 16, type: 'Blocked', title: 'Personal' },
-
-  { day: 6, hour: 10, type: 'Class', title: 'Weekend Yoga' },
-  { day: 6, hour: 17, type: 'Free' },
-];
 
 const slotColor: Record<SlotType, { bg: string; border: string; text: string }> = {
   PT: { bg: '$brand50', border: '$brand', text: '$brand700' },
@@ -120,12 +87,75 @@ export default function TrainerSchedule() {
   const dayNumbers = useMemo(() => getDayNumbers(weekOffset), [weekOffset]);
   const weekLabel = weekOffset === 0 ? 'This week' : weekOffset > 0 ? `In ${weekOffset}w` : `${-weekOffset}w ago`;
 
-  const handleSlotPress = (slot: Slot) => {
-    toast.info(
-      slot.type === 'Free'
-        ? 'Tap "Add availability" to fill this slot'
-        : `${slot.title ?? slotLabel[slot.type]} • ${DAYS[slot.day]} ${slot.hour}:00`,
-    );
+  // For now we always show the current week from the DB.
+  // (The weekOffset selector is shown but data is from getWeekSchedule
+  // which returns the current week. Future: parameterize the query.)
+  const scheduleQuery = useConvexQuery(api.queries.users.getWeekSchedule, {});
+  const isLoading = scheduleQuery === undefined;
+  const items = scheduleQuery?.items ?? [];
+
+  // Build grid slots from items
+  const slots: GridSlot[] = useMemo(() => {
+    if (isLoading) return [];
+    const weekStart = scheduleQuery!.weekStart;
+    const out: GridSlot[] = [];
+    for (const it of items as any[]) {
+      const date = new Date(it.startsAt);
+      const day = (date.getDay() + 6) % 7; // 0 = Mon
+      const hour = date.getHours();
+      if (hour < 6 || hour > 21) continue;
+      if (it.kind === 'pt') {
+        out.push({
+          day,
+          hour,
+          type: 'PT',
+          title: it.member?.fullName
+            ? `${it.member.fullName.split(' ')[0]} • PT`
+            : 'PT',
+          sessionId: it._id,
+        });
+      } else if (it.kind === 'class') {
+        out.push({
+          day,
+          hour,
+          type: 'Class',
+          title: it.classType?.name ?? 'Class',
+          sessionId: it._id,
+        });
+      }
+    }
+    return out;
+  }, [items, isLoading, scheduleQuery]);
+
+  // Week stats
+  const weekStats = useMemo(() => {
+    const pt = (items as any[]).filter((it) => it.kind === 'pt');
+    const classes = (items as any[]).filter((it) => it.kind === 'class');
+    return {
+      ptCount: pt.length,
+      classCount: classes.length,
+      totalHours:
+        pt.reduce(
+          (acc, it) => acc + ((it.endsAt - it.startsAt) / (1000 * 60 * 60)),
+          0
+        ) +
+        classes.reduce(
+          (acc, it) => acc + ((it.endsAt - it.startsAt) / (1000 * 60 * 60)),
+          0
+        ),
+    };
+  }, [items]);
+
+  const handleSlotPress = (slot: GridSlot) => {
+    if (slot.type === 'Free' || slot.type === 'Blocked') {
+      toast.info('Tap "Manage availability" to add a slot');
+      return;
+    }
+    if (slot.type === 'PT' && slot.sessionId) {
+      router.push(`/(trainer)/clients/${(items as any[]).find((it) => it._id === slot.sessionId)?.member?._id ?? ''}`);
+      return;
+    }
+    toast.info(`${slot.title} • ${DAYS[slot.day]} ${slot.hour}:00`);
   };
 
   return (
@@ -186,6 +216,15 @@ export default function TrainerSchedule() {
           </Card>
         </YStack>
 
+        {/* Week stats */}
+        <YStack paddingHorizontal="$4" marginTop="$3">
+          <XStack gap="$3">
+            <StatChip label="PT" value={weekStats.ptCount.toString()} flex={1} />
+            <StatChip label="Classes" value={weekStats.classCount.toString()} flex={1} />
+            <StatChip label="Hours" value={weekStats.totalHours.toFixed(1)} flex={1} />
+          </XStack>
+        </YStack>
+
         {/* View toggle */}
         <YStack paddingHorizontal="$4" marginTop="$3">
           <Card variant="outlined" padding="xs">
@@ -230,9 +269,7 @@ export default function TrainerSchedule() {
                         <Text variant="caption" weight="600" color="muted">
                           {d}
                         </Text>
-                        <Text variant="label">
-                          {dayNumbers[i]}
-                        </Text>
+                        <Text variant="label">{dayNumbers[i]}</Text>
                       </YStack>
                     ))}
                   </XStack>
@@ -246,15 +283,11 @@ export default function TrainerSchedule() {
                         </Text>
                       </YStack>
                       {DAYS.map((_, dayIdx) => {
-                        const slot = mockSlots.find(
-                          (s) => s.day === dayIdx && s.hour === h,
+                        const slot = slots.find(
+                          (s) => s.day === dayIdx && s.hour === h
                         );
                         return (
-                          <YStack
-                            key={`${dayIdx}-${h}`}
-                            width={70}
-                            padding={3}
-                          >
+                          <YStack key={`${dayIdx}-${h}`} width={70} padding={3}>
                             {slot ? (
                               <XStack
                                 flex={1}
@@ -286,9 +319,17 @@ export default function TrainerSchedule() {
                 </YStack>
               </ScrollView>
             </Card>
+            {isLoading ? (
+              <Skeleton height={80} borderRadius="$md" marginTop="$3" />
+            ) : slots.length === 0 ? (
+              <EmptyState
+                title="Nothing booked this week"
+                message="Your week is clear. Use the actions below to add availability."
+              />
+            ) : null}
           </YStack>
         ) : (
-          <DayView day={0} />
+          <DayView slots={slots} isLoading={isLoading} />
         )}
 
         {/* Actions */}
@@ -312,6 +353,19 @@ export default function TrainerSchedule() {
         </YStack>
       </ScrollView>
     </Screen>
+  );
+}
+
+function StatChip({ label, value, flex }: { label: string; value: string; flex?: number }) {
+  return (
+    <Card flex={flex} variant="outlined" padding="sm">
+      <YStack alignItems="center">
+        <Text variant="h3">{value}</Text>
+        <Text variant="caption" color="muted">
+          {label}
+        </Text>
+      </YStack>
+    </Card>
   );
 }
 
@@ -340,10 +394,7 @@ function ToggleButton({
       accessibilityLabel={`${label} view`}
       accessibilityState={{ selected }}
     >
-      <Text
-        variant="label"
-        color={selected ? 'inverse' : 'secondary'}
-      >
+      <Text variant="label" color={selected ? 'inverse' : 'secondary'}>
         {label}
       </Text>
     </XStack>
@@ -368,62 +419,74 @@ function LegendDot({ color, label }: { color: any; label: string }) {
   );
 }
 
-function DayView({ day }: { day: number }) {
+function DayView({ slots, isLoading }: { slots: GridSlot[]; isLoading: boolean }) {
   const toast = useToast();
-  const daySlots = mockSlots.filter((s) => s.day === day);
+  if (isLoading) {
+    return (
+      <YStack paddingHorizontal="$4" marginTop="$4" gap="$2">
+        <Skeleton height={80} borderRadius="$md" />
+        <Skeleton height={80} borderRadius="$md" />
+        <Skeleton height={80} borderRadius="$md" />
+      </YStack>
+    );
+  }
+  if (slots.length === 0) {
+    return (
+      <YStack paddingHorizontal="$4" marginTop="$4">
+        <EmptyState
+          title="No sessions on this day"
+          message="Try another day or add availability."
+        />
+      </YStack>
+    );
+  }
   return (
     <YStack paddingHorizontal="$4" marginTop="$4" gap="$2">
-      <Text variant="h4">{DAYS[day]}'s plan</Text>
-      {daySlots.length === 0 ? (
-        <Card variant="outlined">
-          <Text variant="body" color="muted" align="center">
-            No sessions booked. Tap "Add availability" to open slots.
-          </Text>
-        </Card>
-      ) : (
-        daySlots
-          .sort((a, b) => a.hour - b.hour)
-          .map((s, i) => (
-            <Card
-              key={i}
-              variant="outlined"
-              padding="sm"
-              onPress={() => toast.info(s.title ?? slotLabel[s.type])}
-            >
-              <XStack alignItems="center" gap="$3">
-                <YStack width={56} alignItems="center">
-                  <Text variant="h4">
-                    {s.hour.toString().padStart(2, '0')}:00
-                  </Text>
-                </YStack>
-                <YStack
-                  width={3}
-                  alignSelf="stretch"
-                  backgroundColor={slotColor[s.type].border as any}
-                  borderRadius="$full"
-                />
-                <YStack flex={1}>
-                  <Text variant="label">{s.title ?? slotLabel[s.type]}</Text>
-                  <Text variant="caption" color="muted">
-                    {slotLabel[s.type]}
-                  </Text>
-                </YStack>
-                <Badge
-                  label={slotLabel[s.type]}
-                  variant={
-                    s.type === 'PT'
-                      ? 'brand'
-                      : s.type === 'Class'
-                        ? 'success'
-                        : s.type === 'Blocked'
-                          ? 'danger'
-                          : 'neutral'
-                  }
-                />
-              </XStack>
-            </Card>
-          ))
-      )}
+      <Text variant="h4">Day plan</Text>
+      {slots
+        .sort((a, b) => a.hour - b.hour)
+        .map((s, i) => (
+          <Card
+            key={i}
+            variant="outlined"
+            padding="sm"
+            onPress={() =>
+              toast.info(s.title ?? slotLabel[s.type])
+            }
+          >
+            <XStack alignItems="center" gap="$3">
+              <YStack width={56} alignItems="center">
+                <Text variant="h4">
+                  {s.hour.toString().padStart(2, '0')}:00
+                </Text>
+              </YStack>
+              <YStack
+                width={3}
+                alignSelf="stretch"
+                backgroundColor={slotColor[s.type].border as any}
+                borderRadius="$full"
+              />
+              <YStack flex={1}>
+                <Text variant="label">{s.title ?? slotLabel[s.type]}</Text>
+                <Text variant="caption" color="muted">
+                  {slotLabel[s.type]}
+                </Text>
+              </YStack>
+              <Badge
+                label={slotLabel[s.type]}
+                variant={
+                  s.type === 'PT'
+                    ? 'brand'
+                    : s.type === 'Class'
+                      ? 'success'
+                      : s.type === 'Blocked'
+                        ? 'danger'
+                        : 'neutral'
+                }
+              />
+            </XStack>
+          </Card>
+        ))}
     </YStack>
   );
 }

@@ -10,114 +10,18 @@ import {
   Chip,
   Badge,
   Divider,
+  Skeleton,
   EmptyState,
+  ErrorState,
 } from '@queenix/ui';
+import { useConvexQuery } from '@/lib/convex';
+import { api } from '@queenix/convex';
 import { Search, ChevronRight, Users } from '@tamagui/lucide-icons';
 
 type ClientStatus = 'active' | 'new' | 'attention';
 
-interface Client {
-  id: string;
-  name: string;
-  lastSessionDays: number; // days since last session
-  totalSessions: number;
-  nextSession?: string; // human-readable
-  status: ClientStatus;
-  goal: string;
-}
-
-const mockClients: Client[] = [
-  {
-    id: 'c1',
-    name: 'Amna Al-Mazrouei',
-    lastSessionDays: 2,
-    totalSessions: 24,
-    nextSession: 'Mon, 07:00',
-    status: 'active',
-    goal: 'Strength',
-  },
-  {
-    id: 'c2',
-    name: 'Fatima Saeed',
-    lastSessionDays: 1,
-    totalSessions: 18,
-    nextSession: 'Tomorrow, 08:30',
-    status: 'active',
-    goal: 'Weight loss',
-  },
-  {
-    id: 'c3',
-    name: 'Hala Al-Suwaidi',
-    lastSessionDays: 0,
-    totalSessions: 32,
-    nextSession: 'Today, 10:00',
-    status: 'active',
-    goal: 'Rehab',
-  },
-  {
-    id: 'c4',
-    name: 'Mariam Al-Hashimi',
-    lastSessionDays: 3,
-    totalSessions: 12,
-    nextSession: 'Today, 12:00',
-    status: 'active',
-    goal: 'Toning',
-  },
-  {
-    id: 'c5',
-    name: 'Noora Al-Naimi',
-    lastSessionDays: 5,
-    totalSessions: 2,
-    nextSession: 'Today, 17:30',
-    status: 'new',
-    goal: 'Fitness basics',
-  },
-  {
-    id: 'c6',
-    name: 'Sara Al-Marri',
-    lastSessionDays: 14,
-    totalSessions: 9,
-    status: 'attention',
-    goal: 'Flexibility',
-  },
-  {
-    id: 'c7',
-    name: 'Reem Al-Dhaheri',
-    lastSessionDays: 4,
-    totalSessions: 21,
-    nextSession: 'Wed, 14:00',
-    status: 'active',
-    goal: 'Strength',
-  },
-  {
-    id: 'c8',
-    name: 'Latifa Al-Mazrouei',
-    lastSessionDays: 21,
-    totalSessions: 6,
-    status: 'attention',
-    goal: 'Cardio',
-  },
-  {
-    id: 'c9',
-    name: 'Aisha Al-Mansoori',
-    lastSessionDays: 0,
-    totalSessions: 1,
-    nextSession: 'Fri, 09:00',
-    status: 'new',
-    goal: 'Postnatal',
-  },
-  {
-    id: 'c10',
-    name: 'Khulood Al-Suwaidi',
-    lastSessionDays: 2,
-    totalSessions: 41,
-    nextSession: 'Thu, 08:00',
-    status: 'active',
-    goal: 'Strength',
-  },
-];
-
 type Filter = 'All' | 'Active' | 'New' | 'Attention';
+const filterChips: Filter[] = ['All', 'Active', 'New', 'Attention'];
 
 const filterToStatus: Record<Filter, ClientStatus | 'all'> = {
   All: 'all',
@@ -125,8 +29,6 @@ const filterToStatus: Record<Filter, ClientStatus | 'all'> = {
   New: 'new',
   Attention: 'attention',
 };
-
-const filterChips: Filter[] = ['All', 'Active', 'New', 'Attention'];
 
 function getStatusBadge(status: ClientStatus): {
   label: string;
@@ -137,12 +39,41 @@ function getStatusBadge(status: ClientStatus): {
   return { label: 'Needs attention', variant: 'warning' };
 }
 
-function getLastSessionLabel(days: number): string {
-  if (days === 0) return 'Today';
+function getLastSessionLabel(ts: number | null | undefined): string {
+  if (!ts) return 'Never';
+  const days = Math.floor((Date.now() - ts) / (24 * 60 * 60 * 1000));
+  if (days <= 0) return 'Today';
   if (days === 1) return 'Yesterday';
   if (days < 7) return `${days} days ago`;
   if (days < 14) return '1 week ago';
   return `${Math.floor(days / 7)} weeks ago`;
+}
+
+function getNextSessionLabel(ts: number | null | undefined): string {
+  if (!ts) return '—';
+  const diff = ts - Date.now();
+  const days = Math.floor(diff / (24 * 60 * 60 * 1000));
+  const d = new Date(ts);
+  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  if (days < 0) return 'Overdue';
+  if (days === 0) return `Today, ${time}`;
+  if (days === 1) return `Tomorrow, ${time}`;
+  if (days < 7) {
+    return `${d.toLocaleDateString('en-GB', { weekday: 'short' })}, ${time}`;
+  }
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+}
+
+function deriveStatus(
+  last: number | null,
+  next: number | null,
+  sessionCount: number
+): ClientStatus {
+  if (sessionCount <= 1) return 'new';
+  if (last == null) return 'attention';
+  const daysSince = (Date.now() - last) / (24 * 60 * 60 * 1000);
+  if (daysSince > 14) return 'attention';
+  return 'active';
 }
 
 export default function TrainerClients() {
@@ -150,27 +81,40 @@ export default function TrainerClients() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<Filter>('All');
 
+  const clientsQuery = useConvexQuery(api.queries.users.getMyClients, {});
+  const isLoading = clientsQuery === undefined;
+  const clients = clientsQuery ?? [];
+
+  const enriched = useMemo(() => {
+    return clients.map((c) => ({
+      id: (c.member?._id as unknown as string) ?? '',
+      name: c.member?.fullName ?? 'Member',
+      goal: '',
+      lastSessionDays: c.lastSessionAt,
+      nextSessionAt: c.nextSessionAt,
+      totalSessions: c.sessionCount,
+      status: deriveStatus(c.lastSessionAt, c.nextSessionAt, c.sessionCount),
+    }));
+  }, [clients]);
+
   const counts = useMemo(() => {
     return {
-      All: mockClients.length,
-      Active: mockClients.filter((c) => c.status === 'active').length,
-      New: mockClients.filter((c) => c.status === 'new').length,
-      Attention: mockClients.filter((c) => c.status === 'attention').length,
+      All: enriched.length,
+      Active: enriched.filter((c) => c.status === 'active').length,
+      New: enriched.filter((c) => c.status === 'new').length,
+      Attention: enriched.filter((c) => c.status === 'attention').length,
     };
-  }, []);
+  }, [enriched]);
 
   const filtered = useMemo(() => {
     const target = filterToStatus[filter];
     const q = search.trim().toLowerCase();
-    return mockClients.filter((c) => {
+    return enriched.filter((c) => {
       const matchFilter = target === 'all' || c.status === target;
-      const matchSearch =
-        q.length === 0 ||
-        c.name.toLowerCase().includes(q) ||
-        c.goal.toLowerCase().includes(q);
+      const matchSearch = q.length === 0 || c.name.toLowerCase().includes(q);
       return matchFilter && matchSearch;
     });
-  }, [search, filter]);
+  }, [search, filter, enriched]);
 
   return (
     <Screen scroll padded={false}>
@@ -184,10 +128,10 @@ export default function TrainerClients() {
       {/* Search */}
       <YStack paddingHorizontal="$4">
         <Input
-          placeholder="Search by name or goal"
+          placeholder="Search by name"
           value={search}
           onChangeText={setSearch}
-          icon={<Search size={18} color="$textMuted" />}
+          leftIcon={<Search size={18} color="$textMuted" />}
           accessibilityLabel="Search clients"
         />
       </YStack>
@@ -199,7 +143,7 @@ export default function TrainerClients() {
             {filterChips.map((f) => (
               <Chip
                 key={f}
-                label={`${f} (${counts[f]})`}
+                label={`${f} (${counts[f as keyof typeof counts]})`}
                 selected={filter === f}
                 onPress={() => setFilter(f)}
               />
@@ -210,14 +154,22 @@ export default function TrainerClients() {
 
       {/* Client list */}
       <YStack paddingHorizontal="$4" marginTop="$4" gap="$2">
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          <>
+            <Skeleton height={92} borderRadius="$md" />
+            <Skeleton height={92} borderRadius="$md" />
+            <Skeleton height={92} borderRadius="$md" />
+          </>
+        ) : filtered.length === 0 ? (
           <EmptyState
             icon={<Users size={48} color="$textMuted" />}
             title="No clients found"
             description={
               search
                 ? `No results for "${search}"`
-                : 'No clients match the selected filter'
+                : clients.length === 0
+                  ? 'Your client roster is empty — book your first PT session to start.'
+                  : 'No clients match the selected filter'
             }
           />
         ) : (
@@ -250,7 +202,7 @@ export default function TrainerClients() {
                       />
                     </XStack>
                     <Text variant="caption" color="muted">
-                      {c.goal} • {c.totalSessions} sessions
+                      {c.totalSessions} sessions
                     </Text>
                     <XStack gap="$3" marginTop="$0.5">
                       <YStack>
@@ -266,7 +218,7 @@ export default function TrainerClients() {
                           Next
                         </Text>
                         <Text variant="bodySmall" weight="500" color="brand">
-                          {c.nextSession ?? '—'}
+                          {getNextSessionLabel(c.nextSessionAt)}
                         </Text>
                       </YStack>
                     </XStack>

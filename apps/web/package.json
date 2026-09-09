@@ -10,7 +10,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@queenix/auth": "workspace:*",
     "@queenix/convex": "workspace:*",
+    "@queenix/payments": "workspace:*",
+    "@queenix/receipts": "workspace:*",
     "@queenix/theme": "workspace:*",
     "@queenix/types": "workspace:*",
     "@queenix/ui": "workspace:*",
@@ -18,6 +21,7 @@
     "next": "^15.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "stripe": "^17.4.0",
     "tamagui": "^1.130.0",
     "lucide-react": "^0.469.0"
   },

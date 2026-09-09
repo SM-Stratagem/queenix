@@ -1,7 +1,17 @@
 import React, { useState } from 'react';
 import { YStack, XStack, ScrollView } from 'tamagui';
-import { Screen, Text, Card, Badge, Button } from '@queenix/ui';
-import { useToast } from '@queenix/ui';
+import {
+  Screen,
+  Text,
+  Card,
+  Badge,
+  Button,
+  Skeleton,
+  EmptyState,
+  useToast,
+} from '@queenix/ui';
+import { useConvexQuery, useConvexMutation } from '@/lib/convex';
+import { api } from '@queenix/convex';
 import {
   Receipt,
   FileText,
@@ -10,144 +20,204 @@ import {
   Check,
   X,
   Clock,
-  ChevronRight,
+  Wallet,
 } from '@tamagui/lucide-icons';
 
-type ApprovalType = 'refund' | 'document' | 'cert' | 'access';
+type ApprovalTab = 'all' | 'membership' | 'payment' | 'document' | 'trainer' | 'access' | 'payout';
+
+const TABS: { key: ApprovalTab; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'membership', label: 'Membership' },
+  { key: 'payment', label: 'Payments' },
+  { key: 'document', label: 'Documents' },
+  { key: 'trainer', label: 'Trainers' },
+  { key: 'access', label: 'Access' },
+  { key: 'payout', label: 'Payouts' },
+];
 
 type Approval = {
-  id: string;
-  type: ApprovalType;
-  title: string;
-  requestor: string;
-  detail: string;
-  amount?: string;
-  meta?: string;
-  timeAgo: string;
+  _id: string;
+  type:
+    | 'membership.freeze_requested'
+    | 'payment.refund_requested'
+    | 'document.resign_requested'
+    | 'trainer.cert_expiring'
+    | 'access.override_requested'
+    | 'payout.early_requested';
+  requestorId: string;
+  payload: any;
+  status: 'pending' | 'approved' | 'denied' | 'cancelled';
+  createdAt: number;
+  requestor?: { fullName?: string; email?: string } | null;
 };
 
-const APPROVALS: Approval[] = [
-  {
-    id: '1',
-    type: 'refund',
-    title: 'Refund request — March membership',
-    requestor: 'Aisha Hassan',
-    amount: 'AED 1,200',
-    detail: 'Reason: Moved abroad, unused 14 days',
-    meta: 'Original txn #INV-24-1832',
-    timeAgo: '12 min ago',
-  },
-  {
-    id: '2',
-    type: 'refund',
-    title: 'Partial refund — PT package',
-    requestor: 'Hala Al-Maktoum',
-    amount: 'AED 850',
-    detail: 'Reason: Trainer change requested, 2 unused sessions',
-    meta: 'Original txn #INV-24-2104',
-    timeAgo: '38 min ago',
-  },
-  {
-    id: '3',
-    type: 'document',
-    title: 'Health declaration — re-sign',
-    requestor: 'Reem Al-Suwaidi',
-    detail: 'Document: Health waiver v3.2',
-    meta: 'Last signed 11 months ago',
-    timeAgo: '1 hr ago',
-  },
-  {
-    id: '4',
-    type: 'document',
-    title: 'Liability waiver — new version',
-    requestor: 'Maryam Al-Falasi',
-    detail: 'Document: Liability waiver v4.0',
-    meta: 'New terms effective this month',
-    timeAgo: '2 hr ago',
-  },
-  {
-    id: '5',
-    type: 'cert',
-    title: 'NASM CPT — renewal',
-    requestor: 'Sarah Khalil',
-    detail: 'Certificate: NASM Certified Personal Trainer',
-    meta: 'Expires in 5 days',
-    timeAgo: '3 hr ago',
-  },
-  {
-    id: '6',
-    type: 'cert',
-    title: 'First Aid certification',
-    requestor: 'Maya Patel',
-    detail: 'Certificate: First Aid & CPR',
-    meta: 'Expires in 14 days',
-    timeAgo: 'Yesterday',
-  },
-  {
-    id: '7',
-    type: 'access',
-    title: '24/7 access request',
-    requestor: 'Latifa Al-Shamsi',
-    detail: 'Special access: Off-peak hours (10 PM – 5 AM)',
-    meta: 'Premium member for 18 months',
-    timeAgo: '4 hr ago',
-  },
-];
-
-const TABS: { key: 'all' | ApprovalType; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'refund', label: 'Refunds' },
-  { key: 'document', label: 'Documents' },
-  { key: 'cert', label: 'Certs' },
-  { key: 'access', label: 'Access' },
-];
-
-function typeIcon(t: ApprovalType) {
+function typeIcon(t: Approval['type']) {
   switch (t) {
-    case 'refund':
+    case 'payment.refund_requested':
       return <Receipt size={20} color="$brand" />;
-    case 'document':
+    case 'document.resign_requested':
       return <FileText size={20} color="$brand" />;
-    case 'cert':
+    case 'trainer.cert_expiring':
       return <Award size={20} color="$brand" />;
-    case 'access':
+    case 'access.override_requested':
       return <KeyRound size={20} color="$brand" />;
+    case 'payout.early_requested':
+      return <Wallet size={20} color="$brand" />;
+    case 'membership.freeze_requested':
+      return <FileText size={20} color="$brand" />;
   }
 }
 
-function typeColor(t: ApprovalType) {
+function typeColor(t: Approval['type']) {
   switch (t) {
-    case 'refund':
+    case 'payment.refund_requested':
       return '$warning50';
-    case 'document':
+    case 'document.resign_requested':
       return '$brand50';
-    case 'cert':
+    case 'trainer.cert_expiring':
       return '$success50';
-    case 'access':
+    case 'access.override_requested':
       return '$surfaceMuted';
+    case 'payout.early_requested':
+      return '$warning50';
+    case 'membership.freeze_requested':
+      return '$info50';
+  }
+}
+
+function matchesTab(type: Approval['type'], tab: ApprovalTab): boolean {
+  if (tab === 'all') return true;
+  if (tab === 'membership') return type === 'membership.freeze_requested';
+  if (tab === 'payment') return type === 'payment.refund_requested';
+  if (tab === 'document') return type === 'document.resign_requested';
+  if (tab === 'trainer') return type === 'trainer.cert_expiring';
+  if (tab === 'access') return type === 'access.override_requested';
+  if (tab === 'payout') return type === 'payout.early_requested';
+  return true;
+}
+
+function formatAED(cents: number, currency: string = 'AED'): string {
+  return `${currency} ${(cents / 100).toFixed(2)}`;
+}
+
+function humanizeType(t: Approval['type']): string {
+  switch (t) {
+    case 'membership.freeze_requested':
+      return 'Membership freeze';
+    case 'payment.refund_requested':
+      return 'Refund request';
+    case 'document.resign_requested':
+      return 'Document re-sign';
+    case 'trainer.cert_expiring':
+      return 'Trainer cert expiring';
+    case 'access.override_requested':
+      return 'Access override';
+    case 'payout.early_requested':
+      return 'Early payout';
+  }
+}
+
+function buildTitle(a: Approval): string {
+  const requestorName = a.requestor?.fullName ?? 'Member';
+  switch (a.type) {
+    case 'payout.early_requested':
+      return `Early payout — ${requestorName}`;
+    case 'membership.freeze_requested':
+      return `Membership freeze — ${requestorName}`;
+    case 'payment.refund_requested':
+      return `Refund — ${requestorName}`;
+    case 'document.resign_requested':
+      return `Document re-sign — ${requestorName}`;
+    case 'trainer.cert_expiring':
+      return `Cert expiring — ${requestorName}`;
+    case 'access.override_requested':
+      return `Access override — ${requestorName}`;
+  }
+}
+
+function buildDetail(a: Approval): { detail: string; meta?: string; amount?: string } {
+  const p = (a.payload ?? {}) as Record<string, any>;
+  switch (a.type) {
+    case 'payout.early_requested':
+      return {
+        detail: p.note ? `Note: ${p.note}` : 'No note provided',
+        amount: formatAED(p.amountCents ?? 0, p.currency ?? 'AED'),
+      };
+    case 'membership.freeze_requested':
+      return { detail: `Freeze duration: ${p.days ?? 'unspecified'} days` };
+    case 'payment.refund_requested':
+      return {
+        detail: p.reason ? `Reason: ${p.reason}` : 'No reason provided',
+        amount: formatAED(p.amountCents ?? 0, p.currency ?? 'AED'),
+        meta: p.invoiceId ? `Original txn ${p.invoiceId}` : undefined,
+      };
+    case 'document.resign_requested':
+      return {
+        detail: `Document: ${p.documentType ?? 'unknown'}`,
+        meta: p.version ? `Version ${p.version}` : undefined,
+      };
+    case 'trainer.cert_expiring':
+      return {
+        detail: `Cert: ${p.certName ?? 'unknown'}`,
+        meta: p.expiresAt
+          ? `Expires ${new Date(p.expiresAt).toLocaleDateString('en-GB')}`
+          : undefined,
+      };
+    case 'access.override_requested':
+      return {
+        detail: `Reason: ${p.reason ?? 'not specified'}`,
+        meta: p.window ? `Window: ${p.window}` : undefined,
+      };
   }
 }
 
 export default function OwnerApprovals() {
   const toast = useToast();
-  const [tab, setTab] = useState<'all' | ApprovalType>('all');
-  const [resolved, setResolved] = useState<Set<string>>(new Set());
+  const [tab, setTab] = useState<ApprovalTab>('all');
+  const [decidedIds, setDecidedIds] = useState<Set<string>>(new Set());
 
-  const filtered = APPROVALS.filter((a) => {
-    if (tab === 'all') return true;
-    return a.type === tab;
+  const approvalsQuery = useConvexQuery(api.queries.memberships.getApprovals, {
+    status: 'pending',
+    limit: 100,
   });
+  const decideMutation = useConvexMutation(api.mutations.users.decideApproval);
 
-  const pendingCount = APPROVALS.length - resolved.size;
+  const isLoading = approvalsQuery === undefined;
+  const allApprovals: Approval[] = (approvalsQuery ?? []) as Approval[];
 
-  const handleApprove = (a: Approval) => {
-    setResolved((prev) => new Set(prev).add(a.id));
-    toast.success(`Approved: ${a.title}`);
+  const pending = allApprovals.filter((a) => a.status === 'pending');
+  const filtered = pending
+    .filter((a) => matchesTab(a.type, tab))
+    .filter((a) => !decidedIds.has(a._id));
+
+  const handleApprove = async (a: Approval) => {
+    setDecidedIds((prev) => new Set(prev).add(a._id));
+    try {
+      await decideMutation({ approvalId: a._id as any, decision: 'approved' });
+      toast.success(`Approved: ${humanizeType(a.type)}`);
+    } catch (e: any) {
+      setDecidedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(a._id);
+        return next;
+      });
+      toast.show(e?.message ?? 'Failed to approve', 'error');
+    }
   };
 
-  const handleDecline = (a: Approval) => {
-    setResolved((prev) => new Set(prev).add(a.id));
-    toast.info(`Declined: ${a.title}`);
+  const handleDecline = async (a: Approval) => {
+    setDecidedIds((prev) => new Set(prev).add(a._id));
+    try {
+      await decideMutation({ approvalId: a._id as any, decision: 'denied' });
+      toast.show(`Declined: ${humanizeType(a.type)}`, 'info');
+    } catch (e: any) {
+      setDecidedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(a._id);
+        return next;
+      });
+      toast.show(e?.message ?? 'Failed to decline', 'error');
+    }
   };
 
   return (
@@ -163,10 +233,12 @@ export default function OwnerApprovals() {
         >
           <YStack>
             <Text variant="caption" color="muted">Approvals queue</Text>
-            <Text variant="h2">{pendingCount} pending</Text>
-          </YStack>
-          {pendingCount > 0 && (
-            <Badge label={pendingCount.toString()} variant="warning" />
+            <Text variant="h2">
+              {isLoading ? '…' : `${filtered.length} pending`}
+            </Text>
+          </XStack>
+          {filtered.length > 0 && (
+            <Badge label={filtered.length.toString()} variant="warning" />
           )}
         </XStack>
 
@@ -201,52 +273,61 @@ export default function OwnerApprovals() {
 
         {/* Approvals list */}
         <YStack paddingHorizontal="$4" marginTop="$4" gap="$3">
-          {filtered.length === 0 && (
+          {isLoading ? (
+            <>
+              <Skeleton height={140} borderRadius="$md" />
+              <Skeleton height={140} borderRadius="$md" />
+              <Skeleton height={140} borderRadius="$md" />
+            </>
+          ) : filtered.length === 0 ? (
             <Card variant="filled">
               <YStack alignItems="center" padding="$6" gap="$2">
                 <Check size={32} color="$success500" />
                 <Text variant="body" weight="500">All caught up</Text>
                 <Text variant="caption" color="muted" align="center">
-                  No pending {tab === 'all' ? 'approvals' : `${tab} requests`} right now
+                  {tab === 'all'
+                    ? 'No pending approvals right now'
+                    : `No ${tab} requests pending`}
                 </Text>
               </YStack>
             </Card>
-          )}
+          ) : (
+            filtered.map((a) => {
+              const { detail, meta, amount } = buildDetail(a);
+              return (
+                <Card key={a._id} variant="elevated" padding="md">
+                  <XStack alignItems="flex-start" gap="$3">
+                    <YStack backgroundColor={typeColor(a.type)} padding="$2.5" borderRadius="$md">
+                      {typeIcon(a.type)}
+                    </YStack>
+                    <YStack flex={1} gap="$1">
+                      <XStack alignItems="center" gap="$2" flexWrap="wrap">
+                        <Text variant="body" weight="600" flex={1}>
+                          {buildTitle(a)}
+                        </Text>
+                        {amount && <Badge label={amount} variant="warning" />}
+                      </XStack>
+                      <Text variant="caption" color="muted">
+                        {humanizeType(a.type)} • {a.requestor?.email ?? '—'}
+                      </Text>
+                      <Text variant="bodySmall" color="secondary">
+                        {detail}
+                      </Text>
+                      {meta && <Text variant="caption" color="muted">{meta}</Text>}
+                      <XStack alignItems="center" gap="$1.5" marginTop="$1">
+                        <Clock size={12} color="$textMuted" />
+                        <Text variant="caption" color="muted">
+                          {new Date(a.createdAt).toLocaleString('en-GB', {
+                            day: '2-digit',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </Text>
+                      </XStack>
+                    </YStack>
+                  </XStack>
 
-          {filtered.map((a) => {
-            const isResolved = resolved.has(a.id);
-            return (
-              <Card key={a.id} variant="elevated" padding="md" opacity={isResolved ? 0.5 : 1}>
-                <XStack alignItems="flex-start" gap="$3">
-                  <YStack
-                    backgroundColor={typeColor(a.type)}
-                    padding="$2.5"
-                    borderRadius="$md"
-                  >
-                    {typeIcon(a.type)}
-                  </YStack>
-                  <YStack flex={1} gap="$1">
-                    <XStack alignItems="center" gap="$2" flexWrap="wrap">
-                      <Text variant="body" weight="600" flex={1}>{a.title}</Text>
-                      {a.amount && (
-                        <Badge label={a.amount} variant="warning" />
-                      )}
-                    </XStack>
-                    <Text variant="caption" color="muted">
-                      Requested by {a.requestor}
-                    </Text>
-                    <Text variant="bodySmall" color="secondary">{a.detail}</Text>
-                    {a.meta && (
-                      <Text variant="caption" color="muted">{a.meta}</Text>
-                    )}
-                    <XStack alignItems="center" gap="$1.5" marginTop="$1">
-                      <Clock size={12} color="$textMuted" />
-                      <Text variant="caption" color="muted">{a.timeAgo}</Text>
-                    </XStack>
-                  </YStack>
-                </XStack>
-
-                {!isResolved && (
                   <XStack gap="$2" marginTop="$3">
                     <Button
                       label="Decline"
@@ -265,17 +346,10 @@ export default function OwnerApprovals() {
                       onPress={() => handleApprove(a)}
                     />
                   </XStack>
-                )}
-
-                {isResolved && (
-                  <XStack alignItems="center" gap="$2" marginTop="$3">
-                    <Check size={14} color="$success500" />
-                    <Text variant="caption" color="success500" weight="600">Resolved</Text>
-                  </XStack>
-                )}
-              </Card>
-            );
-          })}
+                </Card>
+              );
+            })
+          )}
         </YStack>
       </ScrollView>
     </Screen>

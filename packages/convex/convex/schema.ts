@@ -160,29 +160,72 @@ export default defineSchema({
       v.literal('other')
     ),
     description: v.string(),
+    provider: v.union(v.literal('stripe'), v.literal('tap')),
     stripePaymentIntentId: v.optional(v.string()),
-    invoiceUrl: v.optional(v.string()),
+    tapChargeId: v.optional(v.string()),
+    invoiceNumber: v.optional(v.string()),
+    invoiceId: v.optional(v.id('invoices')),
+    metadata: v.optional(v.any()),
+    failureReason: v.optional(v.string()),
+    refundedAmountCents: v.optional(v.number()),
     receiptUrl: v.optional(v.string()),
     idempotencyKey: v.string(),
     createdAt: v.number(),
+    updatedAt: v.number(),
   })
     .index('by_user', ['userId'])
     .index('by_idempotencyKey', ['idempotencyKey'])
-    .index('by_status', ['status']),
+    .index('by_status', ['status'])
+    .index('by_stripePaymentIntentId', ['stripePaymentIntentId'])
+    .index('by_tapChargeId', ['tapChargeId']),
 
   paymentMethods: defineTable({
     userId: v.id('users'),
     type: v.union(v.literal('card'), v.literal('apple_pay'), v.literal('google_pay')),
+    provider: v.union(v.literal('stripe'), v.literal('tap')),
     last4: v.optional(v.string()),
     brand: v.optional(v.string()),
     expiryMonth: v.optional(v.number()),
     expiryYear: v.optional(v.number()),
-    stripePaymentMethodId: v.string(),
+    stripePaymentMethodId: v.optional(v.string()),
+    tapTokenId: v.optional(v.string()),
     isDefault: v.boolean(),
     createdAt: v.number(),
   })
     .index('by_user', ['userId'])
     .index('by_default', ['userId', 'isDefault']),
+
+  invoices: defineTable({
+    paymentId: v.id('payments'),
+    userId: v.id('users'),
+    invoiceNumber: v.string(),
+    status: v.union(
+      v.literal('draft'),
+      v.literal('issued'),
+      v.literal('paid'),
+      v.literal('refunded'),
+      v.literal('void')
+    ),
+    subtotalCents: v.number(),
+    vatRate: v.number(), // e.g. 0.05 for UAE 5%
+    vatCents: v.number(),
+    totalCents: v.number(),
+    currency: v.string(),
+    lineItems: v.array(
+      v.object({
+        description: v.string(),
+        quantity: v.number(),
+        unitPriceCents: v.number(),
+        totalCents: v.number(),
+      })
+    ),
+    issuedAt: v.number(),
+    paidAt: v.optional(v.number()),
+    receiptUrl: v.optional(v.string()),
+  })
+    .index('by_paymentId', ['paymentId'])
+    .index('by_user', ['userId'])
+    .index('by_invoiceNumber', ['invoiceNumber']),
 
   // ============================================================
   // Documents & Signatures
@@ -471,15 +514,80 @@ export default defineSchema({
       v.literal('high'),
       v.literal('critical')
     ),
+    title: v.optional(v.string()),
+    location: v.optional(v.string()),
     description: v.string(),
     reportedBy: v.id('users'),
+    status: v.optional(
+      v.union(
+        v.literal('open'),
+        v.literal('in_progress'),
+        v.literal('resolved')
+      )
+    ),
     resolved: v.boolean(),
     resolvedBy: v.optional(v.id('users')),
     resolvedAt: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index('by_resolved', ['resolved'])
+    .index('by_status', ['status'])
     .index('by_createdAt', ['createdAt']),
+
+  // Support tickets (member support / front-desk help)
+  supportTickets: defineTable({
+    memberId: v.optional(v.id('users')),
+    memberName: v.optional(v.string()),
+    subject: v.string(),
+    description: v.string(),
+    category: v.optional(
+      v.union(
+        v.literal('billing'),
+        v.literal('access'),
+        v.literal('class'),
+        v.literal('general')
+      )
+    ),
+    priority: v.union(
+      v.literal('low'),
+      v.literal('medium'),
+      v.literal('high'),
+      v.literal('critical')
+    ),
+    status: v.union(
+      v.literal('open'),
+      v.literal('in_progress'),
+      v.literal('waiting'),
+      v.literal('resolved')
+    ),
+    assignedTo: v.optional(v.id('users')),
+    createdBy: v.id('users'),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_status', ['status'])
+    .index('by_priority', ['priority'])
+    .index('by_member', ['memberId'])
+    .index('by_createdAt', ['createdAt']),
+
+  // Physical QR scanner devices installed at the gym
+  scannerDevices: defineTable({
+    deviceId: v.string(),
+    name: v.string(),
+    location: v.string(),
+    model: v.optional(v.string()),
+    ipAddress: v.optional(v.string()),
+    apiKey: v.string(),
+    isActive: v.boolean(),
+    lastSeenAt: v.optional(v.number()),
+    lastScanAt: v.optional(v.number()),
+    totalScans: v.number(),
+    registeredBy: v.optional(v.id('users')),
+    registeredAt: v.number(),
+  })
+    .index('by_deviceId', ['deviceId'])
+    .index('by_active', ['isActive'])
+    .index('by_lastSeen', ['lastSeenAt']),
 
   auditEvents: defineTable({
     actorId: v.id('users'),
@@ -495,4 +603,63 @@ export default defineSchema({
     .index('by_actor', ['actorId'])
     .index('by_entity', ['entityType', 'entityId'])
     .index('by_timestamp', ['timestamp']),
+
+  // ============================================================
+  // Approvals (owner inbox)
+  // ============================================================
+  approvals: defineTable({
+    type: v.union(
+      v.literal('membership.freeze_requested'),
+      v.literal('payment.refund_requested'),
+      v.literal('document.resign_requested'),
+      v.literal('trainer.cert_expiring'),
+      v.literal('access.override_requested'),
+      v.literal('payout.early_requested')
+    ),
+    requestorId: v.id('users'),
+    payload: v.any(),
+    status: v.union(
+      v.literal('pending'),
+      v.literal('approved'),
+      v.literal('denied'),
+      v.literal('cancelled')
+    ),
+    decidedBy: v.optional(v.id('users')),
+    decidedAt: v.optional(v.number()),
+    decisionNote: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index('by_status', ['status'])
+    .index('by_type', ['type'])
+    .index('by_requestor', ['requestorId'])
+    .index('by_createdAt', ['createdAt']),
+
+  // ============================================================
+  // Punch events — staff/ops fingerprint clock-in/out
+  // ============================================================
+  punchEvents: defineTable({
+    userId: v.id('users'),
+    method: v.union(v.literal('fingerprint'), v.literal('app'), v.literal('manual')),
+    punchType: v.union(v.literal('in'), v.literal('out')),
+    timestamp: v.number(),
+    deviceId: v.optional(v.string()),
+    location: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index('by_user', ['userId'])
+    .index('by_user_timestamp', ['userId', 'timestamp'])
+    .index('by_timestamp', ['timestamp']),
+
+  // ============================================================
+  // Trainer notes — free-form notes a trainer keeps on a member
+  // ============================================================
+  trainerNotes: defineTable({
+    trainerId: v.id('users'),
+    memberId: v.id('users'),
+    note: v.string(),
+    createdAt: v.number(),
+  })
+    .index('by_trainer', ['trainerId'])
+    .index('by_member', ['memberId'])
+    .index('by_createdAt', ['createdAt']),
 });

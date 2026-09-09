@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { YStack, XStack, ScrollView } from 'tamagui';
 import {
   Screen,
@@ -8,8 +8,13 @@ import {
   Button,
   Progress,
   Divider,
+  Skeleton,
+  EmptyState,
+  ErrorState,
   useToast,
 } from '@queenix/ui';
+import { useConvexQuery, useConvexMutation } from '@/lib/convex';
+import { api } from '@queenix/convex';
 import {
   TrendingUp,
   TrendingDown,
@@ -23,155 +28,113 @@ import {
   Download,
 } from '@tamagui/lucide-icons';
 
-interface Transaction {
-  id: string;
-  date: string;
-  source: string;
-  category: 'PT' | 'Class' | 'Commission' | 'Bonus';
-  amountAED: number;
-  status: 'paid' | 'pending';
+type EarnStatus = 'pending' | 'paid' | 'cancelled';
+
+const CURRENCY = 'AED';
+
+function formatMoney(cents: number, currency: string = CURRENCY): string {
+  return `${currency} ${(cents / 100).toFixed(0)}`;
 }
 
-const mockTransactions: Transaction[] = [
-  {
-    id: 't1',
-    date: 'Today, 09:15',
-    source: 'PT • Amna Al-Mazrouei',
-    category: 'PT',
-    amountAED: 220,
-    status: 'pending',
-  },
-  {
-    id: 't2',
-    date: 'Yesterday, 18:45',
-    source: 'HIIT 45 (8 attendees)',
-    category: 'Class',
-    amountAED: 360,
-    status: 'pending',
-  },
-  {
-    id: 't3',
-    date: 'Yesterday, 11:00',
-    source: 'PT • Hala Al-Suwaidi',
-    category: 'PT',
-    amountAED: 220,
-    status: 'pending',
-  },
-  {
-    id: 't4',
-    date: 'Mon, 20:00',
-    source: 'PT • Sara Al-Marri',
-    category: 'PT',
-    amountAED: 220,
-    status: 'paid',
-  },
-  {
-    id: 't5',
-    date: 'Mon, 17:30',
-    source: 'Pilates (12 attendees)',
-    category: 'Class',
-    amountAED: 540,
-    status: 'paid',
-  },
-  {
-    id: 't6',
-    date: 'Sun, 10:00',
-    source: 'New member bonus — Aisha',
-    category: 'Bonus',
-    amountAED: 150,
-    status: 'paid',
-  },
-  {
-    id: 't7',
-    date: 'Sat, 19:00',
-    source: 'PT • Sara Al-Marri',
-    category: 'PT',
-    amountAED: 220,
-    status: 'paid',
-  },
-  {
-    id: 't8',
-    date: 'Fri, 08:00',
-    source: 'Supplement commission',
-    category: 'Commission',
-    amountAED: 95,
-    status: 'paid',
-  },
-  {
-    id: 't9',
-    date: 'Thu, 18:00',
-    source: 'Power Yoga (15 attendees)',
-    category: 'Class',
-    amountAED: 675,
-    status: 'paid',
-  },
-  {
-    id: 't10',
-    date: 'Wed, 20:00',
-    source: 'PT • Amna Al-Mazrouei',
-    category: 'PT',
-    amountAED: 220,
-    status: 'paid',
-  },
-];
+function formatMoneyShort(cents: number): string {
+  return (cents / 100).toLocaleString();
+}
 
-const breakdown = [
-  {
-    key: 'PT' as const,
-    label: 'PT sessions',
-    amount: 6240,
-    pct: 62,
-    icon: <Dumbbell size={18} color="$brand" />,
-    variant: 'brand' as const,
-  },
-  {
-    key: 'Class' as const,
-    label: 'Class instruction',
-    amount: 2580,
-    pct: 26,
-    icon: <Users size={18} color="$success500" />,
-    variant: 'success' as const,
-  },
-  {
-    key: 'Commission' as const,
-    label: 'Commissions',
-    amount: 720,
-    pct: 7,
-    icon: <Gift size={18} color="$info500" />,
-    variant: 'info' as const,
-  },
-  {
-    key: 'Bonus' as const,
-    label: 'Bonuses',
-    amount: 460,
-    pct: 5,
-    icon: <TrendingUp size={18} color="$warning500" />,
-    variant: 'warning' as const,
-  },
-];
-
-const categoryBadge: Record<Transaction['category'], {
-  label: string;
-  variant: 'brand' | 'success' | 'info' | 'warning';
-}> = {
-  PT: { label: 'PT', variant: 'brand' },
-  Class: { label: 'Class', variant: 'success' },
-  Commission: { label: 'Commission', variant: 'info' },
-  Bonus: { label: 'Bonus', variant: 'warning' },
-};
+function getMonthLabel(): string {
+  return new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+}
 
 export default function TrainerEarnings() {
   const toast = useToast();
-  const monthEarnings = breakdown.reduce((acc, b) => acc + b.amount, 0); // 10,000
-  const monthTarget = 14000;
-  const progress = (monthEarnings / monthTarget) * 100;
-  const lastMonth = 8930;
-  const delta = Math.round(((monthEarnings - lastMonth) / lastMonth) * 100);
+  const earningsQuery = useConvexQuery(api.queries.users.getMyEarnings, {});
+  const requestPayout = useConvexMutation(api.mutations.users.requestEarlyPayout);
+
+  const isLoading = earningsQuery === undefined;
+  const records = earningsQuery ?? [];
+
+  const monthStart = useMemo(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+  }, []);
+  const monthEnd = useMemo(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime();
+  }, []);
+
+  const thisMonthRecords = useMemo(
+    () => records.filter((r: any) => r.createdAt >= monthStart && r.createdAt < monthEnd),
+    [records, monthStart, monthEnd]
+  );
+
+  const monthEarningsCents = thisMonthRecords
+    .filter((r: any) => r.status !== 'cancelled')
+    .reduce((acc: number, r: any) => acc + r.amountCents, 0);
+  const pendingCents = records
+    .filter((r: any) => r.status === 'pending')
+    .reduce((acc: number, r: any) => acc + r.amountCents, 0);
+  const paidCents = records
+    .filter((r: any) => r.status === 'paid')
+    .reduce((acc: number, r: any) => acc + r.amountCents, 0);
+
+  // Last month for delta
+  const lastMonthStart = useMemo(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth() - 1, 1).getTime();
+  }, []);
+  const lastMonthEnd = monthStart;
+  const lastMonthCents = records
+    .filter(
+      (r: any) =>
+        r.createdAt >= lastMonthStart &&
+        r.createdAt < lastMonthEnd &&
+        r.status !== 'cancelled'
+    )
+    .reduce((acc: number, r: any) => acc + r.amountCents, 0);
+
+  const delta = lastMonthCents > 0
+    ? Math.round(((monthEarningsCents - lastMonthCents) / lastMonthCents) * 100)
+    : monthEarningsCents > 0
+      ? 100
+      : 0;
   const isUp = delta >= 0;
 
-  const pendingTotal = mockTransactions
-    .filter((t) => t.status === 'pending')
-    .reduce((acc, t) => acc + t.amountAED, 0);
+  // Group by source — we have one record per PT session, so for the
+  // breakdown we just split into PT earnings vs class/other. Since the
+  // current data only has PT earnings rows, we show 100% PT for now.
+  const breakdown = useMemo(() => {
+    const pt = thisMonthRecords
+      .filter((r: any) => r.session)
+      .reduce((acc: number, r: any) => acc + r.amountCents, 0);
+    const total = pt; // currently only PT earnings in trainerEarnings table
+    return [
+      {
+        key: 'PT',
+        label: 'PT sessions',
+        amount: pt,
+        pct: total > 0 ? Math.round((pt / total) * 100) : 0,
+      },
+    ];
+  }, [thisMonthRecords]);
+
+  const monthTarget = 1400000; // AED 14,000 in cents
+  const progress = Math.min(100, (monthEarningsCents / monthTarget) * 100);
+
+  const handleRequestPayout = async () => {
+    if (pendingCents <= 0) {
+      toast.show('No pending balance to request', 'info');
+      return;
+    }
+    try {
+      await requestPayout({
+        amountCents: pendingCents,
+        currency: CURRENCY,
+        note: 'Requested from trainer app',
+      });
+      toast.show('Early payout requested — owner notified', 'success');
+    } catch (e: any) {
+      toast.show(e?.message ?? 'Failed to request payout', 'error');
+    }
+  };
 
   return (
     <Screen scroll padded={false}>
@@ -182,139 +145,151 @@ export default function TrainerEarnings() {
         {/* Header */}
         <YStack paddingHorizontal="$4" paddingTop="$4" paddingBottom="$3">
           <Text variant="caption" color="muted">
-            September 2026
+            {getMonthLabel()}
           </Text>
           <Text variant="h2">Earnings</Text>
         </YStack>
 
         {/* Hero */}
         <YStack paddingHorizontal="$4">
-          <Card variant="elevated" padding="lg">
-            <YStack gap="$3">
-              <XStack justifyContent="space-between" alignItems="flex-start">
-                <YStack>
-                  <Text variant="caption" color="secondary" textTransform="uppercase">
-                    This month
-                  </Text>
-                  <XStack alignItems="baseline" gap="$2" marginTop="$1">
-                    <Text variant="h1" color="brand">
-                      {monthEarnings.toLocaleString()}
+          {isLoading ? (
+            <Skeleton height={200} borderRadius="$lg" />
+          ) : (
+            <Card variant="elevated" padding="lg">
+              <YStack gap="$3">
+                <XStack justifyContent="space-between" alignItems="flex-start">
+                  <YStack>
+                    <Text variant="caption" color="secondary" textTransform="uppercase">
+                      This month
                     </Text>
-                    <Text variant="h4" color="muted">
-                      AED
-                    </Text>
-                  </XStack>
-                  <XStack alignItems="center" gap="$1.5" marginTop="$1">
-                    {isUp ? (
-                      <TrendingUp size={14} color="$success500" />
-                    ) : (
-                      <TrendingDown size={14} color="$danger500" />
-                    )}
-                    <Text
-                      variant="bodySmall"
-                      weight="600"
-                      color={isUp ? 'success' : 'danger'}
-                    >
-                      {isUp ? '+' : ''}
-                      {delta}% vs last month
-                    </Text>
-                  </XStack>
-                </YStack>
-                <YStack
-                  backgroundColor="$brand50"
-                  padding="$3"
-                  borderRadius="$lg"
-                >
-                  <Wallet size={24} color="$brand" />
-                </YStack>
-              </XStack>
-
-              <YStack gap="$1.5" marginTop="$2">
-                <XStack justifyContent="space-between">
-                  <Text variant="caption" color="muted">
-                    Progress to target
-                  </Text>
-                  <Text variant="caption" weight="600">
-                    AED {monthEarnings.toLocaleString()} /{' '}
-                    {monthTarget.toLocaleString()}
-                  </Text>
+                    <XStack alignItems="baseline" gap="$2" marginTop="$1">
+                      <Text variant="h1" color="brand">
+                        {formatMoneyShort(monthEarningsCents)}
+                      </Text>
+                      <Text variant="h4" color="muted">
+                        AED
+                      </Text>
+                    </XStack>
+                    <XStack alignItems="center" gap="$1.5" marginTop="$1">
+                      {isUp ? (
+                        <TrendingUp size={14} color="$success500" />
+                      ) : (
+                        <TrendingDown size={14} color="$danger500" />
+                      )}
+                      <Text
+                        variant="bodySmall"
+                        weight="600"
+                        color={isUp ? 'success' : 'danger'}
+                      >
+                        {isUp ? '+' : ''}
+                        {delta}% vs last month
+                      </Text>
+                    </XStack>
+                  </YStack>
+                  <YStack backgroundColor="$brand50" padding="$3" borderRadius="$lg">
+                    <Wallet size={24} color="$brand" />
+                  </YStack>
                 </XStack>
-                <Progress value={progress} />
-                <Text variant="caption" color="muted">
-                  {Math.round(progress)}% of AED {monthTarget.toLocaleString()} target
-                </Text>
+
+                <YStack gap="$1.5" marginTop="$2">
+                  <XStack justifyContent="space-between">
+                    <Text variant="caption" color="muted">
+                      Progress to target
+                    </Text>
+                    <Text variant="caption" weight="600">
+                      {formatMoney(monthEarningsCents)} / {formatMoney(monthTarget)}
+                    </Text>
+                  </XStack>
+                  <Progress value={progress} />
+                  <Text variant="caption" color="muted">
+                    {Math.round(progress)}% of {formatMoney(monthTarget)} target
+                  </Text>
+                </YStack>
               </YStack>
-            </YStack>
-          </Card>
+            </Card>
+          )}
         </YStack>
 
         {/* Pending payout */}
         <YStack paddingHorizontal="$4" marginTop="$4">
           <Card variant="outlined">
             <XStack alignItems="center" gap="$3">
-              <YStack
-                backgroundColor="$warning50"
-                padding="$2.5"
-                borderRadius="$md"
-              >
+              <YStack backgroundColor="$warning50" padding="$2.5" borderRadius="$md">
                 <CalendarClock size={20} color="$warning500" />
               </YStack>
               <YStack flex={1}>
                 <Text variant="label">Pending payout</Text>
                 <Text variant="caption" color="muted">
-                  AED {pendingTotal.toLocaleString()} • Pays on 30 Sep
+                  {formatMoney(pendingCents)} • Pays on the 30th
                 </Text>
               </YStack>
-              <Badge label="Pending" variant="warning" />
+              <Badge
+                label={pendingCents > 0 ? 'Pending' : 'Cleared'}
+                variant={pendingCents > 0 ? 'warning' : 'success'}
+              />
             </XStack>
           </Card>
         </YStack>
 
-        {/* Breakdown */}
-        <YStack paddingHorizontal="$4" marginTop="$4">
-          <Text variant="h4" marginBottom="$3">
-            Breakdown
-          </Text>
-          <YStack gap="$2">
-            {breakdown.map((b) => (
-              <Card key={b.key} variant="outlined" padding="sm">
-                <XStack alignItems="center" gap="$3">
-                  <YStack
-                    backgroundColor="$surfaceMuted"
-                    padding="$2.5"
-                    borderRadius="$md"
-                  >
-                    {b.icon}
-                  </YStack>
-                  <YStack flex={1} gap="$1">
-                    <XStack justifyContent="space-between">
-                      <Text variant="label">{b.label}</Text>
-                      <Text variant="label">
-                        AED {b.amount.toLocaleString()}
-                      </Text>
-                    </XStack>
-                    <Progress
-                      value={b.pct}
-                      size="sm"
-                      color={
-                        b.variant === 'brand'
-                          ? '$brand'
-                          : b.variant === 'success'
-                            ? '$success500'
-                            : b.variant === 'info'
-                              ? '$info500'
-                              : '$warning500'
-                      }
-                    />
-                    <Text variant="caption" color="muted">
-                      {b.pct}% of total
-                    </Text>
-                  </YStack>
-                </XStack>
-              </Card>
-            ))}
-          </YStack>
+        {/* Lifetime paid */}
+        <YStack paddingHorizontal="$4" marginTop="$2">
+          <XStack gap="$2">
+            <Card flex={1} variant="outlined" padding="sm">
+              <YStack gap="$0.5">
+                <Text variant="caption" color="muted">
+                  Paid lifetime
+                </Text>
+                <Text variant="label" color="success">
+                  {formatMoney(paidCents)}
+                </Text>
+              </YStack>
+            </Card>
+            <Card flex={1} variant="outlined" padding="sm">
+              <YStack gap="$0.5">
+                <Text variant="caption" color="muted">
+                  Total sessions
+                </Text>
+                <Text variant="label">
+                  {records.length}
+                </Text>
+              </YStack>
+            </Card>
+          </XStack>
         </YStack>
+
+        {/* Breakdown */}
+        {!isLoading && breakdown.length > 0 && (
+          <YStack paddingHorizontal="$4" marginTop="$4">
+            <Text variant="h4" marginBottom="$3">
+              Breakdown
+            </Text>
+            <YStack gap="$2">
+              {breakdown.map((b) => (
+                <Card key={b.key} variant="outlined" padding="sm">
+                  <XStack alignItems="center" gap="$3">
+                    <YStack
+                      backgroundColor="$surfaceMuted"
+                      padding="$2.5"
+                      borderRadius="$md"
+                    >
+                      <Dumbbell size={18} color="$brand" />
+                    </YStack>
+                    <YStack flex={1} gap="$1">
+                      <XStack justifyContent="space-between">
+                        <Text variant="label">{b.label}</Text>
+                        <Text variant="label">{formatMoney(b.amount)}</Text>
+                      </XStack>
+                      <Progress value={b.pct} size="sm" color="$brand" />
+                      <Text variant="caption" color="muted">
+                        {b.pct}% of total
+                      </Text>
+                    </YStack>
+                  </XStack>
+                </Card>
+              ))}
+            </YStack>
+          </YStack>
+        )}
 
         {/* Action row */}
         <YStack paddingHorizontal="$4" marginTop="$4" gap="$2">
@@ -324,7 +299,8 @@ export default function TrainerEarnings() {
             size="md"
             fullWidth
             icon={<Wallet size={18} color="$textOnBrand" />}
-            onPress={() => toast.info('Early payout request submitted')}
+            onPress={handleRequestPayout}
+            disabled={pendingCents <= 0}
           />
           <Button
             label="Download monthly statement"
@@ -332,7 +308,7 @@ export default function TrainerEarnings() {
             size="md"
             fullWidth
             icon={<Download size={18} color="$brand" />}
-            onPress={() => toast.info('Generating PDF…')}
+            onPress={() => toast.show('Statement generation — coming soon', 'info')}
           />
         </YStack>
 
@@ -341,68 +317,97 @@ export default function TrainerEarnings() {
           <XStack justifyContent="space-between" alignItems="center" marginBottom="$3">
             <Text variant="h4">Recent transactions</Text>
             <Text variant="caption" color="muted">
-              {mockTransactions.length} entries
+              {records.length} entries
             </Text>
           </XStack>
-          <Card variant="outlined" padding="sm">
-            {mockTransactions.map((t, idx) => {
-              const cat = categoryBadge[t.category];
-              return (
-                <React.Fragment key={t.id}>
+          {isLoading ? (
+            <YStack gap="$2">
+              <Skeleton height={60} borderRadius="$md" />
+              <Skeleton height={60} borderRadius="$md" />
+              <Skeleton height={60} borderRadius="$md" />
+            </YStack>
+          ) : records.length === 0 ? (
+            <EmptyState
+              title="No earnings yet"
+              message="Once you start training members, your earnings will appear here."
+            />
+          ) : (
+            <Card variant="outlined" padding="sm">
+              {records.map((r: any, idx: number) => (
+                <React.Fragment key={r._id}>
                   <XStack
                     alignItems="center"
                     gap="$3"
                     paddingVertical="$3"
-                    onPress={() => toast.info(`Details for ${t.source}`)}
+                    onPress={() =>
+                      toast.info(
+                        `Session ${r.sessionId} — ${formatMoney(r.amountCents, r.currency)}`
+                      )
+                    }
                     accessibilityRole="button"
-                    accessibilityLabel={`${t.source}, AED ${t.amountAED}, ${t.status}`}
+                    accessibilityLabel={`Earnings record, ${formatMoney(r.amountCents, r.currency)}, ${r.status}`}
                   >
                     <YStack
                       width={36}
                       height={36}
                       borderRadius="$full"
                       backgroundColor={
-                        t.status === 'paid' ? '$success50' : '$warning50'
+                        r.status === 'paid' ? '$success50' : r.status === 'cancelled' ? '$danger50' : '$warning50'
                       }
                       alignItems="center"
                       justifyContent="center"
                     >
-                      {t.status === 'paid' ? (
+                      {r.status === 'paid' ? (
                         <CheckCircle2 size={18} color="$success500" />
+                      ) : r.status === 'cancelled' ? (
+                        <Clock size={18} color="$danger500" />
                       ) : (
                         <Clock size={18} color="$warning500" />
                       )}
                     </YStack>
                     <YStack flex={1} gap="$0.5">
-                      <XStack alignItems="center" gap="$2">
-                        <Text variant="body" weight="500" numberOfLines={1}>
-                          {t.source}
-                        </Text>
-                      </XStack>
+                      <Text variant="body" weight="500" numberOfLines={1}>
+                        PT session earning
+                      </Text>
                       <XStack alignItems="center" gap="$2">
                         <Text variant="caption" color="muted">
-                          {t.date}
+                          {new Date(r.createdAt).toLocaleDateString('en-GB', {
+                            day: '2-digit',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
                         </Text>
-                        <Badge label={cat.label} variant={cat.variant} size="sm" />
+                        <Badge
+                          label={r.status}
+                          variant={
+                            r.status === 'paid'
+                              ? 'success'
+                              : r.status === 'cancelled'
+                                ? 'danger'
+                                : 'warning'
+                          }
+                          size="sm"
+                        />
                       </XStack>
                     </YStack>
                     <YStack alignItems="flex-end" gap="$0.5">
                       <Text
                         variant="label"
-                        color={t.status === 'paid' ? 'primary' : 'warning'}
+                        color={r.status === 'paid' ? 'primary' : r.status === 'cancelled' ? 'muted' : 'warning'}
                       >
-                        +AED {t.amountAED}
+                        +{formatMoney(r.amountCents, r.currency)}
                       </Text>
-                      <Text variant="caption" color="muted" textTransform="capitalize">
-                        {t.status}
+                      <Text variant="caption" color="muted">
+                        {r.commissionRate ? `${(r.commissionRate * 100).toFixed(0)}%` : ''}
                       </Text>
                     </YStack>
                   </XStack>
-                  {idx < mockTransactions.length - 1 && <Divider />}
+                  {idx < records.length - 1 && <Divider />}
                 </React.Fragment>
-              );
-            })}
-          </Card>
+              ))}
+            </Card>
+          )}
         </YStack>
       </ScrollView>
     </Screen>

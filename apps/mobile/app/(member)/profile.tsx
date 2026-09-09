@@ -4,6 +4,8 @@ import { useRouter } from 'expo-router';
 import { Screen, Text, Card, Avatar, Button, Badge, Divider, Spacer, Switch } from '@queenix/ui';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@queenix/ui';
+import { useConvexMutation } from '@/lib/convex';
+import { api } from '@queenix/convex';
 import {
   CreditCard,
   FileText,
@@ -21,11 +23,22 @@ export default function MemberProfile() {
   const router = useRouter();
   const { session, signOut, switchRole } = useAuth();
   const toast = useToast();
+  const switchRoleMutation = useConvexMutation(api.mutations.users.switchRole);
   const [notifications, setNotifications] = React.useState(true);
   const [marketing, setMarketing] = React.useState(false);
 
   const handleSignOut = async () => {
     await signOut();
+  };
+
+  const handleSwitchRole = async (role: string) => {
+    try {
+      await switchRoleMutation({ role: role as any });
+      await switchRole(role as any);
+      toast.success(`Switched to ${role}`);
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Could not switch role');
+    }
   };
 
   return (
@@ -49,10 +62,7 @@ export default function MemberProfile() {
                   <Button
                     key={r}
                     label={r.charAt(0).toUpperCase() + r.slice(1)}
-                    onPress={() => {
-                      switchRole(r);
-                      toast.success(`Switched to ${r}`);
-                    }}
+                    onPress={() => handleSwitchRole(r)}
                     variant={session.activeRole === r ? 'primary' : 'outline'}
                     size="sm"
                   />

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { YStack, XStack, ScrollView } from 'tamagui';
 import { useRouter } from 'expo-router';
 import {
@@ -10,7 +10,10 @@ import {
   Badge,
   Chip,
   Progress,
-  Spacer,
+  Skeleton,
+  ErrorState,
+  EmptyState,
+  useToast,
 } from '@queenix/ui';
 import {
   Calendar,
@@ -24,191 +27,44 @@ import {
   Sparkles,
   Zap,
 } from '@tamagui/lucide-icons';
+import { useConvexQuery, useConvexMutation } from '@/lib/convex';
+import { api } from '@queenix/convex';
 
 type ClassCategory = 'All' | 'HIIT' | 'Yoga' | 'Strength' | 'Cardio' | 'Pilates';
 type TabKey = 'classes' | 'pt';
+type Level = 'Beginner' | 'Intermediate' | 'Advanced';
 
 const CATEGORIES: ClassCategory[] = ['All', 'HIIT', 'Yoga', 'Strength', 'Cardio', 'Pilates'];
 
-interface ClassItem {
+interface ClassView {
   id: string;
   name: string;
-  trainer: string;
-  category: Exclude<ClassCategory, 'All'>;
+  category: ClassCategory;
+  level: Level;
   startsAt: number;
   durationMin: number;
   room: string;
   capacity: number;
-  booked: number;
+  bookedCount: number;
+  waitlistCount: number;
+  trainerName?: string;
   hue: string;
   icon: React.ReactNode;
-  level: 'Beginner' | 'Intermediate' | 'Advanced';
 }
 
-interface TrainerItem {
+interface TrainerView {
   id: string;
   name: string;
+  avatarUrl?: string;
   specialty: string;
   rating: number;
   reviewCount: number;
   hourlyRate: number;
-  bio: string;
+  bio?: string;
   certifications: string[];
+  years?: number;
+  nextAvailable?: string;
 }
-
-const CLASSES: ClassItem[] = [
-  {
-    id: 'c1',
-    name: 'Power Yoga Flow',
-    trainer: 'Maya Patel',
-    category: 'Yoga',
-    startsAt: Date.now() + 2 * 60 * 60 * 1000,
-    durationMin: 60,
-    room: 'Studio 2',
-    capacity: 20,
-    booked: 14,
-    hue: '$brand100',
-    icon: <Heart size={22} color="$brand" />,
-    level: 'Intermediate',
-  },
-  {
-    id: 'c2',
-    name: 'HIIT Burner',
-    trainer: 'Sara Al-Mansoori',
-    category: 'HIIT',
-    startsAt: Date.now() + 4 * 60 * 60 * 1000,
-    durationMin: 45,
-    room: 'Studio 1',
-    capacity: 25,
-    booked: 22,
-    hue: '$warning50',
-    icon: <Flame size={22} color="$warning" />,
-    level: 'Advanced',
-  },
-  {
-    id: 'c3',
-    name: 'Strength Lab',
-    trainer: 'Layla Hassan',
-    category: 'Strength',
-    startsAt: Date.now() + 24 * 60 * 60 * 1000,
-    durationMin: 50,
-    room: 'Weight Room',
-    capacity: 15,
-    booked: 6,
-    hue: '$success50',
-    icon: <Dumbbell size={22} color="$success700" />,
-    level: 'Intermediate',
-  },
-  {
-    id: 'c4',
-    name: 'Cardio Kickstart',
-    trainer: 'Nour Ibrahim',
-    category: 'Cardio',
-    startsAt: Date.now() + 26 * 60 * 60 * 1000,
-    durationMin: 40,
-    room: 'Studio 1',
-    capacity: 30,
-    booked: 18,
-    hue: '$danger50',
-    icon: <Zap size={22} color="$danger" />,
-    level: 'Beginner',
-  },
-  {
-    id: 'c5',
-    name: 'Reformer Pilates',
-    trainer: 'Yasmin Khalid',
-    category: 'Pilates',
-    startsAt: Date.now() + 48 * 60 * 60 * 1000,
-    durationMin: 55,
-    room: 'Pilates Studio',
-    capacity: 12,
-    booked: 12,
-    hue: '$info50',
-    icon: <Sparkles size={22} color="$info700" />,
-    level: 'Intermediate',
-  },
-  {
-    id: 'c6',
-    name: 'Sunrise Yoga',
-    trainer: 'Maya Patel',
-    category: 'Yoga',
-    startsAt: Date.now() + 50 * 60 * 60 * 1000,
-    durationMin: 60,
-    room: 'Studio 2',
-    capacity: 20,
-    booked: 9,
-    hue: '$brand50',
-    icon: <Heart size={22} color="$brand" />,
-    level: 'Beginner',
-  },
-  {
-    id: 'c7',
-    name: 'Boxing Conditioning',
-    trainer: 'Reem Othman',
-    category: 'HIIT',
-    startsAt: Date.now() + 72 * 60 * 60 * 1000,
-    durationMin: 45,
-    room: 'Studio 1',
-    capacity: 18,
-    booked: 11,
-    hue: '$warning50',
-    icon: <Flame size={22} color="$warning" />,
-    level: 'Advanced',
-  },
-];
-
-const TRAINERS: TrainerItem[] = [
-  {
-    id: 't1',
-    name: 'Maya Patel',
-    specialty: 'Yoga & Mobility',
-    rating: 4.9,
-    reviewCount: 128,
-    hourlyRate: 220,
-    bio: 'Certified RYT-500 with 8 years of experience in vinyasa and restorative yoga.',
-    certifications: ['RYT-500', 'Mobility Specialist'],
-  },
-  {
-    id: 't2',
-    name: 'Sara Al-Mansoori',
-    specialty: 'HIIT & Conditioning',
-    rating: 4.8,
-    reviewCount: 96,
-    hourlyRate: 250,
-    bio: 'Former national athlete specializing in high-intensity training and fat loss.',
-    certifications: ['NSCA-CPT', 'Precision Nutrition L1'],
-  },
-  {
-    id: 't3',
-    name: 'Layla Hassan',
-    specialty: 'Strength & Hypertrophy',
-    rating: 4.9,
-    reviewCount: 142,
-    hourlyRate: 280,
-    bio: 'Powerlifting coach focused on building strength and lean muscle for women.',
-    certifications: ['CSCS', 'USA Powerlifting L1'],
-  },
-  {
-    id: 't4',
-    name: 'Nour Ibrahim',
-    specialty: 'Cardio & Endurance',
-    rating: 4.7,
-    reviewCount: 64,
-    hourlyRate: 200,
-    bio: 'Marathon runner and certified endurance coach with a friendly, motivating style.',
-    certifications: ['ACE-CPT', 'RRCA'],
-  },
-  {
-    id: 't5',
-    name: 'Yasmin Khalid',
-    specialty: 'Pilates & Posture',
-    rating: 5.0,
-    reviewCount: 78,
-    hourlyRate: 240,
-    bio: 'Pilates instructor with a background in physiotherapy and injury rehab.',
-    certifications: ['BASI Pilates', 'Physiotherapy'],
-  },
-];
 
 function formatHour(ts: number): string {
   const d = new Date(ts);
@@ -229,13 +85,119 @@ function formatDay(ts: number): string {
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
+function categoryFromString(raw: string | undefined): Exclude<ClassCategory, 'All'> {
+  const allowed = ['HIIT', 'Yoga', 'Strength', 'Cardio', 'Pilates'] as const;
+  type Allowed = (typeof allowed)[number];
+  if ((allowed as readonly string[]).includes(raw ?? '')) {
+    return raw as Allowed;
+  }
+  return 'Yoga';
+}
+
+function levelFromString(raw: string | undefined): Level {
+  if (raw === 'beginner') return 'Beginner';
+  if (raw === 'advanced') return 'Advanced';
+  return 'Intermediate';
+}
+
+function categoryStyle(category: Exclude<ClassCategory, 'All'>) {
+  switch (category) {
+    case 'HIIT':
+      return { hue: '$warning50', icon: <Flame size={22} color="$warning" /> };
+    case 'Yoga':
+      return { hue: '$brand50', icon: <Heart size={22} color="$brand" /> };
+    case 'Strength':
+      return { hue: '$success50', icon: <Dumbbell size={22} color="$success700" /> };
+    case 'Cardio':
+      return { hue: '$danger50', icon: <Zap size={22} color="$danger" /> };
+    case 'Pilates':
+      return { hue: '$info50', icon: <Sparkles size={22} color="$info700" /> };
+  }
+}
+
+function makeIdempotencyKey(): string {
+  return `bk_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export default function BookScreen() {
   const router = useRouter();
+  const toast = useToast();
   const [tab, setTab] = useState<TabKey>('classes');
   const [category, setCategory] = useState<ClassCategory>('All');
+  const [bookingId, setBookingId] = useState<string | null>(null);
+
+  // Real data
+  const upcoming = useConvexQuery(api.queries.classes.getUpcomingClasses, { limit: 30 });
+  const trainersRaw = useConvexQuery(api.queries.users.getAvailableTrainers, {});
+  const bookClass = useConvexMutation(api.mutations.bookings.bookClass);
+
+  const classes: ClassView[] = useMemo(() => {
+    if (!upcoming) return [];
+    return upcoming.map((c) => {
+      const cat = categoryFromString(c.classType?.category);
+      const level = levelFromString(c.classType?.difficulty);
+      const style = categoryStyle(cat);
+      return {
+        id: c._id,
+        name: c.classType?.name ?? 'Class',
+        category: cat,
+        level,
+        startsAt: c.startsAt,
+        durationMin: c.classType?.durationMinutes ?? 60,
+        room: c.roomId ?? 'Studio',
+        capacity: c.capacity,
+        bookedCount: c.bookedCount,
+        waitlistCount: c.waitlistCount,
+        trainerName: c.trainer?.fullName,
+        hue: style.hue,
+        icon: style.icon,
+      };
+    });
+  }, [upcoming]);
+
+  const trainers: TrainerView[] = useMemo(() => {
+    if (!trainersRaw) return [];
+    return trainersRaw.map((t) => ({
+      id: t._id,
+      name: t.user?.fullName ?? 'Trainer',
+      avatarUrl: t.user?.avatarUrl ?? t.profileImageUrl,
+      specialty: t.specialties?.[0] ?? 'Personal training',
+      rating: t.rating ?? 0,
+      reviewCount: t.reviewCount ?? 0,
+      hourlyRate: Math.round((t.hourlyRateCents ?? 0) / 100),
+      bio: t.bio,
+      certifications: (t.certifications ?? []).map((c) => c.name),
+    }));
+  }, [trainersRaw]);
 
   const filteredClasses =
-    category === 'All' ? CLASSES : CLASSES.filter((c) => c.category === category);
+    category === 'All' ? classes : classes.filter((c) => c.category === category);
+
+  const handleBook = useCallback(
+    async (cls: ClassView) => {
+      const isFull = cls.bookedCount >= cls.capacity;
+      if (isFull) {
+        toast.info('Class is full — waitlist is not enabled yet');
+        return;
+      }
+      const key = makeIdempotencyKey();
+      setBookingId(cls.id);
+      try {
+        await bookClass({ classInstanceId: cls.id as any, idempotencyKey: key });
+        toast.success(`Booked ${cls.name}`);
+        router.push(`/(member)/classes/${cls.id}`);
+      } catch (err: any) {
+        toast.error(err?.message ?? 'Could not book this class');
+      } finally {
+        setBookingId(null);
+      }
+    },
+    [bookClass, router, toast]
+  );
+
+  const isLoadingClasses = upcoming === undefined;
+  const isLoadingTrainers = trainersRaw === undefined;
+  const classesError = upcoming === null;
 
   return (
     <Screen scroll padded={false}>
@@ -291,30 +253,95 @@ export default function BookScreen() {
             </ScrollView>
 
             <YStack paddingHorizontal="$4" marginTop="$3" gap="$3">
-              <Text variant="caption" color="muted">
-                {filteredClasses.length} class{filteredClasses.length === 1 ? '' : 'es'} available
-              </Text>
-              {filteredClasses.map((cls) => (
-                <ClassCard
-                  key={cls.id}
-                  cls={cls}
-                  onPress={() => router.push(`/(member)/classes/${cls.id}`)}
+              {isLoadingClasses ? (
+                <YStack gap="$3">
+                  {[0, 1, 2].map((i) => (
+                    <Card key={i} variant="elevated" padding="md">
+                      <YStack gap="$2">
+                        <Skeleton width="100%" height={120} borderRadius={16} />
+                        <Skeleton width="60%" height={18} />
+                        <Skeleton width="40%" height={14} />
+                      </YStack>
+                    </Card>
+                  ))}
+                </YStack>
+              ) : classesError ? (
+                <ErrorState
+                  title="Could not load classes"
+                  message="We had trouble fetching the schedule."
+                  onRetry={() => {
+                    /* Convex auto-revalidates */
+                  }}
                 />
-              ))}
+              ) : (
+                <>
+                  <Text variant="caption" color="muted">
+                    {filteredClasses.length} class{filteredClasses.length === 1 ? '' : 'es'} available
+                  </Text>
+                  {filteredClasses.length === 0 ? (
+                    <EmptyState
+                      title="No classes in this category"
+                      message="Try a different filter or check back soon."
+                    />
+                  ) : (
+                    filteredClasses.map((cls) => (
+                      <ClassCard
+                        key={cls.id}
+                        cls={cls}
+                        busy={bookingId === cls.id}
+                        onPress={() => router.push(`/(member)/classes/${cls.id}`)}
+                        onBook={() => handleBook(cls)}
+                      />
+                    ))
+                  )}
+                </>
+              )}
             </YStack>
           </YStack>
         ) : (
           <YStack paddingHorizontal="$4" marginTop="$2" gap="$3">
-            <Text variant="caption" color="muted">
-              {TRAINERS.length} certified trainers
-            </Text>
-            {TRAINERS.map((trainer) => (
-              <TrainerCard
-                key={trainer.id}
-                trainer={trainer}
-                onPress={() => router.push('/(member)/trainers')}
+            {isLoadingTrainers ? (
+              <YStack gap="$3">
+                {[0, 1].map((i) => (
+                  <Card key={i} variant="outlined" padding="md">
+                    <XStack gap="$3">
+                      <Skeleton width={48} height={48} circle />
+                      <YStack flex={1} gap="$1">
+                        <Skeleton width="50%" height={16} />
+                        <Skeleton width="70%" height={12} />
+                        <Skeleton width="80%" height={12} />
+                      </YStack>
+                    </XStack>
+                  </Card>
+                ))}
+              </YStack>
+            ) : trainersRaw === null ? (
+              <ErrorState
+                title="Could not load trainers"
+                message="Please try again in a moment."
+                onRetry={() => {
+                  /* Convex auto-revalidates */
+                }}
               />
-            ))}
+            ) : trainers.length === 0 ? (
+              <EmptyState
+                title="No trainers available"
+                message="Check back soon for new coaching talent."
+              />
+            ) : (
+              <>
+                <Text variant="caption" color="muted">
+                  {trainers.length} certified trainer{trainers.length === 1 ? '' : 's'}
+                </Text>
+                {trainers.map((trainer) => (
+                  <TrainerCard
+                    key={trainer.id}
+                    trainer={trainer}
+                    onPress={() => router.push('/(member)/trainers')}
+                  />
+                ))}
+              </>
+            )}
           </YStack>
         )}
       </ScrollView>
@@ -360,9 +387,19 @@ function TabPill({
   );
 }
 
-function ClassCard({ cls, onPress }: { cls: ClassItem; onPress: () => void }) {
-  const fillPct = (cls.booked / cls.capacity) * 100;
-  const isFull = cls.booked >= cls.capacity;
+function ClassCard({
+  cls,
+  onPress,
+  onBook,
+  busy,
+}: {
+  cls: ClassView;
+  onPress: () => void;
+  onBook: () => void;
+  busy: boolean;
+}) {
+  const fillPct = (cls.bookedCount / cls.capacity) * 100;
+  const isFull = cls.bookedCount >= cls.capacity;
 
   return (
     <Card variant="elevated" padding="none" onPress={onPress} accessibilityLabel={`Open ${cls.name}`}>
@@ -396,9 +433,11 @@ function ClassCard({ cls, onPress }: { cls: ClassItem; onPress: () => void }) {
                 </Text>
               </XStack>
             </XStack>
-            <Text variant="bodySmall" color="secondary">
-              with {cls.trainer}
-            </Text>
+            {cls.trainerName && (
+              <Text variant="bodySmall" color="secondary">
+                with {cls.trainerName}
+              </Text>
+            )}
           </YStack>
 
           {/* Capacity */}
@@ -407,7 +446,7 @@ function ClassCard({ cls, onPress }: { cls: ClassItem; onPress: () => void }) {
               <XStack alignItems="center" gap="$1">
                 <Users size={14} color="$textMuted" />
                 <Text variant="caption" color="muted">
-                  {cls.booked}/{cls.capacity} booked
+                  {cls.bookedCount}/{cls.capacity} booked
                 </Text>
               </XStack>
               <Text
@@ -426,12 +465,13 @@ function ClassCard({ cls, onPress }: { cls: ClassItem; onPress: () => void }) {
           </YStack>
 
           <Button
-            label={isFull ? 'Join waitlist' : 'Book class'}
+            label={busy ? 'Booking…' : isFull ? 'Join waitlist' : 'Book class'}
             variant={isFull ? 'outline' : 'primary'}
             size="md"
             fullWidth
-            onPress={onPress}
-            iconRight={!isFull ? <ChevronRight size={16} color="$textOnBrand" /> : undefined}
+            disabled={busy}
+            onPress={isFull ? onPress : onBook}
+            iconRight={!isFull && !busy ? <ChevronRight size={16} color="$textOnBrand" /> : undefined}
           />
         </YStack>
       </YStack>
@@ -439,7 +479,7 @@ function ClassCard({ cls, onPress }: { cls: ClassItem; onPress: () => void }) {
   );
 }
 
-function TrainerCard({ trainer, onPress }: { trainer: TrainerItem; onPress: () => void }) {
+function TrainerCard({ trainer, onPress }: { trainer: TrainerView; onPress: () => void }) {
   return (
     <Card variant="outlined" padding="md" onPress={onPress} accessibilityLabel={`View ${trainer.name} profile`}>
       <XStack gap="$3" alignItems="flex-start">
@@ -460,9 +500,11 @@ function TrainerCard({ trainer, onPress }: { trainer: TrainerItem; onPress: () =
           <Text variant="bodySmall" color="secondary">
             {trainer.specialty}
           </Text>
-          <Text variant="bodySmall" color="muted" numberOfLines={2}>
-            {trainer.bio}
-          </Text>
+          {trainer.bio ? (
+            <Text variant="bodySmall" color="muted" numberOfLines={2}>
+              {trainer.bio}
+            </Text>
+          ) : null}
           <XStack alignItems="center" justifyContent="space-between" marginTop="$2">
             <YStack>
               <Text variant="caption" color="muted">From</Text>

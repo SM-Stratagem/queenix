@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { YStack, XStack, ScrollView } from 'tamagui';
 import { useRouter } from 'expo-router';
 import {
@@ -10,11 +10,14 @@ import {
   Button,
   Header,
   Divider,
-  Input,
   Sheet,
   Switch,
+  Skeleton,
+  ErrorState,
+  useToast,
 } from '@queenix/ui';
 import { useAuth } from '@/lib/auth';
+import { useConvexQuery, useConvexMutation, api } from '@/lib/convex';
 import {
   Play,
   StopCircle,
@@ -30,6 +33,11 @@ import {
   ShieldCheck,
   Check,
   X,
+  Crown,
+  User as UserIcon,
+  Dumbbell,
+  Building2,
+  Fingerprint,
 } from '@tamagui/lucide-icons';
 
 interface Shift {
@@ -41,13 +49,34 @@ interface Shift {
   status: 'completed' | 'active' | 'upcoming';
 }
 
-const SHIFT_HISTORY: Shift[] = [
-  { id: 's1', date: 'Yesterday', start: '14:00', end: '22:00', hoursLogged: '8h 00m', status: 'completed' },
-  { id: 's2', date: 'Tue 03 Sep', start: '06:00', end: '14:00', hoursLogged: '8h 00m', status: 'completed' },
-  { id: 's3', date: 'Mon 02 Sep', start: '14:00', end: '22:00', hoursLogged: '7h 45m', status: 'completed' },
-  { id: 's4', date: 'Sun 01 Sep', start: '06:00', end: '14:00', hoursLogged: '8h 00m', status: 'completed' },
-  { id: 's5', date: 'Sat 31 Aug', start: '10:00', end: '18:00', hoursLogged: '8h 00m', status: 'completed' },
-];
+function formatTime(ms: number): string {
+  return new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatDate(ms: number): string {
+  const d = new Date(ms);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  if (d.toDateString() === today.toDateString()) return 'Today';
+  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+  return d.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' });
+}
+
+function formatDuration(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  return `${h}h ${m.toString().padStart(2, '0')}m`;
+}
+
+function formatElapsed(s: number) {
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${pad(h)}:${pad(m)}:${pad(sec)}`;
+}
 
 function useElapsedSeconds(active: boolean, startedAt: number | null) {
   const [elapsed, setElapsed] = useState(0);
@@ -64,37 +93,95 @@ function useElapsedSeconds(active: boolean, startedAt: number | null) {
   return elapsed;
 }
 
-function formatElapsed(s: number) {
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  const pad = (n: number) => n.toString().padStart(2, '0');
-  return `${pad(h)}:${pad(m)}:${pad(sec)}`;
-}
+type RoleOption = 'member' | 'trainer' | 'owner' | 'operations';
+
+const ROLE_META: Record<RoleOption, { label: string; icon: React.ReactNode; description: string }> = {
+  member: { label: 'Member', icon: <UserIcon size={16} color="$brand" />, description: 'Personal training, classes, profile' },
+  trainer: { label: 'Trainer', icon: <Dumbbell size={16} color="$brand" />, description: 'Today, schedule, clients, earnings' },
+  owner: { label: 'Owner', icon: <Building2 size={16} color="$brand" />, description: 'KPIs, operations, members, approvals' },
+  operations: { label: 'Operations', icon: <ShieldCheck size={16} color="$brand" />, description: 'Scanner, classes, support, incidents' },
+};
 
 export default function OpsProfileScreen() {
   const router = useRouter();
-  const { session, signOut } = useAuth();
-  const [shiftActive, setShiftActive] = useState(false);
-  const [shiftStart, setShiftStart] = useState<number | null>(null);
-  const [shiftEnd, setShiftEnd] = useState<string | null>(null);
+  const { session, signOut, switchRole } = useAuth();
+  const toast = useToast();
   const [notifEnabled, setNotifEnabled] = useState(true);
   const [handoverOpen, setHandoverOpen] = useState(false);
+  const [roleSheetOpen, setRoleSheetOpen] = useState(false);
   const [handoverText, setHandoverText] = useState(
     'Two members flagged for follow-up: Mohammed Ali (INC-2028) and Priya Sharma (QNX-4921).'
   );
 
+  const activeShift = useConvexQuery(api.queries.users.getMyActiveShift, {});
+  const shifts = useConvexQuery(api.queries.users.getMyShifts, { limit: 10 });
+
+  const startShift = useConvexMutation(api.mutations.operations.startShift);
+  const endShift = useConvexMutation(api.mutations.operations.endShift);
+  const switchRoleMutation = useConvexMutation(api.mutations.users.switchRole);
+
+  const shiftStart = activeShift?.startsAt ?? null;
+  const shiftActive = Boolean(activeShift);
   const elapsed = useElapsedSeconds(shiftActive, shiftStart);
 
-  const handleStartShift = () => {
-    setShiftStart(Date.now());
-    setShiftActive(true);
-    setShiftEnd(null);
+  const handleStartShift = async () => {
+    try {
+      await startShift({ role: 'front_desk' });
+      toast.success('Shift started');
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to start shift');
+    }
   };
-  const handleEndShift = () => {
-    setShiftEnd(new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }));
-    setShiftActive(false);
+
+  const handleEndShift = async () => {
+    try {
+      await endShift({});
+      toast.success('Shift ended');
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to end shift');
+    }
   };
+
+  const handleSwitchRole = async (role: RoleOption) => {
+    if (!session?.roles.includes(role)) {
+      toast.error(`You don't have the ${role} role`);
+      return;
+    }
+    try {
+      await switchRoleMutation({ role });
+      await switchRole(role);
+      toast.success(`Switched to ${ROLE_META[role].label}`);
+      setRoleSheetOpen(false);
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to switch role');
+    }
+  };
+
+  // Map Convex shifts → UI shape
+  const shiftHistory: Shift[] = useMemo(() => {
+    if (!shifts) return [];
+    return (shifts as any[]).map((s) => {
+      const start = s.startsAt as number;
+      const end = (s.endsAt as number) ?? Date.now();
+      const completed = s.status === 'completed';
+      const active = s.status === 'active';
+      return {
+        id: s._id,
+        date: formatDate(start),
+        start: formatTime(start),
+        end: active ? '—' : formatTime(end),
+        hoursLogged: formatDuration(end - start),
+        status: active ? 'active' : completed ? 'completed' : 'upcoming',
+      };
+    });
+  }, [shifts]);
+
+  const thisWeekMs = useMemo(() => {
+    const oneWeek = 7 * 24 * 60 * 60 * 1000;
+    return (shifts ?? [])
+      .filter((s: any) => s.status === 'completed' && Date.now() - s.startsAt < oneWeek)
+      .reduce((acc: number, s: any) => acc + ((s.endsAt ?? Date.now()) - s.startsAt), 0);
+  }, [shifts]);
 
   return (
     <Screen padded={false}>
@@ -110,18 +197,19 @@ export default function OpsProfileScreen() {
               <Avatar
                 name={session?.fullName ?? 'Hala Al-Suwaidi'}
                 size="xl"
+                src={session?.avatarUrl}
                 fallbackColor="$brand"
               />
               <YStack flex={1} gap="$1">
                 <Text variant="h2" numberOfLines={1}>
                   {session?.fullName ?? 'Hala Al-Suwaidi'}
                 </Text>
-                <XStack alignItems="center" gap="$2">
+                <XStack alignItems="center" gap="$2" flexWrap="wrap">
                   <Badge label="Operations" variant="info" />
                   <Badge label="Front desk" variant="neutral" />
                 </XStack>
                 <Text variant="caption" color="muted">
-                  ID OPS-{session?.userId?.slice(-5) ?? '40219'}
+                  ID OPS-{(session?.userId ?? '').slice(-5).toUpperCase() || '40219'}
                 </Text>
               </YStack>
             </XStack>
@@ -162,19 +250,13 @@ export default function OpsProfileScreen() {
                 <Text variant="h2" color={shiftActive ? 'brand' : 'primary'}>
                   {shiftActive
                     ? formatElapsed(elapsed)
-                    : shiftEnd
-                    ? `Last ended ${shiftEnd}`
                     : 'Not started'}
                 </Text>
                 {shiftActive && shiftStart && (
                   <XStack alignItems="center" gap="$1.5">
                     <Clock size={12} color="$brand" />
                     <Text variant="caption" color="brand" weight="600">
-                      Started at{' '}
-                      {new Date(shiftStart).toLocaleTimeString('en-GB', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
+                      Started at {formatTime(shiftStart)}
                     </Text>
                   </XStack>
                 )}
@@ -231,19 +313,19 @@ export default function OpsProfileScreen() {
             <ShiftStat
               icon={<Clock size={18} color="$brand" />}
               label="This week"
-              value="32h 45m"
+              value={formatDuration(thisWeekMs)}
               flex={1}
             />
             <ShiftStat
               icon={<Calendar size={18} color="$success500" />}
               label="Shifts"
-              value="5 / 5"
+              value={`${shiftHistory.filter((s) => s.status === 'completed').length}`}
               flex={1}
             />
             <ShiftStat
               icon={<Check size={18} color="$info500" />}
-              label="On-time"
-              value="100%"
+              label="Active"
+              value={shiftActive ? 'Yes' : 'No'}
               flex={1}
             />
           </XStack>
@@ -253,6 +335,12 @@ export default function OpsProfileScreen() {
         <YStack paddingHorizontal="$4" marginTop="$4">
           <Text variant="h4" marginBottom="$2">Settings</Text>
           <YStack gap="$2">
+            <SettingsRow
+              icon={<Fingerprint size={18} color="$textPrimary" />}
+              label="Punch clock"
+              description="In/out, hours today & this week"
+              onPress={() => router.push('/(ops)/punch')}
+            />
             <SettingsRow
               icon={<Bell size={18} color="$textPrimary" />}
               label="Push notifications"
@@ -278,10 +366,10 @@ export default function OpsProfileScreen() {
               onPress={() => {}}
             />
             <SettingsRow
-              icon={<IdCard size={18} color="$textPrimary" />}
+              icon={<Crown size={18} color="$textPrimary" />}
               label="Switch role"
-              description="Member, trainer, or owner view"
-              onPress={() => {}}
+              description={session ? `Current: ${ROLE_META[session.activeRole].label}` : 'Pick a different role'}
+              onPress={() => setRoleSheetOpen(true)}
             />
           </YStack>
         </YStack>
@@ -290,15 +378,31 @@ export default function OpsProfileScreen() {
         <YStack paddingHorizontal="$4" marginTop="$4">
           <XStack justifyContent="space-between" alignItems="center" marginBottom="$2">
             <Text variant="h4">Shift history</Text>
-            <Text variant="bodySmall" color="brand">
+            <Text variant="bodySmall" color="brand" onPress={() => toast.info('Export coming soon')}>
               Export
             </Text>
           </XStack>
-          <YStack gap="$2">
-            {SHIFT_HISTORY.map((s) => (
-              <ShiftRow key={s.id} shift={s} />
-            ))}
-          </YStack>
+          {shifts === undefined ? (
+            <YStack gap="$2">
+              <Skeleton height={64} borderRadius={12} />
+              <Skeleton height={64} borderRadius={12} />
+              <Skeleton height={64} borderRadius={12} />
+            </YStack>
+          ) : shifts === null ? (
+            <ErrorState onRetry={() => {}} />
+          ) : shiftHistory.length === 0 ? (
+            <Card variant="outlined" padding="md">
+              <Text variant="bodySmall" color="muted" textAlign="center">
+                No shifts yet. Tap "Start shift" to begin your first one.
+              </Text>
+            </Card>
+          ) : (
+            <YStack gap="$2">
+              {shiftHistory.map((s) => (
+                <ShiftRow key={s.id} shift={s} />
+              ))}
+            </YStack>
+          )}
         </YStack>
 
         {/* Sign out */}
@@ -319,10 +423,7 @@ export default function OpsProfileScreen() {
       </ScrollView>
 
       {/* Handover notes sheet */}
-      <Sheet
-        open={handoverOpen}
-        onOpenChange={setHandoverOpen}
-      >
+      <Sheet open={handoverOpen} onOpenChange={setHandoverOpen}>
         <YStack gap="$3">
           <YStack gap="$0.5" marginBottom="$1">
             <Text variant="h2">Handover notes</Text>
@@ -330,15 +431,37 @@ export default function OpsProfileScreen() {
               Visible to the next shift
             </Text>
           </YStack>
-          <Input
-            label="Notes"
-            placeholder="Anything the next team should know…"
-            multiline
-            numberOfLines={6}
-            value={handoverText}
-            onChangeText={setHandoverText}
-            accessibilityLabel="Handover note text"
-          />
+          <YStack gap="$1">
+            <Text variant="caption" color="secondary" fontWeight="600">
+              Notes
+            </Text>
+            <YStack
+              borderWidth={1}
+              borderColor="$borderColor"
+              borderRadius="$md"
+              padding="$3"
+              backgroundColor="$surface"
+              minHeight={160}
+            >
+              <textarea
+                value={handoverText}
+                onChange={(e: any) => setHandoverText(e.target.value)}
+                placeholder="Anything the next team should know…"
+                style={{
+                  width: '100%',
+                  minHeight: 140,
+                  border: 'none',
+                  background: 'transparent',
+                  outline: 'none',
+                  fontSize: 14,
+                  color: 'inherit',
+                  fontFamily: 'inherit',
+                  resize: 'none',
+                }}
+                aria-label="Handover note text"
+              />
+            </YStack>
+          </YStack>
           <XStack gap="$2">
             <Button
               label="Discard"
@@ -355,10 +478,65 @@ export default function OpsProfileScreen() {
               size="md"
               flex={1}
               icon={<Check size={16} color="$textOnBrand" />}
-              onPress={() => setHandoverOpen(false)}
+              onPress={() => {
+                toast.success('Handover saved');
+                setHandoverOpen(false);
+              }}
               accessibilityLabel="Save handover note"
             />
           </XStack>
+        </YStack>
+      </Sheet>
+
+      {/* Switch role sheet */}
+      <Sheet open={roleSheetOpen} onOpenChange={setRoleSheetOpen}>
+        <YStack gap="$3">
+          <YStack gap="$0.5" marginBottom="$1">
+            <Text variant="h2">Switch role</Text>
+            <Text variant="bodySmall" color="secondary">
+              Pick which dashboard to open
+            </Text>
+          </YStack>
+          {(['member', 'trainer', 'owner', 'operations'] as RoleOption[]).map((r) => {
+            const hasRole = session?.roles.includes(r) ?? false;
+            const active = session?.activeRole === r;
+            return (
+              <Card
+                key={r}
+                variant={active ? 'elevated' : 'outlined'}
+                padding="md"
+                backgroundColor={active ? '$brand50' : undefined}
+                onPress={() => hasRole && handleSwitchRole(r)}
+                accessibilityLabel={`Switch to ${ROLE_META[r].label} role`}
+                accessibilityState={{ disabled: !hasRole }}
+              >
+                <XStack alignItems="center" gap="$3">
+                  <YStack
+                    backgroundColor={active ? '$brand' : '$surfaceMuted'}
+                    padding="$2.5"
+                    borderRadius="$md"
+                  >
+                    {ROLE_META[r].icon}
+                  </YStack>
+                  <YStack flex={1}>
+                    <Text variant="label" weight="600">
+                      {ROLE_META[r].label}
+                      {active ? ' (current)' : ''}
+                    </Text>
+                    <Text variant="caption" color="muted">
+                      {ROLE_META[r].description}
+                    </Text>
+                    {!hasRole && (
+                      <Text variant="caption" color="warning">
+                        Not enabled on your account
+                      </Text>
+                    )}
+                  </YStack>
+                  {active && <Check size={18} color="$brand" />}
+                </XStack>
+              </Card>
+            );
+          })}
         </YStack>
       </Sheet>
     </Screen>
@@ -480,7 +658,10 @@ function ShiftRow({ shift }: { shift: Shift }) {
           <Text variant="label" color="brand">
             {shift.hoursLogged}
           </Text>
-          <Badge label="Completed" variant="success" />
+          <Badge
+            label={shift.status === 'active' ? 'Active' : shift.status === 'completed' ? 'Completed' : 'Upcoming'}
+            variant={shift.status === 'active' ? 'info' : shift.status === 'completed' ? 'success' : 'neutral'}
+          />
         </YStack>
       </XStack>
     </Card>

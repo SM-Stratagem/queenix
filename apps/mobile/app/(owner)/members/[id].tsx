@@ -11,14 +11,17 @@ import {
   Badge,
   Chip,
   Divider,
+  Skeleton,
+  EmptyState,
   useToast,
 } from '@queenix/ui';
+import { useConvexQuery } from '@/lib/convex';
+import { api } from '@queenix/convex';
 import {
   MoreVertical,
   MessageCircle,
   Snowflake,
   CreditCard,
-  Plus,
   Mail,
   Phone,
   Calendar,
@@ -32,7 +35,6 @@ import {
   Edit3,
 } from '@tamagui/lucide-icons';
 import { Pressable } from 'react-native';
-import { formatDate, formatDateTime, formatCurrency } from '@queenix/types';
 
 type Tab = 'overview' | 'activity' | 'membership' | 'payments' | 'notes';
 
@@ -44,92 +46,74 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'notes', label: 'Notes' },
 ];
 
+function formatCents(cents: number, currency: string = 'AED'): string {
+  return `${currency} ${(cents / 100).toFixed(2)}`;
+}
+
 export default function OwnerMemberDetail() {
   const router = useRouter();
   const toast = useToast();
   const params = useLocalSearchParams<{ id?: string }>();
   const [tab, setTab] = useState<Tab>('overview');
 
-  // Mock data — in production: Convex query by id
-  const member = {
-    id: params.id ?? '1',
-    name: 'Layla Al-Mansoori',
-    email: 'layla.mansoori@gmail.com',
-    phone: '+971 50 123 4567',
-    tier: 'Premium',
-    status: 'active' as const,
-    joinedAt: 'Mar 2024',
-    lastVisit: 'Today, 18:24',
-    dob: 'Sep 14, 1992',
-    occupation: 'Marketing Director, Dubai Media City',
-    emergency: {
-      name: 'Khalid Al-Mansoori',
-      relation: 'Husband',
-      phone: '+971 50 765 4321',
-    },
-    vehicles: [
-      { plate: 'D 84721', color: 'White', model: 'Toyota Land Cruiser' },
-      { plate: 'D 22019', color: 'Black', model: 'Lexus RX350' },
-    ],
-  };
+  const memberId = (params.id as string) || '';
+  const detailQuery = useConvexQuery(
+    api.queries.users.getOwnerMemberDetail,
+    memberId ? ({ memberId: memberId as any } as any) : 'skip'
+  );
+  const isLoading = detailQuery === undefined;
 
-  const overview = {
-    plan: 'Premium Annual',
-    monthlyValue: 89900,
-    paidThrough: Date.now() + 23 * 24 * 60 * 60 * 1000,
-    classesRemaining: 18,
-    ptRemaining: 4,
-    visitsThisMonth: 12,
-    streak: 6,
-  };
+  if (isLoading) {
+    return (
+      <Screen padded={false}>
+        <Header showBack onBack={() => router.back()} title="Member" />
+        <YStack padding="$4" gap="$3">
+          <Skeleton height={140} borderRadius="$lg" />
+          <Skeleton height={48} borderRadius="$md" />
+          <Skeleton height={48} borderRadius="$md" />
+          <Skeleton height={48} borderRadius="$md" />
+        </YStack>
+      </Screen>
+    );
+  }
 
-  const visits = [
-    { id: 'v1', when: Date.now() - 2 * 60 * 60 * 1000, location: 'Main entrance' },
-    { id: 'v2', when: Date.now() - 24 * 60 * 60 * 1000, location: 'Main entrance' },
-    { id: 'v3', when: Date.now() - 2 * 24 * 60 * 60 * 1000, location: 'Studio 2' },
-    { id: 'v4', when: Date.now() - 3 * 24 * 60 * 60 * 1000, location: 'Main entrance' },
-    { id: 'v5', when: Date.now() - 4 * 24 * 60 * 60 * 1000, location: 'Main entrance' },
-    { id: 'v6', when: Date.now() - 5 * 24 * 60 * 60 * 1000, location: 'PT room' },
-    { id: 'v7', when: Date.now() - 6 * 24 * 60 * 60 * 1000, location: 'Main entrance' },
-    { id: 'v8', when: Date.now() - 7 * 24 * 60 * 60 * 1000, location: 'Studio 1' },
-  ];
+  if (!detailQuery || !detailQuery.member) {
+    return (
+      <Screen padded={false}>
+        <Header showBack onBack={() => router.back()} title="Member" />
+        <YStack padding="$4">
+          <EmptyState
+            title="Member not found"
+            message="This member may have been removed."
+          />
+        </YStack>
+      </Screen>
+    );
+  }
 
-  const classes = [
-    { id: 'c1', name: 'Power Yoga', trainer: 'Maya Patel', when: 'Tomorrow, 07:00', room: 'Studio 2' },
-    { id: 'c2', name: 'HIIT Burn', trainer: 'Sara Ahmed', when: 'Thu, 18:00', room: 'Studio 1' },
-    { id: 'c3', name: 'Reformer Pilates', trainer: 'Noora Al-Suwaidi', when: 'Fri, 09:00', room: 'Reformer Room' },
-    { id: 'c4', name: 'Barre Sculpt', trainer: 'Layla Hassan', when: 'Sat, 10:00', room: 'Studio 2' },
-    { id: 'c5', name: 'Power Yoga', trainer: 'Maya Patel', when: 'Last Tue, 07:00', room: 'Studio 2' },
-    { id: 'c6', name: 'HIIT Burn', trainer: 'Sara Ahmed', when: 'Last Sun, 18:00', room: 'Studio 1' },
-  ];
+  const {
+    member,
+    profile,
+    activeMembership,
+    memberships,
+    payments,
+    visits,
+    notes,
+  } = detailQuery;
 
-  const ptSessions = [
-    { id: 'p1', trainer: 'Maya Patel', focus: 'Lower body strength', when: 'Tomorrow, 06:00', status: 'upcoming' as const },
-    { id: 'p2', trainer: 'Maya Patel', focus: 'Upper body push', when: 'Yesterday, 06:00', status: 'completed' as const },
-    { id: 'p3', trainer: 'Maya Patel', focus: 'Glute activation', when: '3 days ago, 06:00', status: 'completed' as const },
-    { id: 'p4', trainer: 'Maya Patel', focus: 'Mobility + core', when: '5 days ago, 06:00', status: 'completed' as const },
-    { id: 'p5', trainer: 'Maya Patel', focus: 'Full body', when: 'Last week, 06:00', status: 'completed' as const },
-    { id: 'p6', trainer: 'Maya Patel', focus: 'Assessment', when: '2 weeks ago, 06:00', status: 'completed' as const },
-  ];
-
-  const payments = [
-    { id: 'pay1', label: 'Annual plan — premium', amount: 1078800, status: 'paid' as const, date: Date.now() - 7 * 24 * 60 * 60 * 1000, method: 'Visa •• 4321' },
-    { id: 'pay2', label: 'PT pack — 10 sessions', amount: 350000, status: 'paid' as const, date: Date.now() - 14 * 24 * 60 * 60 * 1000, method: 'Apple Pay' },
-    { id: 'pay3', label: 'Class pack — 20', amount: 160000, status: 'paid' as const, date: Date.now() - 21 * 24 * 60 * 60 * 1000, method: 'Visa •• 4321' },
-    { id: 'pay4', label: 'Smoothie bar', amount: 4500, status: 'paid' as const, date: Date.now() - 5 * 24 * 60 * 60 * 1000, method: 'Wallet' },
-    { id: 'pay5', label: 'PT session — single', amount: 38000, status: 'paid' as const, date: Date.now() - 9 * 24 * 60 * 60 * 1000, method: 'Wallet' },
-    { id: 'pay6', label: 'Annual plan — premium', amount: 1078800, status: 'paid' as const, date: Date.now() - 365 * 24 * 60 * 60 * 1000, method: 'Visa •• 4321' },
-    { id: 'pay7', label: 'Personal training', amount: 35000, status: 'refunded' as const, date: Date.now() - 12 * 24 * 60 * 60 * 1000, method: 'Wallet' },
-  ];
-
-  const notes = [
-    { id: 'n1', author: 'Operations', when: '2 days ago', body: 'Requested early-morning classes (6am) for Q4. Prefers Studio 2.' },
-    { id: 'n2', author: 'Trainer — Maya', when: '5 days ago', body: 'Hit new squat PR (80kg). Recovery looks great, no joint complaints.' },
-    { id: 'n3', author: 'Front desk', when: '1 week ago', body: 'Lost her access card on 02 Sep. Replacement issued (#QNX-2841).' },
-    { id: 'n4', author: 'Operations', when: '2 weeks ago', body: 'Referred sister Amna Al-Mansoori — credited 500 loyalty points.' },
-    { id: 'n5', author: 'Trainer — Maya', when: '3 weeks ago', body: 'Goal updated: focus on glute strength + posture correction.' },
-    { id: 'n6', author: 'Owner', when: '1 month ago', body: 'VIP — invite to members-only retreat in Nov.' },
-  ];
+  const fullName = member.fullName ?? 'Member';
+  const totalSpentCents = payments
+    .filter((p: any) => p.status === 'succeeded')
+    .reduce((acc: number, p: any) => acc + p.amountCents, 0);
+  const lastVisit = visits[0];
+  const lastVisitLabel = lastVisit
+    ? new Date(lastVisit.timestamp).toLocaleString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : 'Never';
 
   return (
     <Screen padded={false}>
@@ -139,12 +123,12 @@ export default function OwnerMemberDetail() {
         title="Member"
         right={
           <Pressable
-            onPress={() => toast.show('Menu coming soon', 'info')}
+            onPress={() => toast.info('More actions — coming soon')}
             hitSlop={12}
             accessibilityRole="button"
-            accessibilityLabel="More options"
+            accessibilityLabel="More actions"
           >
-            <MoreVertical size={22} color="$textPrimary" />
+            <MoreVertical size={20} color="$textPrimary" />
           </Pressable>
         }
       />
@@ -154,57 +138,55 @@ export default function OwnerMemberDetail() {
         <YStack paddingHorizontal="$4" paddingTop="$3">
           <Card variant="elevated" padding="lg">
             <XStack gap="$3" alignItems="flex-start">
-              <Avatar name={member.name} size="xl" />
+              <Avatar name={fullName} size="xl" />
               <YStack flex={1} gap="$1.5">
-                <Text variant="h2" numberOfLines={1}>{member.name}</Text>
+                <Text variant="h2" numberOfLines={1}>
+                  {fullName}
+                </Text>
                 <XStack gap="$2" flexWrap="wrap">
-                  <Badge label={member.tier} variant="brand" />
-                  <Badge label="Active" variant="success" />
+                  {activeMembership ? (
+                    <Badge label={activeMembership.status} variant="success" />
+                  ) : (
+                    <Badge label="No membership" variant="warning" />
+                  )}
                 </XStack>
-                <XStack gap="$3" marginTop="$1">
-                  <XStack alignItems="center" gap="$1.5">
-                    <Calendar size={14} color="$textMuted" />
-                    <Text variant="caption" color="muted">Joined {member.joinedAt}</Text>
-                  </XStack>
-                  <XStack alignItems="center" gap="$1.5">
-                    <Activity size={14} color="$textMuted" />
-                    <Text variant="caption" color="muted">Last {member.lastVisit}</Text>
-                  </XStack>
-                </XStack>
+                <Text variant="caption" color="muted">
+                  Member since{' '}
+                  {new Date(member.createdAt).toLocaleDateString('en-GB', {
+                    month: 'short',
+                    year: 'numeric',
+                  })}
+                </Text>
               </YStack>
+            </XStack>
+            <XStack gap="$2" marginTop="$3">
+              <Button
+                label="Message"
+                variant="primary"
+                size="sm"
+                icon={<MessageCircle size={16} color="$textOnBrand" />}
+                onPress={() => toast.info('Opening chat…')}
+                accessibilityLabel="Message member"
+                flex={1}
+              />
+              <Button
+                label="Freeze"
+                variant="outline"
+                size="sm"
+                icon={<Snowflake size={16} color="$brand" />}
+                onPress={() => toast.info('Freeze flow — coming soon')}
+                accessibilityLabel="Freeze membership"
+                flex={1}
+              />
             </XStack>
           </Card>
         </YStack>
 
-        {/* Quick actions */}
+        {/* Quick stats */}
         <XStack paddingHorizontal="$4" marginTop="$4" gap="$2">
-          <Button
-            label="Message"
-            variant="outline"
-            size="sm"
-            icon={<MessageCircle size={16} color="$brand" />}
-            onPress={() => toast.show('Opening chat…', 'info')}
-            accessibilityLabel="Send message"
-            flex={1}
-          />
-          <Button
-            label="Freeze"
-            variant="outline"
-            size="sm"
-            icon={<Snowflake size={16} color="$brand" />}
-            onPress={() => toast.show('Freeze flow coming soon', 'info')}
-            accessibilityLabel="Freeze membership"
-            flex={1}
-          />
-          <Button
-            label="Payment"
-            variant="outline"
-            size="sm"
-            icon={<CreditCard size={16} color="$brand" />}
-            onPress={() => setTab('payments')}
-            accessibilityLabel="View payment"
-            flex={1}
-          />
+          <Stat label="Visits (30d)" value={visits.length.toString()} flex={1} />
+          <Stat label="Total spent" value={formatCents(totalSpentCents)} flex={1} />
+          <Stat label="Last visit" value={lastVisitLabel} flex={1} />
         </XStack>
 
         {/* Tabs */}
@@ -223,235 +205,301 @@ export default function OwnerMemberDetail() {
           ))}
         </ScrollView>
 
-        {/* Tab content */}
         {tab === 'overview' && (
           <YStack paddingHorizontal="$4" gap="$3">
             <Section title="Contact">
-              <KeyValue icon={<Mail size={16} color="$textSecondary" />} label="Email" value={member.email} />
+              <KeyValue
+                icon={<Mail size={16} color="$textSecondary" />}
+                label="Email"
+                value={member.email}
+              />
+              {member.phone && (
+                <>
+                  <Divider />
+                  <KeyValue
+                    icon={<Phone size={16} color="$textSecondary" />}
+                    label="Phone"
+                    value={member.phone}
+                  />
+                </>
+              )}
               <Divider />
-              <KeyValue icon={<Phone size={16} color="$textSecondary" />} label="Phone" value={member.phone} />
-              <Divider />
-              <KeyValue icon={<Calendar size={16} color="$textSecondary" />} label="DOB" value={member.dob} />
-              <Divider />
-              <KeyValue icon={<FileText size={16} color="$textSecondary" />} label="Occupation" value={member.occupation} />
+              <KeyValue
+                icon={<Calendar size={16} color="$textSecondary" />}
+                label="Joined"
+                value={new Date(member.createdAt).toLocaleDateString('en-GB')}
+              />
             </Section>
 
-            <Section title="Emergency contact">
-              <KeyValue icon={<AlertCircle size={16} color="$danger500" />} label="Name" value={`${member.emergency.name} (${member.emergency.relation})`} />
-              <Divider />
-              <KeyValue icon={<Phone size={16} color="$textSecondary" />} label="Phone" value={member.emergency.phone} />
-            </Section>
+            {profile?.emergencyContact && (
+              <Section title="Emergency contact">
+                <KeyValue
+                  icon={<AlertCircle size={16} color="$danger500" />}
+                  label={profile.emergencyContact.relationship ?? 'Contact'}
+                  value={`${profile.emergencyContact.name} • ${profile.emergencyContact.phone}`}
+                />
+              </Section>
+            )}
 
-            <Section title="Vehicles on file">
-              {member.vehicles.map((v, i) => (
-                <YStack key={v.plate}>
-                  <XStack alignItems="center" gap="$2" paddingVertical="$2.5">
-                    <Car size={16} color="$textSecondary" />
-                    <YStack flex={1}>
-                      <Text variant="bodySmall" weight="500">{v.model}</Text>
-                      <Text variant="caption" color="muted">{v.color} • {v.plate}</Text>
-                    </YStack>
-                  </XStack>
-                  {i < member.vehicles.length - 1 && <Divider />}
+            {profile?.vehicles && profile.vehicles.length > 0 && (
+              <Section title="Registered vehicles">
+                <YStack gap="$1.5">
+                  {profile.vehicles.map((v, i) => (
+                    <XStack key={i} alignItems="center" gap="$2">
+                      <Car size={16} color="$textSecondary" />
+                      <Text variant="bodySmall" color="secondary" flex={1}>
+                        {v.color ? `${v.color} ` : ''}
+                        {v.make ? `${v.make} ` : ''}
+                        {v.model ?? ''}
+                      </Text>
+                      <Badge label={v.plate} variant="neutral" size="sm" />
+                    </XStack>
+                  ))}
                 </YStack>
-              ))}
-            </Section>
-
-            <Section title="Membership summary">
-              <KeyValue icon={<TrendingUp size={16} color="$brand" />} label="Plan" value={overview.plan} />
-              <Divider />
-              <KeyValue icon={<CalendarCheck size={16} color="$textSecondary" />} label="Paid through" value={formatDate(overview.paidThrough)} />
-              <Divider />
-              <KeyValue icon={<Dumbbell size={16} color="$textSecondary" />} label="Classes / PT left" value={`${overview.classesRemaining} / ${overview.ptRemaining}`} />
-            </Section>
+              </Section>
+            )}
           </YStack>
         )}
 
         {tab === 'activity' && (
-          <YStack paddingHorizontal="$4" gap="$3">
-            <XStack gap="$3">
-              <Stat label="Visits / mo" value={overview.visitsThisMonth.toString()} />
-              <Stat label="Streak" value={`${overview.streak} days`} />
-              <Stat label="PT / mo" value="6" />
-            </XStack>
-
-            <Section title="Recent visits">
-              {visits.map((v) => (
-                <XStack key={v.id} alignItems="center" gap="$3" paddingVertical="$2.5">
-                  <YStack width={8} height={8} borderRadius="$full" backgroundColor="$success500" />
-                  <YStack flex={1}>
-                    <Text variant="bodySmall" weight="500">{v.location}</Text>
-                    <Text variant="caption" color="muted">{formatDateTime(v.when)}</Text>
-                  </YStack>
-                </XStack>
-              ))}
-            </Section>
-
-            <Section title="Recent classes">
-              {classes.map((c) => (
-                <XStack key={c.id} alignItems="center" gap="$3" paddingVertical="$2.5">
-                  <YStack
-                    backgroundColor="$brand50"
-                    padding="$2"
-                    borderRadius="$md"
-                    alignItems="center"
-                    justifyContent="center"
-                    width={36}
-                    height={36}
-                  >
-                    <Activity size={16} color="$brand" />
-                  </YStack>
-                  <YStack flex={1}>
-                    <Text variant="bodySmall" weight="500">{c.name}</Text>
-                    <Text variant="caption" color="muted">with {c.trainer} • {c.room}</Text>
-                  </YStack>
-                  <Text variant="caption" color="muted">{c.when}</Text>
-                </XStack>
-              ))}
-            </Section>
-
-            <Section title="PT sessions">
-              {ptSessions.map((p) => (
-                <XStack key={p.id} alignItems="center" gap="$3" paddingVertical="$2.5">
-                  <YStack
-                    backgroundColor={p.status === 'upcoming' ? '$brand' : '$surfaceMuted'}
-                    padding="$2"
-                    borderRadius="$md"
-                    alignItems="center"
-                    justifyContent="center"
-                    width={36}
-                    height={36}
-                  >
-                    <Dumbbell size={16} color={p.status === 'upcoming' ? '$textOnBrand' : '$textSecondary'} />
-                  </YStack>
-                  <YStack flex={1}>
-                    <Text variant="bodySmall" weight="500">{p.focus}</Text>
-                    <Text variant="caption" color="muted">{p.trainer} • {p.when}</Text>
-                  </YStack>
-                  <Badge
-                    label={p.status === 'upcoming' ? 'Upcoming' : 'Done'}
-                    variant={p.status === 'upcoming' ? 'brand' : 'success'}
-                    size="sm"
-                  />
-                </XStack>
-              ))}
-            </Section>
+          <YStack paddingHorizontal="$4" gap="$2">
+            <Text variant="h4">Recent visits</Text>
+            {visits.length === 0 ? (
+              <EmptyState
+                icon={<Activity size={32} color="$textMuted" />}
+                title="No recent activity"
+                message="This member has not visited the gym recently."
+              />
+            ) : (
+              visits.map((v: any) => (
+                <Card key={v._id} variant="outlined" padding="sm">
+                  <XStack alignItems="center" gap="$3">
+                    <YStack
+                      backgroundColor={v.granted ? '$success50' : '$danger50'}
+                      padding="$2.5"
+                      borderRadius="$md"
+                    >
+                      <Activity
+                        size={18}
+                        color={v.granted ? '$success500' : '$danger500'}
+                      />
+                    </YStack>
+                    <YStack flex={1}>
+                      <Text variant="bodySmall" weight="600">
+                        {v.direction === 'in' ? 'Check-in' : 'Check-out'}
+                        {v.accessPointId ? ` • ${v.accessPointId}` : ''}
+                      </Text>
+                      <Text variant="caption" color="muted">
+                        {new Date(v.timestamp).toLocaleString('en-GB', {
+                          day: '2-digit',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                        {v.reason ? ` — ${v.reason}` : ''}
+                      </Text>
+                    </YStack>
+                    <Badge
+                      label={v.granted ? 'Granted' : 'Denied'}
+                      variant={v.granted ? 'success' : 'danger'}
+                      size="sm"
+                    />
+                  </XStack>
+                </Card>
+              ))
+            )}
           </YStack>
         )}
 
         {tab === 'membership' && (
           <YStack paddingHorizontal="$4" gap="$3">
-            <Card variant="elevated" padding="lg">
-              <YStack gap="$2">
-                <XStack justifyContent="space-between" alignItems="flex-start">
-                  <YStack flex={1}>
-                    <Text variant="caption" color="muted" textTransform="uppercase">Current plan</Text>
-                    <Text variant="h3" marginTop="$1">{overview.plan}</Text>
-                  </YStack>
-                  <Badge label={member.tier} variant="brand" />
-                </XStack>
-                <YStack paddingVertical="$2"><Divider /></YStack>
-                <XStack gap="$4">
-                  <YStack flex={1}>
-                    <Text variant="caption" color="muted">Monthly</Text>
-                    <Text variant="body" weight="600">{formatCurrency(overview.monthlyValue)}</Text>
-                  </YStack>
-                  <YStack flex={1}>
-                    <Text variant="caption" color="muted">Renews</Text>
-                    <Text variant="body" weight="600">{formatDate(overview.paidThrough)}</Text>
-                  </YStack>
-                </XStack>
-              </YStack>
-            </Card>
-
-            <Section title="Remaining this cycle">
-              <KeyValue label="Group classes" value={`${overview.classesRemaining} of 24`} />
-              <Divider />
-              <KeyValue label="PT sessions" value={`${overview.ptRemaining} of 12`} />
-              <Divider />
-              <KeyValue label="Guest passes" value="2 of 4" />
-            </Section>
-
-            <XStack gap="$2">
-              <Button
-                label="Renew early"
-                variant="primary"
-                onPress={() => toast.show('Renewal flow', 'info')}
-                accessibilityLabel="Renew membership"
-                flex={1}
+            {memberships.length === 0 ? (
+              <EmptyState
+                title="No memberships"
+                message="This member has no membership records."
               />
-              <Button
-                label="Cancel"
-                variant="outline"
-                onPress={() => toast.show('Cancellation requires confirm', 'warning')}
-                accessibilityLabel="Cancel membership"
-                flex={1}
-              />
-            </XStack>
+            ) : (
+              memberships.map((m: any) => (
+                <Card key={m._id} variant="outlined" padding="sm">
+                  <YStack gap="$2">
+                    <XStack justifyContent="space-between" alignItems="flex-start">
+                      <YStack flex={1}>
+                        <Text variant="label">Membership</Text>
+                        <Text variant="caption" color="muted">
+                          {new Date(m.startDate).toLocaleDateString('en-GB', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                          })}{' '}
+                          –{' '}
+                          {new Date(m.endDate).toLocaleDateString('en-GB', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                          })}
+                        </Text>
+                      </YStack>
+                      <Badge
+                        label={m.status}
+                        variant={
+                          m.status === 'active'
+                            ? 'success'
+                            : m.status === 'cancelled'
+                              ? 'danger'
+                              : m.status === 'frozen'
+                                ? 'warning'
+                                : 'neutral'
+                        }
+                      />
+                    </XStack>
+                    <XStack gap="$3">
+                      <YStack flex={1}>
+                        <Text variant="caption" color="muted">
+                          Classes
+                        </Text>
+                        <Text variant="bodySmall" weight="600">
+                          {m.remainingClasses}
+                        </Text>
+                      </YStack>
+                      <YStack flex={1}>
+                        <Text variant="caption" color="muted">
+                          PT sessions
+                        </Text>
+                        <Text variant="bodySmall" weight="600">
+                          {m.remainingPTSessions}
+                        </Text>
+                      </YStack>
+                      <YStack flex={1}>
+                        <Text variant="caption" color="muted">
+                          Auto-renew
+                        </Text>
+                        <Text variant="bodySmall" weight="600">
+                          {m.autoRenew ? 'On' : 'Off'}
+                        </Text>
+                      </YStack>
+                    </XStack>
+                  </YStack>
+                </Card>
+              ))
+            )}
           </YStack>
         )}
 
         {tab === 'payments' && (
           <YStack paddingHorizontal="$4" gap="$2">
-            <XStack gap="$3" marginBottom="$1">
-              <Stat label="Lifetime" value={formatCurrency(3828400)} />
-              <Stat label="Last paid" value={`${formatCurrency(1078800)}`} />
-            </XStack>
-            {payments.map((p) => (
-              <Card key={p.id} variant="outlined" padding="sm">
-                <XStack alignItems="center" gap="$3">
-                  <YStack
-                    backgroundColor={p.status === 'paid' ? '$success50' : '$warning50'}
-                    padding="$2"
-                    borderRadius="$md"
-                    width={40}
-                    height={40}
-                    alignItems="center"
-                    justifyContent="center"
-                  >
-                    <CreditCard size={18} color={p.status === 'paid' ? '$success500' : '$warning500'} />
-                  </YStack>
-                  <YStack flex={1}>
-                    <Text variant="bodySmall" weight="500">{p.label}</Text>
-                    <Text variant="caption" color="muted">{formatDate(p.date)} • {p.method}</Text>
-                  </YStack>
-                  <YStack alignItems="flex-end" gap="$1">
-                    <Text variant="bodySmall" weight="600">{formatCurrency(p.amount)}</Text>
-                    <Badge
-                      label={p.status === 'paid' ? 'Paid' : 'Refunded'}
-                      variant={p.status === 'paid' ? 'success' : 'warning'}
-                      size="sm"
-                    />
-                  </YStack>
-                </XStack>
-              </Card>
-            ))}
+            <Text variant="h4">Recent payments</Text>
+            {payments.length === 0 ? (
+              <EmptyState
+                icon={<CreditCard size={32} color="$textMuted" />}
+                title="No payments yet"
+                message="Payment history will appear here."
+              />
+            ) : (
+              payments.map((p: any) => (
+                <Card key={p._id} variant="outlined" padding="sm">
+                  <XStack alignItems="center" gap="$3">
+                    <YStack
+                      backgroundColor={
+                        p.status === 'succeeded'
+                          ? '$success50'
+                          : p.status === 'refunded'
+                            ? '$info50'
+                            : p.status === 'failed'
+                              ? '$danger50'
+                              : '$warning50'
+                      }
+                      padding="$2.5"
+                      borderRadius="$md"
+                    >
+                      <CreditCard
+                        size={18}
+                        color={
+                          p.status === 'succeeded'
+                            ? '$success500'
+                            : p.status === 'refunded'
+                              ? '$info500'
+                              : p.status === 'failed'
+                                ? '$danger500'
+                                : '$warning500'
+                        }
+                      />
+                    </YStack>
+                    <YStack flex={1}>
+                      <Text variant="bodySmall" weight="600">
+                        {p.description ?? p.type}
+                      </Text>
+                      <Text variant="caption" color="muted">
+                        {new Date(p.createdAt).toLocaleDateString('en-GB', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
+                      </Text>
+                    </YStack>
+                    <YStack alignItems="flex-end">
+                      <Text
+                        variant="label"
+                        color={p.status === 'refunded' ? 'muted' : 'primary'}
+                      >
+                        {formatCents(p.amountCents, p.currency)}
+                      </Text>
+                      <Badge
+                        label={p.status}
+                        variant={
+                          p.status === 'succeeded'
+                            ? 'success'
+                            : p.status === 'refunded'
+                              ? 'info'
+                              : p.status === 'failed'
+                                ? 'danger'
+                                : 'warning'
+                        }
+                        size="sm"
+                      />
+                    </YStack>
+                  </XStack>
+                </Card>
+              ))
+            )}
           </YStack>
         )}
 
         {tab === 'notes' && (
-          <YStack paddingHorizontal="$4" gap="$3">
+          <YStack paddingHorizontal="$4" gap="$2">
+            {notes.length === 0 ? (
+              <EmptyState
+                icon={<FileText size={32} color="$textMuted" />}
+                title="No notes"
+                message="No trainer notes for this member yet."
+              />
+            ) : (
+              notes.map((n: any) => (
+                <Card key={n._id} variant="outlined" padding="sm">
+                  <XStack alignItems="flex-start" gap="$2">
+                    <FileText size={16} color="$textMuted" />
+                    <YStack flex={1} gap="$0.5">
+                      <Text variant="caption" color="muted">
+                        {new Date(n.createdAt).toLocaleDateString('en-GB', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
+                      </Text>
+                      <Text variant="bodySmall" color="secondary">
+                        {n.note}
+                      </Text>
+                    </YStack>
+                  </XStack>
+                </Card>
+              ))
+            )}
             <Button
               label="Add note"
-              variant="primary"
-              icon={<Plus size={16} color="$textOnBrand" />}
-              onPress={() => toast.show('Note composer', 'info')}
-              accessibilityLabel="Add internal note"
+              variant="outline"
+              size="md"
+              icon={<Edit3 size={16} color="$brand" />}
+              onPress={() => toast.info('Add note — coming soon')}
             />
-            {notes.map((n) => (
-              <Card key={n.id} variant="outlined" padding="sm">
-                <XStack alignItems="flex-start" gap="$2">
-                  <Edit3 size={16} color="$textMuted" />
-                  <YStack flex={1} gap="$1">
-                    <XStack justifyContent="space-between" alignItems="center">
-                      <Text variant="bodySmall" weight="600">{n.author}</Text>
-                      <Text variant="caption" color="muted">{n.when}</Text>
-                    </XStack>
-                    <Text variant="bodySmall" color="secondary">{n.body}</Text>
-                  </YStack>
-                </XStack>
-              </Card>
-            ))}
           </YStack>
         )}
       </ScrollView>
@@ -482,18 +530,26 @@ function KeyValue({
   return (
     <XStack alignItems="center" gap="$2" paddingVertical="$2.5">
       {icon}
-      <Text variant="bodySmall" color="secondary" flex={1}>{label}</Text>
-      <Text variant="bodySmall" weight="500" textAlign="right" flex={1.5} numberOfLines={1}>{value}</Text>
+      <Text variant="bodySmall" color="secondary" flex={1}>
+        {label}
+      </Text>
+      <Text variant="bodySmall" weight="500" textAlign="right" flex={1.5} numberOfLines={1}>
+        {value}
+      </Text>
     </XStack>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, flex }: { label: string; value: string; flex?: number }) {
   return (
-    <Card variant="outlined" padding="sm" flex={1}>
+    <Card variant="outlined" padding="sm" flex={flex}>
       <YStack gap="$0.5">
-        <Text variant="caption" color="muted">{label}</Text>
-        <Text variant="h4">{value}</Text>
+        <Text variant="caption" color="muted">
+          {label}
+        </Text>
+        <Text variant="bodySmall" weight="600">
+          {value}
+        </Text>
       </YStack>
     </Card>
   );

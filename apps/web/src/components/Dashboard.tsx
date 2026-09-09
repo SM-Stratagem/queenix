@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   TrendingUp,
   TrendingDown,
@@ -12,7 +12,31 @@ import {
   CheckCircle,
   Clock,
   ArrowUpRight,
+  ScanLine,
+  Wifi,
+  WifiOff,
+  RefreshCw,
 } from 'lucide-react';
+
+interface ScannerDevice {
+  _id: string;
+  deviceId: string;
+  name: string;
+  location: string;
+  model?: string;
+  lastSeenAt: number | null;
+  lastScanAt: number | null;
+  totalScans: number;
+  online: boolean;
+}
+
+interface ScannerHealth {
+  online: boolean;
+  deviceCount: number;
+  onlineCount: number;
+  lastSeenAt: number | null;
+  devices: ScannerDevice[];
+}
 
 const kpis = [
   {
@@ -69,6 +93,216 @@ const upcomingClasses = [
   { name: 'Pilates Reformer', trainer: 'Aisha Khan', time: '7:30 PM', booked: 12, capacity: 15 },
   { name: 'Strength 101', trainer: 'Sara Al-Mahri', time: '8:00 PM', booked: 8, capacity: 15 },
 ];
+
+function formatRelative(ms: number | null): string {
+  if (!ms) return '—';
+  const delta = Date.now() - ms;
+  if (delta < 60_000) return 'just now';
+  if (delta < 3600_000) return `${Math.floor(delta / 60_000)}m ago`;
+  if (delta < 86400_000) return `${Math.floor(delta / 3600_000)}h ago`;
+  return `${Math.floor(delta / 86400_000)}d ago`;
+}
+
+function ScannersSection() {
+  const [health, setHealth] = useState<ScannerHealth | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchHealth = async () => {
+    setError(null);
+    try {
+      const res = await fetch('/api/scanner/health', { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setHealth({
+        online: true, // the bridge itself is up (200 OK)
+        deviceCount: 0,
+        onlineCount: 0,
+        lastSeenAt: null,
+        devices: [],
+        ...data,
+      });
+    } catch (e: any) {
+      setError(e?.message ?? 'Bridge unreachable');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchHealth();
+    const id = setInterval(fetchHealth, 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const renderRow = (d: ScannerDevice) => (
+    <div
+      key={d.deviceId}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        padding: 12,
+        background: 'var(--bg-muted)',
+        borderRadius: 10,
+      }}
+    >
+      <div
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 10,
+          background: d.online ? '#10b98120' : '#ef444420',
+          color: d.online ? 'var(--success)' : 'var(--danger)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}
+      >
+        {d.online ? <Wifi size={18} /> : <WifiOff size={18} />}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>{d.name}</div>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+          {d.deviceId} • {d.location}
+          {d.model ? ` • ${d.model}` : ''}
+        </div>
+      </div>
+      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            color: d.online ? 'var(--success)' : 'var(--danger)',
+          }}
+        >
+          {d.online ? 'Online' : 'Offline'}
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+          seen {formatRelative(d.lastSeenAt)}
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+          {d.totalScans} scans
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div
+      style={{
+        background: 'var(--bg-elevated)',
+        border: '1px solid var(--border)',
+        borderRadius: 16,
+        padding: 20,
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: 16,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <ScanLine size={18} color="var(--brand)" />
+          <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Connected scanners</h2>
+          {health && health.deviceCount > 0 && (
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                padding: '3px 8px',
+                borderRadius: 999,
+                background: health.onlineCount === health.deviceCount ? '#10b98120' : '#f59e0b20',
+                color:
+                  health.onlineCount === health.deviceCount ? 'var(--success)' : 'var(--warning)',
+                textTransform: 'uppercase',
+              }}
+            >
+              {health.onlineCount}/{health.deviceCount} online
+            </span>
+          )}
+        </div>
+        <button
+          onClick={fetchHealth}
+          style={{
+            background: 'transparent',
+            border: '1px solid var(--border)',
+            color: 'var(--text-muted)',
+            padding: '6px 10px',
+            borderRadius: 8,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            fontSize: 12,
+          }}
+        >
+          <RefreshCw size={12} /> Refresh
+        </button>
+      </div>
+
+      {loading && !health ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {[1, 2].map((i) => (
+            <div
+              key={i}
+              style={{
+                height: 56,
+                background: 'var(--bg-muted)',
+                borderRadius: 10,
+                opacity: 0.6,
+              }}
+            />
+          ))}
+        </div>
+      ) : error ? (
+        <div
+          style={{
+            padding: 12,
+            background: '#ef444420',
+            color: 'var(--danger)',
+            borderRadius: 10,
+            fontSize: 13,
+          }}
+        >
+          Scanner bridge unreachable. ({error})
+        </div>
+      ) : health && health.devices.length > 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {health.devices.map(renderRow)}
+        </div>
+      ) : (
+        <div
+          style={{
+            padding: 16,
+            color: 'var(--text-muted)',
+            textAlign: 'center',
+            fontSize: 13,
+          }}
+        >
+          No scanners registered yet. Run
+          <code
+            style={{
+              background: 'var(--bg-muted)',
+              padding: '2px 6px',
+              borderRadius: 4,
+              margin: '0 4px',
+              fontSize: 12,
+            }}
+          >
+            POST /api/scanner/register
+          </code>
+          to provision a device. See <code>docs/SCANNER_SETUP.md</code>.
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function Dashboard() {
   return (
@@ -142,7 +376,7 @@ export function Dashboard() {
         })}
       </div>
 
-      {/* Two-column layout */}
+      {/* Two-column layout: classes + alerts */}
       <div
         style={{
           display: 'grid',
@@ -292,6 +526,9 @@ export function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Connected scanners (NEW) */}
+      <ScannersSection />
 
       {/* Recent members */}
       <div

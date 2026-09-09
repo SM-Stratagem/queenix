@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { YStack, XStack, ScrollView } from 'tamagui';
 import { useRouter } from 'expo-router';
 import {
@@ -8,126 +8,35 @@ import {
   Button,
   Badge,
   Divider,
+  Skeleton,
+  ErrorState,
+  EmptyState,
   useToast,
   Progress,
 } from '@queenix/ui';
 import {
   Award,
-  Gift,
-  Sparkles,
   Share2,
   TrendingUp,
   TrendingDown,
-  ChevronRight,
   Crown,
-  Coffee,
-  ShoppingBag,
-  Heart,
-  Dumbbell,
-  Ticket,
+  Sparkles,
+  CheckCircle2,
 } from '@tamagui/lucide-icons';
+import { useConvexQuery, useConvexMutation } from '@/lib/convex';
+import { api } from '@queenix/convex';
 
 type TabKey = 'available' | 'history';
-type CatFilter = 'All' | 'Classes' | 'Merch' | 'Wellness' | 'Food';
-
-interface Reward {
-  id: string;
-  name: string;
-  description: string;
-  cost: number;
-  category: Exclude<CatFilter, 'All'>;
-  Icon: React.ComponentType<{ size?: number; color?: string }>;
-  iconColor: string;
-  remaining?: number;
-}
 
 interface HistoryItem {
   id: string;
-  type: 'earn' | 'redeem';
+  type: 'earned' | 'redeemed' | 'expired' | 'adjusted';
   amount: number;
   description: string;
   date: number;
 }
 
-const REWARDS: Reward[] = [
-  {
-    id: 'r1',
-    name: 'Free PT Session',
-    description: 'Book a 1-hour personal training session with any coach.',
-    cost: 800,
-    category: 'Classes',
-    Icon: Dumbbell,
-    iconColor: '$brand',
-    remaining: 5,
-  },
-  {
-    id: 'r2',
-    name: 'Queenix Tank Top',
-    description: 'Limited edition breathable training tank in your size.',
-    cost: 1200,
-    category: 'Merch',
-    Icon: ShoppingBag,
-    iconColor: '$success700',
-    remaining: 12,
-  },
-  {
-    id: 'r3',
-    name: 'Smoothie Bar Voucher',
-    description: 'Free post-workout smoothie at the in-gym bar.',
-    cost: 250,
-    category: 'Food',
-    Icon: Coffee,
-    iconColor: '$warning',
-    remaining: 50,
-  },
-  {
-    id: 'r4',
-    name: 'Recovery Massage (30m)',
-    description: 'Book a 30-minute sports recovery massage.',
-    cost: 1500,
-    category: 'Wellness',
-    Icon: Heart,
-    iconColor: '$danger',
-    remaining: 8,
-  },
-  {
-    id: 'r5',
-    name: 'Drop-in Class Pass',
-    description: 'One premium drop-in to any group class.',
-    cost: 400,
-    category: 'Classes',
-    Icon: Ticket,
-    iconColor: '$brand',
-    remaining: 25,
-  },
-  {
-    id: 'r6',
-    name: 'Queenix Water Bottle',
-    description: 'Insulated stainless steel bottle, branded.',
-    cost: 600,
-    category: 'Merch',
-    Icon: Gift,
-    iconColor: '$info700',
-    remaining: 20,
-  },
-];
-
-const HISTORY: HistoryItem[] = [
-  { id: 'h1', type: 'earn', amount: 100, description: 'Class check-in — Power Yoga', date: Date.now() - 1 * 24 * 60 * 60 * 1000 },
-  { id: 'h2', type: 'earn', amount: 50, description: 'Daily streak bonus', date: Date.now() - 2 * 24 * 60 * 60 * 1000 },
-  { id: 'h3', type: 'redeem', amount: -250, description: 'Smoothie voucher redeemed', date: Date.now() - 4 * 24 * 60 * 60 * 1000 },
-  { id: 'h4', type: 'earn', amount: 500, description: 'Referral — Aisha K. joined', date: Date.now() - 9 * 24 * 60 * 60 * 1000 },
-  { id: 'h5', type: 'earn', amount: 200, description: 'Monthly check-in bonus', date: Date.now() - 14 * 24 * 60 * 60 * 1000 },
-  { id: 'h6', type: 'redeem', amount: -800, description: 'Free PT session — Maya Patel', date: Date.now() - 21 * 24 * 60 * 60 * 1000 },
-  { id: 'h7', type: 'earn', amount: 100, description: 'Class check-in — HIIT Burner', date: Date.now() - 30 * 24 * 60 * 60 * 1000 },
-  { id: 'h8', type: 'earn', amount: 50, description: 'Profile completion bonus', date: Date.now() - 45 * 24 * 60 * 60 * 1000 },
-];
-
-const CATEGORIES: CatFilter[] = ['All', 'Classes', 'Merch', 'Wellness', 'Food'];
-
-const POINTS_BALANCE = 1240;
 const NEXT_TIER_COST = 2000;
-const TIER_PROGRESS = (POINTS_BALANCE / NEXT_TIER_COST) * 100;
 
 function formatDate(ts: number): string {
   return new Date(ts).toLocaleDateString('en-US', {
@@ -136,24 +45,70 @@ function formatDate(ts: number): string {
   });
 }
 
+function tierForBalance(balance: number): 'Silver' | 'Gold' | 'Platinum' {
+  if (balance >= 2000) return 'Platinum';
+  if (balance >= 500) return 'Gold';
+  return 'Silver';
+}
+
+function tierVariant(tier: 'Silver' | 'Gold' | 'Platinum'): 'neutral' | 'warning' | 'brand' {
+  if (tier === 'Platinum') return 'brand';
+  if (tier === 'Gold') return 'warning';
+  return 'neutral';
+}
+
 export default function RewardsScreen() {
   const router = useRouter();
   const toast = useToast();
   const [tab, setTab] = useState<TabKey>('available');
-  const [category, setCategory] = useState<CatFilter>('All');
 
-  const filteredRewards =
-    category === 'All'
-      ? REWARDS
-      : REWARDS.filter((r) => r.category === category);
+  // Real data
+  const loyalty = useConvexQuery(api.queries.users.getLoyaltyBalance, {});
+  const referrals = useConvexQuery(api.queries.users.getMyReferrals, {});
 
-  const handleRedeem = (reward: Reward) => {
-    if (POINTS_BALANCE < reward.cost) {
-      toast.warning(`You need ${reward.cost - POINTS_BALANCE} more points`);
-      return;
+  // Mutations
+  const redeemReward = useConvexMutation(api.mutations.loyalty.redeemReward);
+  const createReferral = useConvexMutation(api.mutations.loyalty.createReferral);
+
+  const pointsBalance = loyalty?.balance ?? 0;
+  const entries: HistoryItem[] = useMemo(() => {
+    if (!loyalty?.entries) return [];
+    return loyalty.entries.map((e: any) => ({
+      id: e._id,
+      type: e.type as HistoryItem['type'],
+      amount: e.points,
+      description: e.reason,
+      date: e.createdAt,
+    }));
+  }, [loyalty]);
+
+  const tier = tierForBalance(pointsBalance);
+  const tierProgressPct = Math.min(100, (pointsBalance / NEXT_TIER_COST) * 100);
+
+  const handleRedeem = useCallback(
+    async (reward: { id: string; name: string; cost: number }) => {
+      if (pointsBalance < reward.cost) {
+        toast.warning(`You need ${reward.cost - pointsBalance} more points`);
+        return;
+      }
+      try {
+        await redeemReward({ points: reward.cost, reason: reward.name });
+        toast.success(`Redeemed: ${reward.name}`);
+      } catch (err: any) {
+        toast.error(err?.message ?? 'Redemption failed');
+      }
+    },
+    [pointsBalance, redeemReward, toast]
+  );
+
+  const handleRefer = useCallback(async () => {
+    try {
+      const ref = await createReferral({});
+      toast.success(`Referral link copied: queenix.gym/r/${ref.code}`);
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Could not create referral');
     }
-    toast.success(`Redeemed: ${reward.name}`);
-  };
+  }, [createReferral, toast]);
 
   return (
     <Screen scroll padded={false}>
@@ -184,31 +139,31 @@ export default function RewardsScreen() {
           >
             <XStack justifyContent="space-between" alignItems="center">
               <XStack alignItems="center" gap="$2">
-                <YStack
-                  backgroundColor="$brand600"
-                  padding="$2"
-                  borderRadius="$full"
-                >
+                <YStack backgroundColor="$brand600" padding="$2" borderRadius="$full">
                   <Award size={18} color="$textOnBrand" />
                 </YStack>
                 <Text variant="caption" weight="700" textTransform="uppercase">
                   Your points
                 </Text>
               </XStack>
-              <Badge label="Gold" variant="warning" />
+              <Badge label={tier} variant={tierVariant(tier)} />
             </XStack>
 
             <YStack>
-              <Text variant="display">
-                {POINTS_BALANCE.toLocaleString()}
-              </Text>
+              {loyalty === undefined ? (
+                <Skeleton width="40%" height={48} />
+              ) : (
+                <Text variant="display">
+                  {pointsBalance.toLocaleString()}
+                </Text>
+              )}
               <Text variant="bodySmall" color="muted">
-                {NEXT_TIER_COST - POINTS_BALANCE} pts to Platinum
+                {Math.max(0, NEXT_TIER_COST - pointsBalance)} pts to Platinum
               </Text>
             </YStack>
 
             <Progress
-              value={TIER_PROGRESS}
+              value={tierProgressPct}
               size="sm"
               color="$warning500"
               backgroundColor="$brand600"
@@ -236,15 +191,11 @@ export default function RewardsScreen() {
           <Card
             variant="outlined"
             padding="md"
-            onPress={() => toast.success('Referral link copied: queenix.gym/r/SUHAYL')}
+            onPress={handleRefer}
             accessibilityLabel="Refer a friend and earn 500 points"
           >
             <XStack alignItems="center" gap="$3">
-              <YStack
-                backgroundColor="$success50"
-                padding="$3"
-                borderRadius="$xl"
-              >
+              <YStack backgroundColor="$success50" padding="$3" borderRadius="$xl">
                 <Share2 size={22} color="$success700" />
               </YStack>
               <YStack flex={1}>
@@ -254,9 +205,10 @@ export default function RewardsScreen() {
                 </Text>
                 <XStack alignItems="center" gap="$1" marginTop="$1">
                   <Text variant="caption" color="brand" weight="700">
-                    Share your link
+                    {referrals && referrals.length > 0
+                      ? `${referrals.length} referral${referrals.length === 1 ? '' : 's'} so far`
+                      : 'Share your link'}
                   </Text>
-                  <ChevronRight size={12} color="$brand" />
                 </XStack>
               </YStack>
             </XStack>
@@ -272,97 +224,176 @@ export default function RewardsScreen() {
             gap="$1"
           >
             <TabPill
-              label="Available rewards"
-              active={tab === 'available'}
-              onPress={() => setTab('available')}
-              flex={1}
-            />
-            <TabPill
               label="History"
               active={tab === 'history'}
               onPress={() => setTab('history')}
+              flex={1}
+            />
+            <TabPill
+              label="Referrals"
+              active={tab === 'available'}
+              onPress={() => setTab('available')}
               flex={1}
             />
           </XStack>
 
           {tab === 'available' ? (
             <YStack gap="$3">
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ gap: 8 }}
-              >
-                {CATEGORIES.map((c) => (
-                  <Chip
-                    key={c}
-                    label={c}
-                    selected={category === c}
-                    variant={category === c ? 'brand' : 'default'}
-                    onPress={() => setCategory(c)}
+              {referrals === undefined ? (
+                <Card variant="outlined" padding="md">
+                  <YStack gap="$2">
+                    <Skeleton width="100%" height={48} borderRadius={8} />
+                    <Skeleton width="100%" height={48} borderRadius={8} />
+                  </YStack>
+                </Card>
+              ) : referrals === null ? (
+                <ErrorState
+                  title="Could not load referrals"
+                  message="Please try again in a moment."
+                  onRetry={() => {
+                    /* Convex auto-revalidates */
+                  }}
+                />
+              ) : referrals.length === 0 ? (
+                <Card variant="outlined" padding="md">
+                  <EmptyState
+                    title="No referrals yet"
+                    message="Tap the card above to generate your first referral link."
                   />
-                ))}
-              </ScrollView>
-
-              <Text variant="caption" color="muted">
-                {filteredRewards.length} reward{filteredRewards.length === 1 ? '' : 's'} available
-              </Text>
-
-              <YStack gap="$3">
-                {filteredRewards.map((reward) => (
-                  <RewardCard
-                    key={reward.id}
-                    reward={reward}
-                    onRedeem={() => handleRedeem(reward)}
-                  />
-                ))}
-              </YStack>
+                </Card>
+              ) : (
+                <YStack gap="$2">
+                  <Text variant="caption" color="muted">
+                    {referrals.length} referral{referrals.length === 1 ? '' : 's'}
+                  </Text>
+                  <Card variant="outlined" padding="none">
+                    <YStack>
+                      {referrals.map((r, idx) => (
+                        <YStack key={r._id}>
+                          {idx > 0 && <Divider />}
+                          <XStack alignItems="center" gap="$3" padding="$4">
+                            <YStack
+                              backgroundColor={
+                                r.status === 'converted'
+                                  ? '$success50'
+                                  : r.status === 'expired'
+                                    ? '$danger50'
+                                    : '$warning50'
+                              }
+                              padding="$2.5"
+                              borderRadius="$md"
+                            >
+                              <Share2
+                                size={18}
+                                color={
+                                  r.status === 'converted'
+                                    ? '$success700'
+                                    : r.status === 'expired'
+                                      ? '$danger'
+                                      : '$warning'
+                                }
+                              />
+                            </YStack>
+                            <YStack flex={1}>
+                              <Text variant="label" numberOfLines={1}>
+                                {r.code}
+                              </Text>
+                              <Text variant="caption" color="muted">
+                                {formatDate(r.createdAt)} • {r.rewardPoints} pts reward
+                              </Text>
+                            </YStack>
+                            <Badge
+                              label={r.status}
+                              variant={
+                                r.status === 'converted'
+                                  ? 'success'
+                                  : r.status === 'expired'
+                                    ? 'danger'
+                                    : 'warning'
+                              }
+                            />
+                          </XStack>
+                        </YStack>
+                      ))}
+                    </YStack>
+                  </Card>
+                </YStack>
+              )}
             </YStack>
           ) : (
             <YStack gap="$2">
               <Text variant="caption" color="muted">
-                {HISTORY.length} transactions
+                {entries.length} transaction{entries.length === 1 ? '' : 's'}
               </Text>
-              <Card variant="outlined" padding="none">
-                <YStack>
-                  {HISTORY.map((h, idx) => (
-                    <YStack key={h.id}>
-                      {idx > 0 && <Divider />}
-                      <XStack
-                        alignItems="center"
-                        gap="$3"
-                        padding="$4"
-                      >
-                        <YStack
-                          backgroundColor={h.type === 'earn' ? '$success50' : '$warning50'}
-                          padding="$2.5"
-                          borderRadius="$md"
-                        >
-                          {h.type === 'earn' ? (
-                            <TrendingUp size={18} color="$success700" />
-                          ) : (
-                            <TrendingDown size={18} color="$warning" />
-                          )}
+              {loyalty === undefined ? (
+                <Card variant="outlined" padding="md">
+                  <YStack gap="$2">
+                    <Skeleton width="100%" height={48} borderRadius={8} />
+                    <Skeleton width="100%" height={48} borderRadius={8} />
+                    <Skeleton width="100%" height={48} borderRadius={8} />
+                  </YStack>
+                </Card>
+              ) : loyalty === null ? (
+                <ErrorState
+                  title="Could not load history"
+                  message="Please try again in a moment."
+                  onRetry={() => {
+                    /* Convex auto-revalidates */
+                  }}
+                />
+              ) : entries.length === 0 ? (
+                <Card variant="outlined" padding="md">
+                  <EmptyState
+                    title="No history yet"
+                    message="Earn your first points by checking into a class."
+                  />
+                </Card>
+              ) : (
+                <Card variant="outlined" padding="none">
+                  <YStack>
+                    {entries
+                      .slice()
+                      .reverse()
+                      .map((h, idx) => (
+                        <YStack key={h.id}>
+                          {idx > 0 && <Divider />}
+                          <XStack alignItems="center" gap="$3" padding="$4">
+                            <YStack
+                              backgroundColor={
+                                h.amount >= 0 ? '$success50' : '$warning50'
+                              }
+                              padding="$2.5"
+                              borderRadius="$md"
+                            >
+                              {h.amount >= 0 ? (
+                                <TrendingUp size={18} color="$success700" />
+                              ) : h.type === 'redeemed' ? (
+                                <TrendingDown size={18} color="$warning" />
+                              ) : (
+                                <CheckCircle2 size={18} color="$textMuted" />
+                              )}
+                            </YStack>
+                            <YStack flex={1}>
+                              <Text variant="label" numberOfLines={1}>
+                                {h.description}
+                              </Text>
+                              <Text variant="caption" color="muted">
+                                {formatDate(h.date)}
+                              </Text>
+                            </YStack>
+                            <Text
+                              variant="label"
+                              color={h.amount >= 0 ? 'success' : 'warning'}
+                            >
+                              {h.amount >= 0 ? '+' : ''}
+                              {h.amount} pts
+                            </Text>
+                          </XStack>
                         </YStack>
-                        <YStack flex={1}>
-                          <Text variant="label" numberOfLines={1}>
-                            {h.description}
-                          </Text>
-                          <Text variant="caption" color="muted">
-                            {formatDate(h.date)}
-                          </Text>
-                        </YStack>
-                        <Text
-                          variant="label"
-                          color={h.type === 'earn' ? 'success' : 'warning'}
-                        >
-                          {h.type === 'earn' ? '+' : ''}
-                          {h.amount} pts
-                        </Text>
-                      </XStack>
-                    </YStack>
-                  ))}
-                </YStack>
-              </Card>
+                      ))}
+                  </YStack>
+                </Card>
+              )}
             </YStack>
           )}
         </YStack>
@@ -376,8 +407,8 @@ export default function RewardsScreen() {
                 name="Silver"
                 from={0}
                 to={500}
-                current={POINTS_BALANCE >= 0 && POINTS_BALANCE < 500}
-                reached
+                current={pointsBalance >= 0 && pointsBalance < 500}
+                reached={pointsBalance >= 0}
                 perks={['Basic point earning', 'Birthday reward']}
               />
               <Divider />
@@ -385,8 +416,8 @@ export default function RewardsScreen() {
                 name="Gold"
                 from={500}
                 to={2000}
-                current={POINTS_BALANCE >= 500 && POINTS_BALANCE < 2000}
-                reached={POINTS_BALANCE >= 500}
+                current={pointsBalance >= 500 && pointsBalance < 2000}
+                reached={pointsBalance >= 500}
                 perks={['2x points on weekends', 'Free smoothie monthly', 'Priority booking']}
               />
               <Divider />
@@ -439,58 +470,6 @@ function TabPill({
         {label}
       </Text>
     </XStack>
-  );
-}
-
-function RewardCard({ reward, onRedeem }: { reward: Reward; onRedeem: () => void }) {
-  const Icon = reward.Icon;
-  const canAfford = POINTS_BALANCE >= reward.cost;
-  return (
-    <Card variant="outlined" padding="md">
-      <XStack gap="$3" alignItems="flex-start">
-        <YStack
-          backgroundColor="$brand50"
-          padding="$3"
-          borderRadius="$lg"
-        >
-          <Icon size={24} color={reward.iconColor as any} />
-        </YStack>
-        <YStack flex={1} gap="$1">
-          <XStack alignItems="center" justifyContent="space-between" gap="$2">
-            <Text variant="label" flex={1}>{reward.name}</Text>
-            <Badge label={reward.category} variant="neutral" />
-          </XStack>
-          <Text variant="caption" color="secondary" numberOfLines={2}>
-            {reward.description}
-          </Text>
-          {reward.remaining != null && (
-            <Text variant="caption" color="muted" marginTop="$1">
-              {reward.remaining} left
-            </Text>
-          )}
-          <XStack
-            justifyContent="space-between"
-            alignItems="center"
-            marginTop="$2"
-            paddingTop="$2"
-            borderTopWidth={1}
-            borderTopColor="$borderColor"
-          >
-            <XStack alignItems="baseline" gap="$1">
-              <Text variant="h4" color="brand">{reward.cost}</Text>
-              <Text variant="caption" color="muted">pts</Text>
-            </XStack>
-            <Button
-              label={canAfford ? 'Redeem' : 'Need more'}
-              variant={canAfford ? 'primary' : 'outline'}
-              size="sm"
-              onPress={onRedeem}
-              disabled={!canAfford}
-            />
-          </XStack>
-        </YStack>
-      </XStack>
-    </Card>
   );
 }
 

@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import { YStack, XStack, ScrollView } from 'tamagui';
-import { useRouter } from 'expo-router';
 import {
   Screen,
   Text,
@@ -11,7 +10,12 @@ import {
   Sheet,
   Header,
   Divider,
+  Skeleton,
+  ErrorState,
+  EmptyState,
+  useToast,
 } from '@queenix/ui';
+import { useConvexQuery, useConvexMutation, api } from '@/lib/convex';
 import {
   Plus,
   ShieldAlert,
@@ -28,7 +32,7 @@ import {
 } from '@tamagui/lucide-icons';
 
 type Severity = 'low' | 'medium' | 'high' | 'critical';
-type IncidentType = 'access_denied' | 'equipment' | 'safety' | 'complaint';
+type IncidentType = 'access_denied' | 'equipment' | 'safety' | 'complaint' | 'other';
 type IncidentStatus = 'open' | 'in_progress' | 'resolved';
 
 interface Incident {
@@ -43,6 +47,7 @@ interface Incident {
   timeAgo: string;
   status: IncidentStatus;
   description: string;
+  createdAt: number;
 }
 
 const TYPE_META: Record<
@@ -73,6 +78,12 @@ const TYPE_META: Record<
     bg: '$info100',
     fg: '$info',
   },
+  other: {
+    label: 'Other',
+    icon: <Info size={18} color="$textMuted" />,
+    bg: '$surfaceMuted',
+    fg: '$textMuted',
+  },
 };
 
 const SEVERITY_META: Record<Severity, { label: string; variant: 'success' | 'info' | 'warning' | 'danger' }> = {
@@ -88,28 +99,71 @@ const STATUS_META: Record<IncidentStatus, { label: string; variant: 'neutral' | 
   resolved: { label: 'Resolved', variant: 'success' },
 };
 
-const INCIDENTS: Incident[] = [
-  { id: 'i1', code: 'INC-2031', type: 'access_denied', severity: 'critical', title: 'Main turnstile rejecting valid members', location: 'Front entrance', reportedBy: 'Hala Al-Suwaidi', reportedByInitials: 'HA', timeAgo: '8 min ago', status: 'open', description: 'Multiple members reporting the right-side turnstile rejecting valid QR codes since 17:40.' },
-  { id: 'i2', code: 'INC-2030', type: 'equipment', severity: 'high', title: 'Treadmill #4 emergency stop triggered', location: 'Cardio zone', reportedBy: 'Sam Khan', reportedByInitials: 'SK', timeAgo: '24 min ago', status: 'in_progress', description: 'Member pulled the safety lanyard. Belt stopped correctly; awaiting maintenance inspection.' },
-  { id: 'i3', code: 'INC-2029', type: 'safety', severity: 'medium', title: 'Wet floor — Studio 1 entrance', location: 'Studio 1', reportedBy: 'Maya Patel', reportedByInitials: 'MP', timeAgo: '41 min ago', status: 'in_progress', description: 'Caution sign placed, janitorial team notified. Class starts in 30 min.' },
-  { id: 'i4', code: 'INC-2028', type: 'complaint', severity: 'medium', title: 'Noise complaint — rooftop class volume', location: 'Rooftop', reportedBy: 'Reem Al-Suwaidi', reportedByInitials: 'RA', timeAgo: '1 hour ago', status: 'open', description: 'Office tenant reports amplified audio during evening classes. Need sound check schedule.' },
-  { id: 'i5', code: 'INC-2027', type: 'equipment', severity: 'low', title: 'Cable machine #2 — minor fraying', location: 'Strength zone', reportedBy: 'Latifa Hassan', reportedByInitials: 'LH', timeAgo: '3 hours ago', status: 'open', description: 'Visual wear on right cable. Marked out of service pending replacement.' },
-  { id: 'i6', code: 'INC-2026', type: 'access_denied', severity: 'low', title: 'Door sensor delay — Studio 2', location: 'Studio 2', reportedBy: 'Maryam Al-Falasi', reportedByInitials: 'MA', timeAgo: '5 hours ago', status: 'resolved', description: 'Sensor recalibrated by facilities. Verified working at 13:00.' },
-  { id: 'i7', code: 'INC-2025', type: 'safety', severity: 'high', title: 'Spilled cleaning solution near reception', location: 'Reception', reportedBy: 'Hala Al-Suwaidi', reportedByInitials: 'HA', timeAgo: 'Yesterday', status: 'resolved', description: 'Cleaned and area cordoned. Cleaning vendor briefed on dilution ratios.' },
-  { id: 'i8', code: 'INC-2024', type: 'complaint', severity: 'low', title: 'AC too cold in stretch zone', location: 'Stretch zone', reportedBy: 'Yusuf Khan', reportedByInitials: 'YK', timeAgo: 'Yesterday', status: 'resolved', description: 'HVAC adjusted to 22°C. Member acknowledged.' },
-];
+function getInitials(name?: string | null): string {
+  if (!name) return '·';
+  const parts = name.trim().split(/\s+/);
+  return (parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '');
+}
+
+function formatRelative(ms: number): string {
+  const d = Date.now() - ms;
+  if (d < 60_000) return `${Math.max(1, Math.floor(d / 1000))}s ago`;
+  if (d < 3_600_000) return `${Math.floor(d / 60_000)} min ago`;
+  if (d < 86_400_000) return `${Math.floor(d / 3_600_000)}h ago`;
+  return `${Math.floor(d / 86_400_000)}d ago`;
+}
 
 type Tab = 'open' | 'resolved' | 'all';
+const TABS: Tab[] = ['open', 'resolved', 'all'];
+
+const SEVERITY_OPTIONS: Severity[] = ['low', 'medium', 'high', 'critical'];
+const TYPE_OPTIONS: IncidentType[] = ['access_denied', 'equipment', 'safety', 'complaint', 'other'];
 
 export default function IncidentsScreen() {
   const router = useRouter();
+  const toast = useToast();
   const [tab, setTab] = useState<Tab>('open');
   const [reportOpen, setReportOpen] = useState(false);
   const [selected, setSelected] = useState<Incident | null>(null);
 
+  // Report form state
+  const [reportType, setReportType] = useState<IncidentType>('equipment');
+  const [reportSeverity, setReportSeverity] = useState<Severity>('medium');
+  const [reportLocation, setReportLocation] = useState('');
+  const [reportTitle, setReportTitle] = useState('');
+  const [reportDescription, setReportDescription] = useState('');
+
+  const allIncidents = useConvexQuery(api.queries.users.getIncidents, {});
+  const createIncident = useConvexMutation(api.mutations.operations.createIncident);
+  const resolveIncident = useConvexMutation(api.mutations.operations.resolveIncident);
+
+  // Map Convex incidents → UI shape
+  const incidents: Incident[] = useMemo(() => {
+    if (!allIncidents) return [];
+    return (allIncidents as any[]).map((i) => {
+      const type = (i.type ?? 'other') as IncidentType;
+      const severity = (i.severity ?? 'medium') as Severity;
+      const status = (i.status ?? (i.resolved ? 'resolved' : 'open')) as IncidentStatus;
+      return {
+        id: i._id,
+        code: `INC-${i._id.slice(-4).toUpperCase()}`,
+        type,
+        severity,
+        title: i.title ?? `${TYPE_META[type].label} report`,
+        location: i.location ?? '—',
+        reportedBy: i.reportedByUser?.fullName ?? 'Team',
+        reportedByInitials: getInitials(i.reportedByUser?.fullName),
+        timeAgo: formatRelative(i.createdAt),
+        status,
+        description: i.description,
+        createdAt: i.createdAt,
+      };
+    });
+  }, [allIncidents]);
+
   const counts = useMemo(() => {
-    const acc = { critical: 0, high: 0, medium: 0, low: 0, open: 0, resolved: 0, all: INCIDENTS.length };
-    for (const i of INCIDENTS) {
+    const acc = { critical: 0, high: 0, medium: 0, low: 0, open: 0, resolved: 0, all: incidents.length };
+    for (const i of incidents) {
       if (i.status !== 'resolved') {
         acc[i.severity] += 1;
         acc.open += 1;
@@ -118,13 +172,48 @@ export default function IncidentsScreen() {
       }
     }
     return acc;
-  }, []);
+  }, [incidents]);
 
   const filtered = useMemo(() => {
-    if (tab === 'open') return INCIDENTS.filter((i) => i.status !== 'resolved');
-    if (tab === 'resolved') return INCIDENTS.filter((i) => i.status === 'resolved');
-    return INCIDENTS;
-  }, [tab]);
+    if (tab === 'open') return incidents.filter((i) => i.status !== 'resolved');
+    if (tab === 'resolved') return incidents.filter((i) => i.status === 'resolved');
+    return incidents;
+  }, [incidents, tab]);
+
+  const handleSubmit = async () => {
+    if (!reportDescription.trim() || !reportTitle.trim()) {
+      toast.warning('Title and description are required');
+      return;
+    }
+    try {
+      await createIncident({
+        type: reportType,
+        severity: reportSeverity,
+        title: reportTitle.trim(),
+        location: reportLocation.trim() || undefined,
+        description: reportDescription.trim(),
+      });
+      toast.success('Incident reported');
+      setReportOpen(false);
+      setReportTitle('');
+      setReportDescription('');
+      setReportLocation('');
+      setReportType('equipment');
+      setReportSeverity('medium');
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to submit');
+    }
+  };
+
+  const handleResolve = async (id: string) => {
+    try {
+      await resolveIncident({ incidentId: id as any });
+      toast.success('Incident resolved');
+      setSelected(null);
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to resolve');
+    }
+  };
 
   return (
     <Screen padded={false}>
@@ -175,7 +264,7 @@ export default function IncidentsScreen() {
             borderRadius="$lg"
             gap="$1"
           >
-            {(['open', 'resolved', 'all'] as Tab[]).map((t) => {
+            {TABS.map((t) => {
               const active = tab === t;
               return (
                 <YStack
@@ -199,7 +288,10 @@ export default function IncidentsScreen() {
                     color={active ? 'brand' : 'muted'}
                     textTransform="capitalize"
                   >
-                    {t} {t === 'all' ? `(${INCIDENTS.length})` : `(${t === 'open' ? counts.open : counts.resolved})`}
+                    {t}{' '}
+                    {t === 'all'
+                      ? `(${counts.all})`
+                      : `(${t === 'open' ? counts.open : counts.resolved})`}
                   </Text>
                 </YStack>
               );
@@ -209,7 +301,14 @@ export default function IncidentsScreen() {
 
         {/* List */}
         <YStack paddingHorizontal="$4" marginTop="$3" gap="$2">
-          {filtered.length === 0 ? (
+          {allIncidents === undefined ? (
+            <YStack gap="$2">
+              <Skeleton height={96} borderRadius={12} />
+              <Skeleton height={96} borderRadius={12} />
+            </YStack>
+          ) : allIncidents === null ? (
+            <ErrorState onRetry={() => {}} />
+          ) : filtered.length === 0 ? (
             <Card variant="outlined" padding="lg">
               <YStack alignItems="center" gap="$2">
                 <CheckCircle2 size={32} color="$success500" />
@@ -248,10 +347,7 @@ export default function IncidentsScreen() {
       </YStack>
 
       {/* Detail sheet */}
-      <Sheet
-        open={!!selected}
-        onOpenChange={(o) => !o && setSelected(null)}
-      >
+      <Sheet open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
         {selected ? (
           <YStack gap="$3">
             <YStack gap="$0.5">
@@ -260,16 +356,16 @@ export default function IncidentsScreen() {
                 {selected.code} • {selected.location}
               </Text>
             </YStack>
-            <IncidentDetail incident={selected} />
+            <IncidentDetail
+              incident={selected}
+              onResolve={() => handleResolve(selected.id)}
+            />
           </YStack>
         ) : null}
       </Sheet>
 
       {/* Report sheet */}
-      <Sheet
-        open={reportOpen}
-        onOpenChange={setReportOpen}
-      >
+      <Sheet open={reportOpen} onOpenChange={setReportOpen}>
         <YStack gap="$3">
           <YStack gap="$0.5" marginBottom="$1">
             <Text variant="h2">Report an incident</Text>
@@ -282,22 +378,26 @@ export default function IncidentsScreen() {
               Type
             </Text>
             <XStack gap="$2" flexWrap="wrap">
-              {(Object.keys(TYPE_META) as IncidentType[]).map((t) => (
-                <Card
-                  key={t}
-                  variant="outlined"
-                  padding="sm"
-                  onPress={() => {}}
-                  accessibilityLabel={`Type ${TYPE_META[t].label}`}
-                >
-                  <XStack alignItems="center" gap="$1.5">
-                    {TYPE_META[t].icon}
-                    <Text variant="caption" weight="600">
-                      {TYPE_META[t].label}
-                    </Text>
-                  </XStack>
-                </Card>
-              ))}
+              {TYPE_OPTIONS.map((t) => {
+                const active = reportType === t;
+                return (
+                  <Card
+                    key={t}
+                    variant={active ? 'elevated' : 'outlined'}
+                    padding="sm"
+                    onPress={() => setReportType(t)}
+                    backgroundColor={active ? '$brand50' : undefined}
+                    accessibilityLabel={`Type ${TYPE_META[t].label}`}
+                  >
+                    <XStack alignItems="center" gap="$1.5">
+                      {TYPE_META[t].icon}
+                      <Text variant="caption" weight="600">
+                        {TYPE_META[t].label}
+                      </Text>
+                    </XStack>
+                  </Card>
+                );
+              })}
             </XStack>
           </YStack>
           <YStack gap="$1">
@@ -305,51 +405,102 @@ export default function IncidentsScreen() {
               Severity
             </Text>
             <XStack gap="$2">
-              {(['low', 'medium', 'high', 'critical'] as Severity[]).map((s) => (
-                <Card
-                  key={s}
-                  variant="outlined"
-                  padding="sm"
-                  flex={1}
-                  onPress={() => {}}
-                  accessibilityLabel={`Severity ${SEVERITY_META[s].label}`}
-                >
-                  <Text
-                    variant="caption"
-                    weight="600"
-                    textTransform="capitalize"
-                    textAlign="center"
-                    color={SEVERITY_META[s].variant === 'danger' ? 'danger' : SEVERITY_META[s].variant === 'warning' ? 'warning' : 'primary'}
+              {SEVERITY_OPTIONS.map((s) => {
+                const active = reportSeverity === s;
+                const meta = SEVERITY_META[s];
+                return (
+                  <Card
+                    key={s}
+                    variant={active ? 'elevated' : 'outlined'}
+                    padding="sm"
+                    flex={1}
+                    onPress={() => setReportSeverity(s)}
+                    backgroundColor={
+                      active
+                        ? meta.variant === 'danger'
+                          ? '$danger50'
+                          : meta.variant === 'warning'
+                          ? '$warning50'
+                          : meta.variant === 'success'
+                          ? '$success50'
+                          : '$brand50'
+                        : undefined
+                    }
+                    accessibilityLabel={`Severity ${meta.label}`}
                   >
-                    {SEVERITY_META[s].label}
-                  </Text>
-                </Card>
-              ))}
+                    <Text
+                      variant="caption"
+                      weight="600"
+                      textTransform="capitalize"
+                      textAlign="center"
+                      color={
+                        active
+                          ? meta.variant === 'danger'
+                            ? 'danger'
+                            : meta.variant === 'warning'
+                            ? 'warning'
+                            : 'brand'
+                          : 'primary'
+                      }
+                    >
+                      {meta.label}
+                    </Text>
+                  </Card>
+                );
+              })}
             </XStack>
           </YStack>
           <Input
-            label="Location"
-            placeholder="e.g. Studio 2, Reception, Rooftop"
-            accessibilityLabel="Incident location"
-          />
-          <Input
             label="Title"
             placeholder="Short summary"
+            value={reportTitle}
+            onChangeText={setReportTitle}
             accessibilityLabel="Incident title"
           />
           <Input
-            label="Description"
-            placeholder="What happened? Who is affected?"
-            multiline
-            numberOfLines={4}
-            accessibilityLabel="Incident description"
+            label="Location"
+            placeholder="e.g. Studio 2, Reception, Rooftop"
+            value={reportLocation}
+            onChangeText={setReportLocation}
+            accessibilityLabel="Incident location"
           />
+          <YStack gap="$1">
+            <Text variant="caption" color="secondary" fontWeight="600">
+              Description
+            </Text>
+            <YStack
+              borderWidth={1}
+              borderColor="$borderColor"
+              borderRadius="$md"
+              padding="$3"
+              backgroundColor="$surface"
+              minHeight={120}
+            >
+              <textarea
+                value={reportDescription}
+                onChange={(e: any) => setReportDescription(e.target.value)}
+                placeholder="What happened? Who is affected?"
+                style={{
+                  width: '100%',
+                  minHeight: 100,
+                  border: 'none',
+                  background: 'transparent',
+                  outline: 'none',
+                  fontSize: 14,
+                  color: 'inherit',
+                  fontFamily: 'inherit',
+                  resize: 'none',
+                }}
+                aria-label="Incident description"
+              />
+            </YStack>
+          </YStack>
           <Button
             label="Submit report"
             variant="primary"
             size="md"
             fullWidth
-            onPress={() => setReportOpen(false)}
+            onPress={handleSubmit}
             accessibilityLabel="Submit incident report"
           />
         </YStack>
@@ -471,7 +622,13 @@ function IncidentCard({
   );
 }
 
-function IncidentDetail({ incident }: { incident: Incident }) {
+function IncidentDetail({
+  incident,
+  onResolve,
+}: {
+  incident: Incident;
+  onResolve: () => void;
+}) {
   const t = TYPE_META[incident.type];
   const s = SEVERITY_META[incident.severity];
   return (
@@ -509,8 +666,9 @@ function IncidentDetail({ incident }: { incident: Incident }) {
           variant="primary"
           size="md"
           flex={1}
-          onPress={() => {}}
+          onPress={onResolve}
           accessibilityLabel="Mark incident as resolved"
+          disabled={incident.status === 'resolved'}
         />
         <Button
           label="Escalate"

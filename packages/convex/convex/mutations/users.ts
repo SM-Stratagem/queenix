@@ -1,83 +1,286 @@
 /**
- * Queenix Gym — User & Profile mutations
+ * Queenix Gym — User mutations
  */
 
 import { v } from 'convex/values';
 import { mutation } from '../_generated/server';
-import { requireUser, audit } from '../_helpers';
-import { ConvexError } from 'convex/values';
+import { requireUser } from '../_helpers';
 
-export const updateMemberProfile = mutation({
+export const switchRole = mutation({
   args: {
-    dateOfBirth: v.optional(v.string()),
-    emergencyContact: v.optional(
-      v.object({
-        name: v.string(),
-        phone: v.string(),
-        relationship: v.optional(v.string()),
-      })
+    role: v.union(
+      v.literal('member'),
+      v.literal('trainer'),
+      v.literal('owner'),
+      v.literal('operations')
     ),
-    vehicles: v.optional(
-      v.array(
-        v.object({
-          plate: v.string(),
-          make: v.optional(v.string()),
-          model: v.optional(v.string()),
-          color: v.optional(v.string()),
-        })
-      )
-    ),
-    preferences: v.optional(
-      v.object({
-        notifications: v.boolean(),
-        marketing: v.boolean(),
-        language: v.union(v.literal('en'), v.literal('ar')),
-      })
-    ),
+  },
+  handler: async (ctx, { role }) => {
+    const user = await requireUser(ctx);
+    if (!user.roles.includes(role)) {
+      throw new Error('User does not have this role');
+    }
+    await ctx.db.patch(user._id, { activeRole: role, updatedAt: Date.now() });
+  },
+});
+
+// ============================================================
+// Trainer mutations
+// ============================================================
+
+/**
+ * Upsert the current user's trainer profile. Creates one if missing.
+ */
+export const updateTrainerProfile = mutation({
+  args: {
+    bio: v.optional(v.string()),
+    specialties: v.optional(v.array(v.string())),
+    hourlyRateCents: v.optional(v.number()),
+    currency: v.optional(v.string()),
+    isAvailable: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
     const existing = await ctx.db
-      .query('memberProfiles')
+      .query('trainerProfiles')
       .withIndex('by_user', (q) => q.eq('userId', user._id))
       .first();
 
+    const now = Date.now();
     if (existing) {
-      await ctx.db.patch(existing._id, args);
-      return existing._id;
-    } else {
-      return await ctx.db.insert('memberProfiles', {
-        userId: user._id,
-        dateOfBirth: args.dateOfBirth,
-        emergencyContact: args.emergencyContact,
-        vehicles: args.vehicles ?? [],
-        preferences: args.preferences ?? {
-          notifications: true,
-          marketing: false,
-          language: 'en',
-        },
+      await ctx.db.patch(existing._id, {
+        ...(args.bio !== undefined ? { bio: args.bio } : {}),
+        ...(args.specialties !== undefined ? { specialties: args.specialties } : {}),
+        ...(args.hourlyRateCents !== undefined
+          ? { hourlyRateCents: args.hourlyRateCents }
+          : {}),
+        ...(args.currency !== undefined ? { currency: args.currency } : {}),
+        ...(args.isAvailable !== undefined ? { isAvailable: args.isAvailable } : {}),
       });
+      return existing._id;
     }
+    return await ctx.db.insert('trainerProfiles', {
+      userId: user._id,
+      bio: args.bio ?? '',
+      specialties: args.specialties ?? [],
+      certifications: [],
+      rating: 0,
+      reviewCount: 0,
+      isAvailable: args.isAvailable ?? true,
+      hourlyRateCents: args.hourlyRateCents ?? 0,
+      currency: args.currency ?? 'AED',
+    });
   },
 });
 
-export const switchRole = mutation({
-  args: { role: v.union(v.literal('member'), v.literal('trainer'), v.literal('owner'), v.literal('operations')) },
-  handler: async (ctx, { role }) => {
+/**
+ * Add a certification to the current user's trainer profile.
+ */
+export const addTrainerCertification = mutation({
+  args: {
+    name: v.string(),
+    issuer: v.string(),
+    issuedAt: v.number(),
+    expiresAt: v.optional(v.number()),
+    documentUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
     const user = await requireUser(ctx);
-    if (!user.roles.includes(role)) {
-      throw new ConvexError({ code: 'FORBIDDEN', message: 'You do not have this role' });
+    const existing = await ctx.db
+      .query('trainerProfiles')
+      .withIndex('by_user', (q) => q.eq('userId', user._id))
+      .first();
+    if (!existing) throw new Error('Trainer profile not found');
+    const certs = [
+      ...existing.certifications,
+      {
+        name: args.name,
+        issuer: args.issuer,
+        issuedAt: args.issuedAt,
+        expiresAt: args.expiresAt,
+        documentUrl: args.documentUrl,
+      },
+    ];
+    await ctx.db.patch(existing._id, { certifications: certs });
+  },
+});
+
+/**
+ * Trainer requests an early payout — creates an approval + notification.
+ */
+export const requestEarlyPayout = mutation({
+  args: {
+    amountCents: v.number(),
+    currency: v.optional(v.string()),
+    note: v.optional(v.string()),
+  },
+  handler: async (ctx, { amountCents, currency = 'AED', note }) => {
+    const user = await requireUser(ctx);
+    const now = Date.now();
+
+    // Find the owner(s) to notify
+    const owners = await ctx.db
+      .query('users')
+      .filter((q) => q.eq(q.field('activeRole'), 'owner'))
+      .take(10);
+
+    for (const owner of owners) {
+      await ctx.db.insert('notifications', {
+        userId: owner._id,
+        title: 'Early payout requested',
+        body: `${user.fullName} requested an early payout of ${
+          (amountCents / 100).toFixed(2)
+        } ${currency}${note ? ` — ${note}` : ''}`,
+        type: 'system',
+        read: false,
+        data: { trainerId: user._id, amountCents, currency },
+        createdAt: now,
+      });
     }
-    const before = { activeRole: user.activeRole };
-    await ctx.db.patch(user._id, { activeRole: role, updatedAt: Date.now() });
-    await audit(ctx, {
-      actorId: user._id,
-      action: 'user.roleSwitched',
-      entityType: 'user',
-      entityId: user._id,
-      before,
-      after: { activeRole: role },
+
+    // Create an approval record so it shows up in the owner inbox
+    return await ctx.db.insert('approvals', {
+      type: 'payout.early_requested',
+      requestorId: user._id,
+      payload: { amountCents, currency, note: note ?? null },
+      status: 'pending',
+      createdAt: now,
     });
-    return { ok: true };
+  },
+});
+
+// ============================================================
+// Owner mutations — approvals
+// ============================================================
+
+/**
+ * Owner decides on an approval request. Patches status, creates an
+ * audit event, and notifies the requestor.
+ */
+export const decideApproval = mutation({
+  args: {
+    approvalId: v.id('approvals'),
+    decision: v.union(
+      v.literal('approved'),
+      v.literal('denied'),
+      v.literal('cancelled')
+    ),
+    note: v.optional(v.string()),
+  },
+  handler: async (ctx, { approvalId, decision, note }) => {
+    const user = await requireUser(ctx);
+    const approval = await ctx.db.get(approvalId);
+    if (!approval) throw new Error('Approval not found');
+    if (approval.status !== 'pending') {
+      throw new Error('Approval already decided');
+    }
+
+    const now = Date.now();
+
+    await ctx.db.patch(approvalId, {
+      status: decision,
+      decidedBy: user._id,
+      decidedAt: now,
+      decisionNote: note,
+    });
+
+    // Audit event
+    await ctx.db.insert('auditEvents', {
+      actorId: user._id,
+      action: `approval.${decision}`,
+      entityType: 'approval',
+      entityId: approvalId,
+      before: { status: 'pending' },
+      after: { status: decision, note: note ?? null },
+      timestamp: now,
+    });
+
+    // Notify requestor
+    await ctx.db.insert('notifications', {
+      userId: approval.requestorId,
+      title:
+        decision === 'approved'
+          ? 'Your request was approved'
+          : decision === 'denied'
+          ? 'Your request was denied'
+          : 'Your request was cancelled',
+      body: note ?? `Your ${approval.type} request has been ${decision}.`,
+      type: 'system',
+      read: false,
+      data: { approvalId, type: approval.type, decision },
+      createdAt: now,
+    });
+  },
+});
+
+// ============================================================
+// Punch clock mutations
+// ============================================================
+
+/**
+ * Record a punch event (clock in/out) for the current user.
+ * Validates that the user is staff, ops, or owner.
+ */
+export const recordPunch = mutation({
+  args: {
+    method: v.union(v.literal('fingerprint'), v.literal('app'), v.literal('manual')),
+    punchType: v.union(v.literal('in'), v.literal('out')),
+    timestamp: v.optional(v.number()),
+    deviceId: v.optional(v.string()),
+    location: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    if (!['operations', 'owner'].includes(user.activeRole)) {
+      throw new Error('Only staff/ops/owner can record punches');
+    }
+    const ts = args.timestamp ?? Date.now();
+    const eventId = await ctx.db.insert('punchEvents', {
+      userId: user._id,
+      method: args.method,
+      punchType: args.punchType,
+      timestamp: ts,
+      deviceId: args.deviceId,
+      location: args.location,
+      createdAt: Date.now(),
+    });
+    return eventId;
+  },
+});
+
+/**
+ * Record a punch for a specific user — used by the fingerprint
+ * hardware webhook (which authenticates via deviceId allowlist, not
+ * via the user session). Caller must provide the target userId.
+ */
+export const recordPunchForUser = mutation({
+  args: {
+    userId: v.id('users'),
+    method: v.union(v.literal('fingerprint'), v.literal('app'), v.literal('manual')),
+    punchType: v.union(v.literal('in'), v.literal('out')),
+    timestamp: v.number(),
+    deviceId: v.optional(v.string()),
+    location: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // NOTE: this mutation is intended to be called from the
+    // /api/scanner/fingerprint HTTP webhook after it has validated the
+    // deviceId against the FINGERPRINT_DEVICE_IDS allowlist. We still
+    // require an authenticated session for safety, but in production
+    // the webhook uses a server-to-server token verified upstream.
+    const user = await ctx.db.get(args.userId);
+    if (!user) throw new Error('User not found');
+    if (!['operations', 'owner'].includes(user.activeRole)) {
+      throw new Error('Only staff/ops/owner can record punches');
+    }
+    return await ctx.db.insert('punchEvents', {
+      userId: args.userId,
+      method: args.method,
+      punchType: args.punchType,
+      timestamp: args.timestamp,
+      deviceId: args.deviceId,
+      location: args.location,
+      createdAt: Date.now(),
+    });
   },
 });

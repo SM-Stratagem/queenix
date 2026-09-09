@@ -12,7 +12,11 @@ import {
   Progress,
   Sheet,
   Divider,
+  Skeleton,
+  ErrorState,
+  EmptyState,
 } from '@queenix/ui';
+import { useConvexQuery, api } from '@/lib/convex';
 import {
   Calendar,
   Clock,
@@ -23,6 +27,7 @@ import {
   X,
   UserCheck,
   PlayCircle,
+  RefreshCw,
 } from '@tamagui/lucide-icons';
 import { formatTime } from '@queenix/types';
 
@@ -47,76 +52,17 @@ interface ClassInstance {
   attendees: RosterEntry[];
 }
 
+function getInitials(name?: string | null): string {
+  if (!name) return '·';
+  const parts = name.trim().split(/\s+/);
+  return (parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '');
+}
+
 const TRAINER_AVATAR_COLOR = {
   PT: '$brand100',
   MA: '$success100',
   SK: '$warning100',
 } as const;
-
-const ROSTERS: Record<string, RosterEntry[]> = {
-  c1: [
-    { id: 'a1', name: 'Aisha Al-Mansoori', initials: 'AM', status: 'checked_in', memberId: 'QNX-08421' },
-    { id: 'a2', name: 'Sara Al-Maktoum', initials: 'SM', status: 'checked_in', memberId: 'QNX-06550' },
-    { id: 'a3', name: 'Daniel Pereira', initials: 'DP', status: 'booked', memberId: 'QNX-07209' },
-    { id: 'a4', name: 'Priya Sharma', initials: 'PS', status: 'late', memberId: 'QNX-05833', time: '5 min late' },
-    { id: 'a5', name: 'Khalifa Al-Suwaidi', initials: 'KS', status: 'booked', memberId: 'QNX-12044' },
-    { id: 'a6', name: 'Mohammed Ali', initials: 'MA', status: 'no_show', memberId: 'QNX-10298' },
-    { id: 'a7', name: 'Reem Al-Suwaidi', initials: 'RA', status: 'booked', memberId: 'QNX-13011' },
-    { id: 'a8', name: 'Yusuf Khan', initials: 'YK', status: 'booked', memberId: 'QNX-09112' },
-    { id: 'a9', name: 'Latifa Hassan', initials: 'LH', status: 'booked', memberId: 'QNX-14287' },
-    { id: 'a10', name: 'Hala Al-Suwaidi', initials: 'HA', status: 'booked', memberId: 'QNX-15601' },
-  ],
-  c2: [
-    { id: 'b1', name: 'Maryam Al-Falasi', initials: 'MA', status: 'checked_in', memberId: 'QNX-09833' },
-    { id: 'b2', name: 'James Wilson', initials: 'JW', status: 'checked_in', memberId: 'QNX-07412' },
-    { id: 'b3', name: 'Fatima Al-Zahra', initials: 'FZ', status: 'booked', memberId: 'QNX-11250' },
-    { id: 'b4', name: 'Carlos Mendoza', initials: 'CM', status: 'booked', memberId: 'QNX-12904' },
-    { id: 'b5', name: 'Aisha Patel', initials: 'AP', status: 'booked', memberId: 'QNX-08312' },
-    { id: 'b6', name: 'Omar Al-Hashimi', initials: 'OH', status: 'no_show', memberId: 'QNX-10025' },
-  ],
-  c3: [
-    { id: 'd1', name: 'Noura Al-Marri', initials: 'NM', status: 'booked', memberId: 'QNX-04418' },
-    { id: 'd2', name: 'Vikram Iyer', initials: 'VI', status: 'booked', memberId: 'QNX-11733' },
-    { id: 'd3', name: 'Anna Kowalski', initials: 'AK', status: 'booked', memberId: 'QNX-13822' },
-    { id: 'd4', name: 'Rashid Al-Nuaimi', initials: 'RN', status: 'booked', memberId: 'QNX-06120' },
-  ],
-};
-
-const CLASSES: ClassInstance[] = [
-  {
-    id: 'c1',
-    name: 'Power Yoga',
-    trainer: 'Maya Patel',
-    trainerInitials: 'MP',
-    startsAt: Date.now() + 30 * 60 * 1000,
-    durationMin: 60,
-    room: 'Studio 2',
-    capacity: 12,
-    attendees: ROSTERS.c1,
-  },
-  {
-    id: 'c2',
-    name: 'HIIT 45',
-    trainer: 'Sam Khan',
-    trainerInitials: 'SK',
-    startsAt: Date.now() + 2.5 * 60 * 60 * 1000,
-    durationMin: 45,
-    room: 'Studio 1',
-    capacity: 8,
-    attendees: ROSTERS.c2,
-  },
-  {
-    id: 'c3',
-    name: 'Sunset Pilates',
-    trainer: 'Maya Patel',
-    trainerInitials: 'MP',
-    startsAt: Date.now() + 5 * 60 * 60 * 1000,
-    durationMin: 50,
-    room: 'Rooftop',
-    capacity: 6,
-    attendees: ROSTERS.c3,
-  },
-];
 
 export default function OpsClassesScreen() {
   const router = useRouter();
@@ -138,15 +84,46 @@ export default function OpsClassesScreen() {
     });
   }, []);
 
+  const todayClasses = useConvexQuery(api.queries.classes.getTodayRoster, {});
+
+  // Map Convex data → UI shape
+  const classes: ClassInstance[] = useMemo(() => {
+    if (!todayClasses) return [];
+    return todayClasses.map((c: any) => {
+      const rosterPreview: RosterEntry[] = (c.rosterPreview ?? []).map((r: any, i: number) => ({
+        id: r._id ?? `r${i}`,
+        name: r.user?.fullName ?? 'Member',
+        initials: getInitials(r.user?.fullName),
+        status: 'booked',
+        memberId: `QNX-${(r.user?._id ?? '').slice(-5).toUpperCase()}`,
+      }));
+      return {
+        id: c._id,
+        name: c.classType?.name ?? 'Class',
+        trainer: c.trainer?.fullName ?? 'TBA',
+        trainerInitials: getInitials(c.trainer?.fullName),
+        startsAt: c.startsAt,
+        durationMin: c.classType?.durationMinutes ?? 60,
+        room: c.roomId ?? 'Studio',
+        capacity: c.capacity,
+        attendees: rosterPreview,
+      };
+    });
+  }, [todayClasses]);
+
   const checkedInCount = (c: ClassInstance) =>
     c.attendees.filter((a) => a.status === 'checked_in').length;
-  const noShowCount = (c: ClassInstance) =>
-    c.attendees.filter((a) => a.status === 'no_show').length;
+  const bookedCount = (c: ClassInstance) =>
+    c.attendees.filter((a) => a.status === 'booked').length;
   const lateCount = (c: ClassInstance) =>
     c.attendees.filter((a) => a.status === 'late').length;
+  const noShowCount = (c: ClassInstance) =>
+    c.attendees.filter((a) => a.status === 'no_show').length;
 
-  const totalLate = CLASSES.reduce((acc, c) => acc + lateCount(c), 0);
-  const totalNoShow = CLASSES.reduce((acc, c) => acc + noShowCount(c), 0);
+  const totalCheckedIn = classes.reduce((acc, c) => acc + checkedInCount(c), 0);
+  const totalBooked = classes.reduce((acc, c) => acc + bookedCount(c), 0);
+  const totalLate = classes.reduce((acc, c) => acc + lateCount(c), 0);
+  const totalNoShow = classes.reduce((acc, c) => acc + noShowCount(c), 0);
 
   return (
     <Screen padded={false}>
@@ -214,13 +191,13 @@ export default function OpsClassesScreen() {
             <SummaryStat
               icon={<Check size={18} color="$success500" />}
               label="Checked in"
-              value={CLASSES.reduce((acc, c) => acc + checkedInCount(c), 0).toString()}
+              value={totalCheckedIn.toString()}
               flex={1}
             />
             <SummaryStat
               icon={<Clock size={18} color="$warning500" />}
-              label="Late"
-              value={totalLate.toString()}
+              label="Booked"
+              value={totalBooked.toString()}
               flex={1}
             />
             <SummaryStat
@@ -234,17 +211,39 @@ export default function OpsClassesScreen() {
 
         {/* Class list */}
         <YStack paddingHorizontal="$4" marginTop="$4" gap="$3">
-          <Text variant="h4">Today's classes</Text>
-          {CLASSES.map((c) => (
-            <ClassCard
-              key={c.id}
-              cls={c}
-              checkedIn={checkedInCount(c)}
-              late={lateCount(c)}
-              noShow={noShowCount(c)}
-              onOpen={() => setSelectedClass(c)}
+          <XStack justifyContent="space-between" alignItems="center">
+            <Text variant="h4">Today's classes</Text>
+            {todayClasses && todayClasses.length > 0 && (
+              <Text variant="caption" color="muted">
+                {todayClasses.length} session{todayClasses.length === 1 ? '' : 's'}
+              </Text>
+            )}
+          </XStack>
+          {todayClasses === undefined ? (
+            <YStack gap="$3">
+              <Skeleton height={180} borderRadius={16} />
+              <Skeleton height={180} borderRadius={16} />
+            </YStack>
+          ) : todayClasses === null ? (
+            <ErrorState onRetry={() => {}} />
+          ) : classes.length === 0 ? (
+            <EmptyState
+              title="No classes today"
+              message="The schedule is clear. New bookings will appear here as soon as members sign up."
+              icon={<Calendar size={32} color="$textMuted" />}
             />
-          ))}
+          ) : (
+            classes.map((c) => (
+              <ClassCard
+                key={c.id}
+                cls={c}
+                checkedIn={checkedInCount(c)}
+                late={lateCount(c)}
+                noShow={noShowCount(c)}
+                onOpen={() => setSelectedClass(c)}
+              />
+            ))
+          )}
         </YStack>
       </ScrollView>
 
@@ -343,7 +342,7 @@ function ClassCard({
             </XStack>
           </XStack>
         </YStack>
-        {cls.startsAt - Date.now() < 60 * 60 * 1000 && (
+        {cls.startsAt - Date.now() < 60 * 60 * 1000 && cls.startsAt > Date.now() && (
           <Badge label="Starting soon" variant="warning" />
         )}
       </XStack>
@@ -382,15 +381,21 @@ function ClassCard({
       {/* Roster preview */}
       <XStack alignItems="center" gap="$2">
         <XStack>
-          {rosterPreview.map((a, i) => (
-            <YStack key={a.id} marginLeft={i === 0 ? 0 : -10}>
-              <Avatar
-                name={a.name}
-                size="sm"
-                fallbackColor={a.status === 'checked_in' ? '$success' : '$info'}
-              />
-            </YStack>
-          ))}
+          {rosterPreview.length > 0 ? (
+            rosterPreview.map((a, i) => (
+              <YStack key={a.id} marginLeft={i === 0 ? 0 : -10}>
+                <Avatar
+                  name={a.name}
+                  size="sm"
+                  fallbackColor={a.status === 'checked_in' ? '$success' : '$info'}
+                />
+              </YStack>
+            ))
+          ) : (
+            <Text variant="caption" color="muted">
+              No bookings yet
+            </Text>
+          )}
         </XStack>
         <Text variant="caption" color="muted" flex={1}>
           {overflowCount > 0
@@ -463,9 +468,13 @@ function RosterDetail({ cls }: { cls: ClassInstance }) {
 
       <YStack gap="$2" marginTop="$2">
         <Text variant="h4">Awaiting</Text>
-        {others.map((a) => (
-          <RosterRow key={a.id} entry={a} />
-        ))}
+        {others.length === 0 ? (
+          <Text variant="bodySmall" color="muted">
+            Everyone has checked in.
+          </Text>
+        ) : (
+          others.map((a) => <RosterRow key={a.id} entry={a} />)
+        )}
       </YStack>
 
       <YStack marginTop="$2">

@@ -1,7 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  transpilePackages: ['@queenix/ui', '@queenix/theme', '@queenix/types', '@queenix/convex'],
+  transpilePackages: [
+    '@queenix/ui',
+    '@queenix/theme',
+    '@queenix/types',
+    '@queenix/convex',
+    '@queenix/payments',
+    '@queenix/receipts',
+  ],
   experimental: {
     optimizePackageImports: ['@queenix/ui', '@queenix/theme', 'tamagui', 'lucide-react'],
   },

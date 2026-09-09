@@ -1,10 +1,21 @@
 import React from 'react';
 import { YStack, XStack, ScrollView } from 'tamagui';
 import { useRouter } from 'expo-router';
-import { Screen, Text, Card, Avatar, Button, Badge, Logo, Spacer, Progress } from '@queenix/ui';
-import { useAuth } from '@/lib/auth';
 import {
-  Calendar,
+  Screen,
+  Text,
+  Card,
+  Button,
+  Badge,
+  Logo,
+  Progress,
+  Skeleton,
+  EmptyState,
+} from '@queenix/ui';
+import { useAuth } from '@/lib/auth';
+import { useConvexQuery } from '@/lib/convex';
+import { api } from '@queenix/convex';
+import {
   QrCode,
   Activity,
   Users,
@@ -19,24 +30,32 @@ export default function MemberHome() {
   const router = useRouter();
   const { session } = useAuth();
 
-  // Mock data — in production: Convex queries
-  const membership = {
-    planName: 'Premium',
-    status: 'active' as const,
-    daysRemaining: 23,
-    visitsThisMonth: 12,
-    pointsBalance: 1240,
-  };
+  // Real data from Convex
+  const membership = useConvexQuery(api.queries.memberships.getCurrentMembership, {});
+  const upcomingClasses = useConvexQuery(api.queries.classes.getUpcomingClasses, { limit: 3 });
+  const occupancy = useConvexQuery(api.queries.access.getCurrentOccupancy, {});
+  const loyalty = useConvexQuery(api.queries.users.getLoyaltyBalance, {});
 
-  const nextClass = {
-    name: 'Power Yoga',
-    trainer: 'Maya Patel',
-    startsAt: Date.now() + 2 * 60 * 60 * 1000,
-    room: 'Studio 2',
-  };
-
-  const liveOccupancy = 38;
+  const liveOccupancy = occupancy?.count ?? 0;
+  // We don't have a per-gym capacity from the snapshot table; pick a reasonable default
+  // and surface the raw count from the snapshot.
   const maxOccupancy = 60;
+  const pointsBalance = loyalty?.balance ?? 0;
+
+  const nextClass = upcomingClasses?.[0] ?? null;
+
+  const isLoading =
+    membership === undefined ||
+    upcomingClasses === undefined ||
+    occupancy === undefined ||
+    loyalty === undefined;
+
+  // Build "days remaining" off the membership endDate
+  const daysRemaining = membership?.endDate
+    ? Math.max(0, Math.ceil((membership.endDate - Date.now()) / (24 * 60 * 60 * 1000)))
+    : 0;
+  const totalDays = membership?.plan?.durationDays ?? 30;
+  const progressPct = membership ? Math.min(100, (daysRemaining / Math.max(1, totalDays)) * 100) : 0;
 
   return (
     <Screen scroll padded={false}>
@@ -60,21 +79,38 @@ export default function MemberHome() {
         <YStack paddingHorizontal="$4">
           <Card variant="elevated" padding="lg">
             <YStack gap="$3">
-              <XStack justifyContent="space-between" alignItems="flex-start">
-                <YStack>
-                  <Text variant="caption" color="secondary" textTransform="uppercase">
-                    {membership.planName} Membership
-                  </Text>
-                  <Text variant="h2" marginTop="$1">
-                    {membership.daysRemaining} days
-                  </Text>
+              {isLoading ? (
+                <YStack gap="$2">
+                  <Skeleton width="40%" height={14} />
+                  <Skeleton width="60%" height={28} />
+                  <Skeleton width="80%" height={8} borderRadius={4} />
+                </YStack>
+              ) : membership ? (
+                <>
+                  <XStack justifyContent="space-between" alignItems="flex-start">
+                    <YStack>
+                      <Text variant="caption" color="secondary" textTransform="uppercase">
+                        {membership.plan?.name ?? 'Membership'} Membership
+                      </Text>
+                      <Text variant="h2" marginTop="$1">
+                        {daysRemaining} days
+                      </Text>
+                      <Text variant="bodySmall" color="secondary">
+                        remaining on your plan
+                      </Text>
+                    </YStack>
+                    <Badge label={membership.status} variant="success" />
+                  </XStack>
+                  <Progress value={progressPct} size="sm" />
+                </>
+              ) : (
+                <YStack gap="$2">
+                  <Text variant="label">No active membership</Text>
                   <Text variant="bodySmall" color="secondary">
-                    remaining on your plan
+                    Pick a plan to start training
                   </Text>
                 </YStack>
-                <Badge label="Active" variant="success" />
-              </XStack>
-              <Progress value={(membership.daysRemaining / 30) * 100} size="sm" />
+              )}
               <XStack gap="$2" marginTop="$2">
                 <Button
                   label="View membership"
@@ -126,7 +162,10 @@ export default function MemberHome() {
                 <Text variant="label">Live occupancy</Text>
                 <Text variant="bodySmall" color="muted">Updated just now</Text>
               </YStack>
-              <Badge label={`${liveOccupancy}/${maxOccupancy}`} variant={liveOccupancy > maxOccupancy * 0.8 ? 'warning' : 'success'} />
+              <Badge
+                label={`${liveOccupancy}/${maxOccupancy}`}
+                variant={liveOccupancy > maxOccupancy * 0.8 ? 'warning' : 'success'}
+              />
             </XStack>
             <Progress
               value={(liveOccupancy / maxOccupancy) * 100}
@@ -148,35 +187,57 @@ export default function MemberHome() {
               See all
             </Text>
           </XStack>
-          <Card
-            variant="elevated"
-            onPress={() => router.push('/(member)/classes')}
-            accessibilityLabel="Open next class"
-          >
-            <XStack alignItems="center" gap="$3">
-              <YStack
-                backgroundColor="$brand50"
-                padding="$3"
-                borderRadius="$lg"
-                alignItems="center"
-                justifyContent="center"
-                width={56}
-                height={56}
-              >
-                <Sparkles size={24} color="$brand" />
-              </YStack>
-              <YStack flex={1} gap="$1">
-                <Text variant="h4">{nextClass.name}</Text>
-                <Text variant="bodySmall" color="secondary">
-                  with {nextClass.trainer} • {nextClass.room}
-                </Text>
-                <Text variant="caption" color="brand" fontWeight="600">
-                  Today, {formatTime(nextClass.startsAt)}
-                </Text>
-              </YStack>
-              <ChevronRight size={20} color="$textMuted" />
-            </XStack>
-          </Card>
+          {isLoading ? (
+            <Card variant="elevated">
+              <XStack alignItems="center" gap="$3">
+                <Skeleton width={56} height={56} borderRadius={16} />
+                <YStack flex={1} gap="$1">
+                  <Skeleton width="60%" height={18} />
+                  <Skeleton width="40%" height={12} />
+                  <Skeleton width="30%" height={12} />
+                </YStack>
+              </XStack>
+            </Card>
+          ) : nextClass ? (
+            <Card
+              variant="elevated"
+              onPress={() => router.push(`/(member)/classes/${nextClass._id}`)}
+              accessibilityLabel="Open next class"
+            >
+              <XStack alignItems="center" gap="$3">
+                <YStack
+                  backgroundColor="$brand50"
+                  padding="$3"
+                  borderRadius="$lg"
+                  alignItems="center"
+                  justifyContent="center"
+                  width={56}
+                  height={56}
+                >
+                  <Sparkles size={24} color="$brand" />
+                </YStack>
+                <YStack flex={1} gap="$1">
+                  <Text variant="h4">Class at {formatTime(nextClass.startsAt)}</Text>
+                  <Text variant="bodySmall" color="secondary">
+                    {formatDate(nextClass.startsAt)} • {nextClass.roomId ?? 'Studio'}
+                  </Text>
+                  <Text variant="caption" color="brand" fontWeight="600">
+                    {nextClass.bookedCount}/{nextClass.capacity} booked
+                  </Text>
+                </YStack>
+                <ChevronRight size={20} color="$textMuted" />
+              </XStack>
+            </Card>
+          ) : (
+            <Card variant="outlined">
+              <EmptyState
+                title="No upcoming classes"
+                message="Browse the schedule and book your next session."
+                actionLabel="Browse classes"
+                onAction={() => router.push('/(member)/book')}
+              />
+            </Card>
+          )}
         </YStack>
 
         {/* Stats */}
@@ -185,20 +246,20 @@ export default function MemberHome() {
           <XStack gap="$3">
             <StatCard
               icon={<TrendingUp size={20} color="$brand" />}
-              value={membership.visitsThisMonth.toString()}
-              label="Visits"
-              flex={1}
-            />
-            <StatCard
-              icon={<Award size={20} color="$brand" />}
-              value={membership.pointsBalance.toString()}
+              value={isLoading ? '—' : String(pointsBalance)}
               label="Points"
               flex={1}
             />
             <StatCard
+              icon={<Award size={20} color="$brand" />}
+              value={isLoading ? '—' : String(nextClass ? upcomingClasses?.length ?? 0 : 0)}
+              label="Upcoming"
+              flex={1}
+            />
+            <StatCard
               icon={<Users size={20} color="$brand" />}
-              value="5"
-              label="Classes"
+              value={isLoading ? '—' : `${liveOccupancy}`}
+              label="In-gym"
               flex={1}
             />
           </XStack>

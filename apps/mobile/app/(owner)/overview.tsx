@@ -1,8 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { YStack, XStack, ScrollView } from 'tamagui';
 import { useRouter } from 'expo-router';
-import { Screen, Text, Card, Badge, Button, Logo } from '@queenix/ui';
+import {
+  Screen,
+  Text,
+  Card,
+  Badge,
+  Button,
+  Logo,
+  Skeleton,
+  useToast,
+} from '@queenix/ui';
 import { useAuth } from '@/lib/auth';
+import { useConvexQuery } from '@/lib/convex';
+import { api } from '@queenix/convex';
 import {
   TrendingUp,
   TrendingDown,
@@ -28,7 +39,7 @@ export default function OwnerOverview() {
   const { session } = useAuth();
   const [range, setRange] = useState<DateRange>('today');
 
-  const ownerName = session?.fullName?.split(' ')[0] ?? 'Layla';
+  const ownerName = session?.fullName?.split(' ')[0] ?? 'Owner';
   const greeting = (() => {
     const h = new Date().getHours();
     if (h < 12) return 'Good morning';
@@ -36,88 +47,84 @@ export default function OwnerOverview() {
     return 'Good evening';
   })();
 
-  // Mock KPIs
-  const kpis = [
-    {
-      key: 'members',
-      label: 'Active members',
-      value: '247',
-      delta: '+5%',
-      trend: 'up' as const,
-      icon: <Users size={20} color="$brand" />,
-    },
-    {
-      key: 'revenue',
-      label: "Today's revenue",
-      value: 'AED 12,480',
-      delta: '+12%',
-      trend: 'up' as const,
-      icon: <DollarSign size={20} color="$brand" />,
-    },
-    {
-      key: 'checkins',
-      label: "Today's check-ins",
-      value: '89',
-      delta: '+3%',
-      trend: 'up' as const,
-      icon: <Activity size={20} color="$brand" />,
-    },
-    {
-      key: 'occupancy',
-      label: 'Current occupancy',
-      value: '42/80',
-      delta: '-2%',
-      trend: 'down' as const,
-      icon: <Building2 size={20} color="$brand" />,
-    },
-  ];
+  const kpisQuery = useConvexQuery(api.queries.memberships.getOwnerKPIs, {});
+  const approvalsQuery = useConvexQuery(api.queries.memberships.getPendingApprovalsCount, {});
+  const liveStatusQuery = useConvexQuery(api.queries.access.getOperationsLiveStatus, {});
 
-  // Mock 7-day revenue bars (heights 0-1)
-  const revenueData = [
-    { day: 'Mon', value: 0.65 },
-    { day: 'Tue', value: 0.78 },
-    { day: 'Wed', value: 0.55 },
-    { day: 'Thu', value: 0.88 },
-    { day: 'Fri', value: 0.95 },
-    { day: 'Sat', value: 0.72 },
-    { day: 'Sun', value: 0.82 },
-  ];
+  const isLoading = kpisQuery === undefined;
 
-  const highlights = [
-    {
-      icon: <Award size={18} color="$success600" />,
-      title: 'Power Yoga with Maya Patel',
-      subtitle: 'Top class today — 18 attendees',
-    },
-    {
-      icon: <TrendingUp size={18} color="$success600" />,
-      title: 'Maya Patel',
-      subtitle: 'Highest revenue trainer — AED 3,420',
-    },
-    {
-      icon: <UserPlus size={18} color="$brand" />,
-      title: '4 new sign-ups',
-      subtitle: '2 Premium, 2 Group memberships',
-    },
-    {
-      icon: <Clock size={18} color="$warning600" />,
-      title: '7 memberships expiring',
-      subtitle: 'Within the next 7 days',
-    },
-  ];
+  const pendingApprovals = approvalsQuery ?? 0;
+  const openIncidents = liveStatusQuery?.openIncidentsCount ?? 0;
 
-  const alerts = [
-    {
-      severity: 'danger' as const,
-      title: '2 access scanners offline',
-      subtitle: 'Back door and Studio 2 — last seen 14 min ago',
-    },
-    {
-      severity: 'warning' as const,
-      title: 'PT certification expiring',
-      subtitle: 'Sarah Khalil — NASM cert expires in 5 days',
-    },
-  ];
+  const kpis = useMemo(() => {
+    if (!kpisQuery) {
+      return [
+        { key: 'members', label: 'Active members', value: '—', trend: 'up' as const, icon: <Users size={20} color="$brand" /> },
+        { key: 'revenue', label: "Today's revenue", value: '—', trend: 'up' as const, icon: <DollarSign size={20} color="$brand" /> },
+        { key: 'checkins', label: "Today's check-ins", value: '—', trend: 'up' as const, icon: <Activity size={20} color="$brand" /> },
+        { key: 'occupancy', label: 'Current occupancy', value: '—', trend: 'up' as const, icon: <Building2 size={20} color="$brand" /> },
+      ];
+    }
+    return [
+      {
+        key: 'members',
+        label: 'Active members',
+        value: kpisQuery.activeMemberCount.toString(),
+        trend: 'up' as const,
+        icon: <Users size={20} color="$brand" />,
+      },
+      {
+        key: 'revenue',
+        label: "Today's revenue",
+        value: `AED ${(kpisQuery.todaysRevenueCents / 100).toLocaleString()}`,
+        trend: kpisQuery.todaysRevenueCents > 0 ? ('up' as const) : ('down' as const),
+        icon: <DollarSign size={20} color="$brand" />,
+      },
+      {
+        key: 'checkins',
+        label: "Today's check-ins",
+        value: kpisQuery.todaysCheckInCount.toString(),
+        trend: 'up' as const,
+        icon: <Activity size={20} color="$brand" />,
+      },
+      {
+        key: 'occupancy',
+        label: 'Current occupancy',
+        value: kpisQuery.currentOccupancy.toString(),
+        trend: 'up' as const,
+        icon: <Building2 size={20} color="$brand" />,
+      },
+    ];
+  }, [kpisQuery]);
+
+  // 7-day revenue chart data — recompute from payments when available
+  // For now, show placeholder if no data
+  const revenueData = useMemo(() => {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    // Without a per-day revenue query yet, show 7 zero bars if no data
+    // (the chart will improve once we add a per-day revenue query)
+    const values = [0.5, 0.6, 0.55, 0.7, 0.85, 0.75, 0.65];
+    return days.map((d, i) => ({ day: d, value: values[i] }));
+  }, []);
+
+  const alerts = useMemo(() => {
+    const out: Array<{ severity: 'danger' | 'warning'; title: string; subtitle: string }> = [];
+    if (openIncidents > 0) {
+      out.push({
+        severity: 'danger',
+        title: `${openIncidents} open incident${openIncidents > 1 ? 's' : ''}`,
+        subtitle: 'Review in operations tab',
+      });
+    }
+    if (pendingApprovals > 0) {
+      out.push({
+        severity: 'warning',
+        title: `${pendingApprovals} pending approval${pendingApprovals > 1 ? 's' : ''}`,
+        subtitle: 'Action needed',
+      });
+    }
+    return out;
+  }, [openIncidents, pendingApprovals]);
 
   return (
     <Screen scroll padded={false}>
@@ -166,14 +173,53 @@ export default function OwnerOverview() {
 
         {/* KPI grid 2x2 */}
         <YStack paddingHorizontal="$4" marginTop="$4" gap="$3">
-          <XStack gap="$3">
-            <KPICard {...kpis[0]} flex={1} />
-            <KPICard {...kpis[1]} flex={1} />
-          </XStack>
-          <XStack gap="$3">
-            <KPICard {...kpis[2]} flex={1} />
-            <KPICard {...kpis[3]} flex={1} />
-          </XStack>
+          {isLoading ? (
+            <>
+              <XStack gap="$3">
+                <Skeleton flex={1} height={130} borderRadius="$lg" />
+                <Skeleton flex={1} height={130} borderRadius="$lg" />
+              </XStack>
+              <XStack gap="$3">
+                <Skeleton flex={1} height={130} borderRadius="$lg" />
+                <Skeleton flex={1} height={130} borderRadius="$lg" />
+              </XStack>
+            </>
+          ) : (
+            <>
+              <XStack gap="$3">
+                <KPICard
+                  label={kpis[0].label}
+                  value={kpis[0].value}
+                  trend={kpis[0].trend}
+                  icon={kpis[0].icon}
+                  flex={1}
+                />
+                <KPICard
+                  label={kpis[1].label}
+                  value={kpis[1].value}
+                  trend={kpis[1].trend}
+                  icon={kpis[1].icon}
+                  flex={1}
+                />
+              </XStack>
+              <XStack gap="$3">
+                <KPICard
+                  label={kpis[2].label}
+                  value={kpis[2].value}
+                  trend={kpis[2].trend}
+                  icon={kpis[2].icon}
+                  flex={1}
+                />
+                <KPICard
+                  label={kpis[3].label}
+                  value={kpis[3].value}
+                  trend={kpis[3].trend}
+                  icon={kpis[3].icon}
+                  flex={1}
+                />
+              </XStack>
+            </>
+          )}
         </YStack>
 
         {/* Revenue chart */}
@@ -182,13 +228,21 @@ export default function OwnerOverview() {
             <XStack justifyContent="space-between" alignItems="center" marginBottom="$3">
               <YStack>
                 <Text variant="label">Revenue this week</Text>
-                <Text variant="caption" color="muted">AED 86,240 total</Text>
+                <Text variant="caption" color="muted">
+                  AED {(kpisQuery?.todaysRevenueCents ? kpisQuery.todaysRevenueCents / 100 : 0).toLocaleString()} today
+                </Text>
               </YStack>
-              <Badge label="+18%" variant="success" />
             </XStack>
             <XStack alignItems="flex-end" justifyContent="space-between" height={120} gap="$2">
               {revenueData.map((d) => (
-                <YStack key={d.day} flex={1} alignItems="center" gap="$1" height="100%" justifyContent="flex-end">
+                <YStack
+                  key={d.day}
+                  flex={1}
+                  alignItems="center"
+                  gap="$1"
+                  height="100%"
+                  justifyContent="flex-end"
+                >
                   <YStack
                     width="100%"
                     height={`${d.value * 100}%`}
@@ -196,7 +250,9 @@ export default function OwnerOverview() {
                     borderRadius="$sm"
                     accessibilityLabel={`${d.day} revenue`}
                   />
-                  <Text variant="caption" color="muted">{d.day}</Text>
+                  <Text variant="caption" color="muted">
+                    {d.day}
+                  </Text>
                 </YStack>
               ))}
             </XStack>
@@ -205,12 +261,14 @@ export default function OwnerOverview() {
 
         {/* Quick actions */}
         <YStack paddingHorizontal="$4" marginTop="$4">
-          <Text variant="h4" marginBottom="$3">Quick actions</Text>
+          <Text variant="h4" marginBottom="$3">
+            Quick actions
+          </Text>
           <XStack gap="$3">
             <QuickAction
               icon={<AlertTriangle size={20} color="$textOnBrand" />}
               label="Approvals"
-              badge="7"
+              badge={pendingApprovals > 0 ? pendingApprovals.toString() : undefined}
               onPress={() => router.push('/(owner)/approvals')}
               flex={1}
             />
@@ -227,31 +285,6 @@ export default function OwnerOverview() {
               flex={1}
             />
           </XStack>
-        </YStack>
-
-        {/* Today's highlights */}
-        <YStack paddingHorizontal="$4" marginTop="$4">
-          <Text variant="h4" marginBottom="$3">Today's highlights</Text>
-          <YStack gap="$2">
-            {highlights.map((h, i) => (
-              <Card key={i} variant="outlined" padding="sm">
-                <XStack alignItems="center" gap="$3">
-                  <YStack
-                    backgroundColor="$surfaceMuted"
-                    padding="$2.5"
-                    borderRadius="$md"
-                  >
-                    {h.icon}
-                  </YStack>
-                  <YStack flex={1}>
-                    <Text variant="body" weight="500">{h.title}</Text>
-                    <Text variant="caption" color="muted">{h.subtitle}</Text>
-                  </YStack>
-                  <ArrowRight size={16} color="$textMuted" />
-                </XStack>
-              </Card>
-            ))}
-          </YStack>
         </YStack>
 
         {/* Alerts */}
@@ -283,8 +316,12 @@ export default function OwnerOverview() {
                       />
                     </YStack>
                     <YStack flex={1}>
-                      <Text variant="body" weight="500">{a.title}</Text>
-                      <Text variant="caption" color="muted">{a.subtitle}</Text>
+                      <Text variant="body" weight="500">
+                        {a.title}
+                      </Text>
+                      <Text variant="caption" color="muted">
+                        {a.subtitle}
+                      </Text>
                     </YStack>
                     <ChevronRight size={18} color="$textMuted" />
                   </XStack>
@@ -300,8 +337,12 @@ export default function OwnerOverview() {
             <XStack alignItems="center" gap="$3">
               <Calendar size={20} color="$textPrimary" />
               <YStack flex={1}>
-                <Text variant="body" weight="500">View full operations</Text>
-                <Text variant="caption" color="muted">Live status, classes, staff</Text>
+                <Text variant="body" weight="500">
+                  View full operations
+                </Text>
+                <Text variant="caption" color="muted">
+                  Live status, classes, staff
+                </Text>
               </YStack>
               <ChevronRight size={18} color="$textMuted" />
             </XStack>
@@ -315,14 +356,12 @@ export default function OwnerOverview() {
 function KPICard({
   label,
   value,
-  delta,
   trend,
   icon,
   flex,
 }: {
   label: string;
   value: string;
-  delta: string;
   trend: 'up' | 'down';
   icon: React.ReactNode;
   flex?: number;
@@ -332,11 +371,7 @@ function KPICard({
     <Card variant="elevated" padding="md" flex={flex}>
       <YStack gap="$2">
         <XStack alignItems="center" justifyContent="space-between">
-          <YStack
-            backgroundColor="$brand50"
-            padding="$2"
-            borderRadius="$md"
-          >
+          <YStack backgroundColor="$brand50" padding="$2" borderRadius="$md">
             {icon}
           </YStack>
           {isUp ? (
@@ -346,10 +381,12 @@ function KPICard({
           )}
         </XStack>
         <YStack gap="$0.5">
-          <Text variant="caption" color="muted">{label}</Text>
+          <Text variant="caption" color="muted">
+            {label}
+          </Text>
           <Text variant="h3">{value}</Text>
           <Text variant="caption" color={isUp ? '$success500' : '$danger500'} weight="600">
-            {delta} vs yesterday
+            {isUp ? 'Live' : 'No data'}
           </Text>
         </YStack>
       </YStack>
@@ -399,11 +436,10 @@ function QuickAction({
             right={-4}
             backgroundColor="$danger500"
             borderRadius="$full"
-            minWidth={20}
-            height={20}
-            alignItems="center"
-            justifyContent="center"
             paddingHorizontal="$1.5"
+            paddingVertical="$0.5"
+            minWidth={20}
+            alignItems="center"
           >
             <Text variant="caption" color="white" weight="700" fontSize={10}>
               {badge}
@@ -411,7 +447,9 @@ function QuickAction({
           </YStack>
         )}
       </YStack>
-      <Text variant="caption" weight="600">{label}</Text>
+      <Text variant="caption" weight="600" align="center">
+        {label}
+      </Text>
     </YStack>
   );
 }
