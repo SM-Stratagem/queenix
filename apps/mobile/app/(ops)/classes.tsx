@@ -387,10 +387,7 @@ function ClassCard({
               <Avatar
                 name={a.name}
                 size="sm"
-                backgroundColor={
-                  a.status === 'checked_in' ? '$brand100' : '$surfaceMuted'
-                }
-                color={a.status === 'checked_in' ? '$brand' : '$textPrimary'}
+                fallbackColor={a.status === 'checked_in' ? '$success' : '$info'}
               />
             </YStack>
           ))}
@@ -497,7 +494,7 @@ function RosterRow({ entry }: { entry: RosterEntry }) {
   return (
     <Card variant="outlined" padding="sm" accessibilityLabel={`${entry.name}, ${c.label}`}>
       <XStack alignItems="center" gap="$3">
-        <Avatar name={entry.name} size="md" backgroundColor={c.bg} color={c.fg} />
+        <Avatar name={entry.name} size="md" fallbackColor={c.fg} />
         <YStack flex={1} gap="$0.5">
           <Text variant="label" numberOfLines={1}>
             {entry.name}

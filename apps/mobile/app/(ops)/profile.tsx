@@ -28,7 +28,6 @@ import {
   Mail,
   IdCard,
   ShieldCheck,
-  Pencil,
   Check,
   X,
 } from '@tamagui/lucide-icons';
@@ -111,8 +110,7 @@ export default function OpsProfileScreen() {
               <Avatar
                 name={session?.fullName ?? 'Hala Al-Suwaidi'}
                 size="xl"
-                backgroundColor="$brand50"
-                color="$brand"
+                fallbackColor="$brand"
               />
               <YStack flex={1} gap="$1">
                 <Text variant="h2" numberOfLines={1}>

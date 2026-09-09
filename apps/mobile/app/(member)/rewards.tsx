@@ -173,57 +173,64 @@ export default function RewardsScreen() {
 
         {/* Hero points card */}
         <YStack paddingHorizontal="$4" marginTop="$3">
-          <Card variant="elevated" padding="lg" backgroundColor="$brand">
-            <YStack gap="$3">
-              <XStack justifyContent="space-between" alignItems="center">
-                <XStack alignItems="center" gap="$2">
-                  <YStack
-                    backgroundColor="rgba(255,255,255,0.18)"
-                    padding="$2"
-                    borderRadius="$full"
-                  >
-                    <Award size={18} color="$textOnBrand" />
-                  </YStack>
-                  <Text variant="caption" color="inverse" style={{ color: 'rgba(255,255,255,0.9)' }} weight="600" textTransform="uppercase">
-                    Your points
-                  </Text>
-                </XStack>
-                <Badge label="Gold" variant="warning" />
-              </XStack>
-
-              <YStack>
-                <Text variant="display" color="inverse" style={{ color: 'white' }}>
-                  {POINTS_BALANCE.toLocaleString()}
+          <YStack
+            backgroundColor="$brand"
+            padding="$5"
+            borderRadius="$xl"
+            gap="$3"
+            shadowColor="$shadowColor"
+            shadowOffset={{ width: 0, height: 4 }}
+            shadowOpacity={0.15}
+            shadowRadius={12}
+            elevation={6}
+          >
+            <XStack justifyContent="space-between" alignItems="center">
+              <XStack alignItems="center" gap="$2">
+                <YStack
+                  backgroundColor="$brand600"
+                  padding="$2"
+                  borderRadius="$full"
+                >
+                  <Award size={18} color="$textOnBrand" />
+                </YStack>
+                <Text variant="caption" weight="700" textTransform="uppercase">
+                  Your points
                 </Text>
-                <Text variant="bodySmall" style={{ color: 'rgba(255,255,255,0.85)' }}>
-                  {NEXT_TIER_COST - POINTS_BALANCE} pts to Platinum
-                </Text>
-              </YStack>
-
-              <Progress
-                value={TIER_PROGRESS}
-                size="sm"
-                color="$warning500"
-                backgroundColor="rgba(255,255,255,0.18)"
-              />
-
-              <XStack gap="$2" marginTop="$2">
-                <Button
-                  label="How to earn"
-                  variant="secondary"
-                  size="sm"
-                  onPress={() => toast.info('100 pts per class, 500 for referrals')}
-                />
-                <Button
-                  label="Tiers"
-                  variant="ghost"
-                  size="sm"
-                  onPress={() => toast.info('Tier breakdown coming soon')}
-                  style={{ color: 'white' }}
-                />
               </XStack>
+              <Badge label="Gold" variant="warning" />
+            </XStack>
+
+            <YStack>
+              <Text variant="display">
+                {POINTS_BALANCE.toLocaleString()}
+              </Text>
+              <Text variant="bodySmall" color="muted">
+                {NEXT_TIER_COST - POINTS_BALANCE} pts to Platinum
+              </Text>
             </YStack>
-          </Card>
+
+            <Progress
+              value={TIER_PROGRESS}
+              size="sm"
+              color="$warning500"
+              backgroundColor="$brand600"
+            />
+
+            <XStack gap="$2" marginTop="$2">
+              <Button
+                label="How to earn"
+                variant="secondary"
+                size="sm"
+                onPress={() => toast.info('100 pts per class, 500 for referrals')}
+              />
+              <Button
+                label="Tiers"
+                variant="ghost"
+                size="sm"
+                onPress={() => toast.info('Tier breakdown coming soon')}
+              />
+            </XStack>
+          </YStack>
         </YStack>
 
         {/* Refer a friend */}

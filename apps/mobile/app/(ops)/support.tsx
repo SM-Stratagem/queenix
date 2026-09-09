@@ -12,7 +12,6 @@ import {
   Header,
   EmptyState,
   Sheet,
-  Divider,
 } from '@queenix/ui';
 import { useAuth } from '@/lib/auth';
 import {
@@ -241,7 +240,7 @@ export default function OpsSupportScreen() {
             {filtered.length === 0 ? (
               <EmptyState
                 title="No members found"
-                description={`No one matches "${query}". Try a name, member ID, or tier.`}
+                message={`No one matches "${query}". Try a name, member ID, or tier.`}
                 icon={<Search size={32} color="$textMuted" />}
               />
             ) : (
@@ -377,7 +376,7 @@ function MemberRow({ member }: { member: Member }) {
       accessibilityLabel={`${member.name}, ${member.tier}, last visit ${member.lastVisit}`}
     >
       <XStack alignItems="center" gap="$3">
-        <Avatar name={member.name} size="md" backgroundColor="$brand50" color="$brand" />
+        <Avatar name={member.name} size="md" fallbackColor="$brand" />
         <YStack flex={1} gap="$0.5">
           <Text variant="label" numberOfLines={1}>
             {member.name}
@@ -442,8 +441,7 @@ function TicketRow({ ticket }: { ticket: Ticket }) {
         <Avatar
           name={ticket.memberName}
           size="md"
-          backgroundColor="$surfaceMuted"
-          color="$textPrimary"
+          fallbackColor="$info"
         />
         <YStack flex={1} gap="$1">
           <XStack alignItems="center" gap="$2" flexWrap="wrap">

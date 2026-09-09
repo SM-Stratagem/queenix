@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { YStack, XStack, ScrollView, useTheme } from 'tamagui';
+import { YStack, XStack, ScrollView } from 'tamagui';
 import { useRouter } from 'expo-router';
 import {
   Screen,
@@ -9,7 +9,6 @@ import {
   Button,
   Badge,
   Header,
-  Divider,
 } from '@queenix/ui';
 import { useAuth } from '@/lib/auth';
 import {
@@ -20,7 +19,6 @@ import {
   Users,
   DoorOpen,
   Search,
-  ChevronRight,
 } from '@tamagui/lucide-icons';
 
 type CheckInStatus = 'granted' | 'denied';
@@ -99,7 +97,6 @@ const MOCK_CHECKINS: CheckIn[] = [
 export default function ScannerScreen() {
   const router = useRouter();
   const { session } = useAuth();
-  const theme = useTheme();
   const [occupancy, setOccupancy] = useState(127);
   const [maxOccupancy] = useState(180);
   const [scanning, setScanning] = useState(true);
@@ -353,8 +350,7 @@ function CheckInRow({ entry }: { entry: CheckIn }) {
         <Avatar
           name={entry.name}
           size="md"
-          backgroundColor={isGranted ? '$brand100' : '$danger100'}
-          color={isGranted ? '$brand' : '$danger'}
+          fallbackColor={isGranted ? '$success' : '$danger'}
         />
         <YStack flex={1} gap="$0.5">
           <Text variant="label" numberOfLines={1}>
