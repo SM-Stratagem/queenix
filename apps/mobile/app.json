@@ -1,0 +1,58 @@
+{
+  "expo": {
+    "name": "Queenix Gym",
+    "slug": "queenix-gym",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "queenix",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.queenix.gym",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Queenix uses your camera to scan QR codes for gym access.",
+        "NSPhotoLibraryUsageDescription": "Queenix needs photo access to update your profile picture.",
+        "NSFaceIDUsageDescription": "Queenix uses Face ID for secure authentication."
+      }
+    },
+    "android": {
+      "package": "com.queenix.gym",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "permissions": ["CAMERA", "READ_EXTERNAL_STORAGE"]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Queenix to access your photos for your profile picture."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "tsconfigPaths": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      }
+    }
+  }
+}

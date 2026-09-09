@@ -1,0 +1,27 @@
+{
+  "name": "queenix-gym",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Queenix Gym - women's gym platform (Member, Trainer, Owner, Operations) with web admin",
+  "packageManager": "pnpm@10.28.0",
+  "scripts": {
+    "dev": "pnpm --filter @queenix/mobile start",
+    "android": "pnpm --filter @queenix/mobile android",
+    "ios": "pnpm --filter @queenix/mobile ios",
+    "web": "pnpm --filter @queenix/mobile web",
+    "convex": "pnpm --filter @queenix/convex dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "build": "turbo run build",
+    "clean": "turbo run clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2",
+    "@types/node": "^22.10.5"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=10.0.0"
+  }
+}
