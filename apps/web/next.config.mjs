@@ -12,7 +12,7 @@ const nextConfig = {
     '@tamagui/web',
   ],
   experimental: {
-    optimizePackageImports: ['@queenix/ui', '@queenix/theme', 'tamagui', 'lucide-react'],
+    optimizePackageImports: ['@queenix/ui', '@queenix/theme', 'lucide-react'],
   },
   images: {
     remotePatterns: [
