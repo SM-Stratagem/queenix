@@ -29,6 +29,8 @@ import {
   AlertTriangle,
   RotateCw,
 } from '@tamagui/lucide-icons';
+import { CornerBracket } from '@/components/scanner/CornerBracket';
+import { CheckInRow } from '@/components/scanner/CheckInRow';
 
 type CheckInStatus = 'granted' | 'denied';
 
@@ -575,83 +577,3 @@ export default function ScannerScreen() {
   );
 }
 
-function CornerBracket({ position }: { position: 'tl' | 'tr' | 'bl' | 'br' }) {
-  const size = 24;
-  const offset = 8;
-  const isTop = position === 'tl' || position === 'tr';
-  const isLeft = position === 'tl' || position === 'bl';
-  return (
-    <YStack
-      position="absolute"
-      top={isTop ? offset : undefined}
-      bottom={!isTop ? offset : undefined}
-      left={isLeft ? offset : undefined}
-      right={!isLeft ? offset : undefined}
-      width={size}
-      height={size}
-      borderColor="$brand"
-      borderTopWidth={isTop ? 4 : 0}
-      borderBottomWidth={!isTop ? 4 : 0}
-      borderLeftWidth={isLeft ? 4 : 0}
-      borderRightWidth={!isLeft ? 4 : 0}
-      borderTopLeftRadius={isTop && isLeft ? '$sm' : 0}
-      borderTopRightRadius={isTop && !isLeft ? '$sm' : 0}
-      borderBottomLeftRadius={!isTop && isLeft ? '$sm' : 0}
-      borderBottomRightRadius={!isTop && !isLeft ? '$sm' : 0}
-      zIndex={3}
-    />
-  );
-}
-
-function CheckInRow({ entry }: { entry: any }) {
-  const isGranted = Boolean(entry.granted);
-  const name = entry.user?.fullName ?? 'Unknown';
-  return (
-    <Card
-      variant="outlined"
-      padding="sm"
-      accessibilityLabel={`${name}, ${isGranted ? 'granted' : 'denied'} ${formatRelative(entry.timestamp)}`}
-    >
-      <XStack alignItems="center" gap="$3">
-        <Avatar
-          name={name}
-          size="md"
-          src={entry.user?.avatarUrl ?? undefined}
-          fallbackColor={isGranted ? '$success' : '$danger'}
-        />
-        <YStack flex={1} gap="$0.5">
-          <Text variant="label" numberOfLines={1}>
-            {name}
-          </Text>
-          <XStack alignItems="center" gap="$2">
-            <Text variant="caption" color="muted">
-              {entry.accessPointId}
-            </Text>
-            <Text variant="caption" color="muted">
-              • {formatRelative(entry.timestamp)}
-            </Text>
-          </XStack>
-          {entry.reason && (
-            <Text variant="caption" color="danger">
-              {entry.reason}
-            </Text>
-          )}
-        </YStack>
-        <XStack alignItems="center" gap="$1.5">
-          {isGranted ? (
-            <CheckCircle2 size={18} color="$success500" />
-          ) : (
-            <XCircle size={18} color="$danger500" />
-          )}
-          <Text
-            variant="caption"
-            weight="600"
-            color={isGranted ? 'success' : 'danger'}
-          >
-            {isGranted ? 'Granted' : 'Denied'}
-          </Text>
-        </XStack>
-      </XStack>
-    </Card>
-  );
-}
