@@ -97,7 +97,19 @@ npm install
 ```
 
 ### "Port 3000 already in use"
-The web admin's port is fixed. Either stop the conflicting process or change `web.ports` in `docker-compose.yml`.
+The web admin's port is fixed. Either stop the conflicting process or change `web.ports` in `docker-compose.yml` (use the `WEB_PORT` env var to remap).
+
+### "createReactContext is not a function" / "missing tokens.space" when loading web admin
+These are Tamagui 1.144 + React 19 + Next.js dev-mode incompatibilities. Two paths:
+
+**Path A (recommended for now)** — verify the backend stack works without the web UI:
+```bash
+curl http://localhost:3210/version                  # Convex
+npm test                                           # 19 unit tests
+node scripts/seed-demo-users.mjs                    # creates 4 demo accounts once web+convex are up
+```
+
+**Path B** — to make the web admin render, the theme package at `packages/theme/src/tamagui.config.ts` and the Tokens need a numeric-token + `true` key migration (Tamagui 2.x work). Defer to design session.
 
 ### Reset everything
 ```bash

@@ -8,6 +8,8 @@ const nextConfig = {
     '@queenix/convex',
     '@queenix/payments',
     '@queenix/receipts',
+    '@tamagui/core',
+    '@tamagui/web',
   ],
   experimental: {
     optimizePackageImports: ['@queenix/ui', '@queenix/theme', 'tamagui', 'lucide-react'],

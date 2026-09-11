@@ -16,7 +16,7 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "db:migrate": "cd apps/web && npx better-auth-cli@latest migrate --config ../../packages/auth/src/server.ts -y",
+    "db:migrate": "node scripts/migrate-auth-db.mjs",
     "seed": "node scripts/seed-demo-users.mjs",
     "compose:up": "docker compose up -d",
     "compose:down": "docker compose down",
