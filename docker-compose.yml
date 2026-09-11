@@ -1,40 +1,44 @@
 services:
   convex-backend:
+    # Self-hosted Convex stores all state in SQLite via the /convex/data volume.
+    # No separate database required for local dev. For prod-with-postgres,
+    # set POSTGRES_URL and remove DO_NOT_REQUIRE_SSL.
     image: ghcr.io/get-convex/convex-backend:latest
     container_name: queenix-convex
     restart: unless-stopped
+    stop_grace_period: 10s
+    stop_signal: SIGINT
     ports:
       - "3210:3210"
       - "3211:3211"
+    volumes:
+      - convex_data:/convex/data
     environment:
-      CONVEX_RELEASE_VERSION: latest
-      DATABASE_URL: postgresql://convex:convex@postgres:5432/convex_metadata
-      CONVEX_INSTANCE_NAME: local-dev
-      CONVEX_TELEMETRY_DISABLED: "true"
-    depends_on:
-      postgres:
-        condition: service_healthy
+      CONVEX_CLOUD_ORIGIN: http://localhost:3210
+      CONVEX_SITE_ORIGIN: http://localhost:3211
+      DO_NOT_REQUIRE_SSL: "true"
+      DISABLE_BEACON: "true"
+      DISABLE_METRICS_ENDPOINT: "true"
+      INSTANCE_NAME: local-dev
+      RUST_LOG: info
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3210/version"]
       interval: 5s
       timeout: 3s
+      start_period: 15s
       retries: 30
 
-  postgres:
-    image: postgres:16-alpine
-    container_name: queenix-postgres
+  convex-dashboard:
+    image: ghcr.io/get-convex/convex-dashboard:latest
+    container_name: queenix-convex-dashboard
     restart: unless-stopped
+    ports:
+      - "6791:6791"
     environment:
-      POSTGRES_USER: convex
-      POSTGRES_PASSWORD: convex
-      POSTGRES_DB: convex_metadata
-    volumes:
-      - convex_pg:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U convex"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
+      NEXT_PUBLIC_DEPLOYMENT_URL: http://localhost:3210
+    depends_on:
+      convex-backend:
+        condition: service_healthy
 
   web:
     build:
@@ -51,8 +55,7 @@ services:
       - auth_data:/app/.data
     environment:
       NODE_ENV: development
-      CONVEX_URL: http://convex-backend:3210
-      CONVEX_SITE_URL: http://localhost:3211
+      CONVEX_SELF_HOSTED_URL: http://convex-backend:3210
       AUTH_BASE_URL: http://localhost:3000
       AUTH_TRUST_HOST: "true"
       AUTH_DB_PATH: /app/.data/queenix-auth.db
@@ -63,5 +66,5 @@ services:
         condition: service_healthy
 
 volumes:
-  convex_pg:
+  convex_data:
   auth_data:
