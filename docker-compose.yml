@@ -1,0 +1,67 @@
+services:
+  convex-backend:
+    image: ghcr.io/get-convex/convex-backend:latest
+    container_name: queenix-convex
+    restart: unless-stopped
+    ports:
+      - "3210:3210"
+      - "3211:3211"
+    environment:
+      CONVEX_RELEASE_VERSION: latest
+      DATABASE_URL: postgresql://convex:convex@postgres:5432/convex_metadata
+      CONVEX_INSTANCE_NAME: local-dev
+      CONVEX_TELEMETRY_DISABLED: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3210/version"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: queenix-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: convex
+      POSTGRES_PASSWORD: convex
+      POSTGRES_DB: convex_metadata
+    volumes:
+      - convex_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U convex"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile.dev
+    container_name: queenix-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/apps/web/node_modules
+      - auth_data:/app/.data
+    environment:
+      NODE_ENV: development
+      CONVEX_URL: http://convex-backend:3210
+      CONVEX_SITE_URL: http://localhost:3211
+      AUTH_BASE_URL: http://localhost:3000
+      AUTH_TRUST_HOST: "true"
+      AUTH_DB_PATH: /app/.data/queenix-auth.db
+      AUTH_SECRET: ${AUTH_SECRET:-testing-secret-replace-before-production-min-32-chars-0123456789ab}
+      PAYMENTS_PROVIDER: ${PAYMENTS_PROVIDER:-mock}
+    depends_on:
+      convex-backend:
+        condition: service_healthy
+
+volumes:
+  convex_pg:
+  auth_data:
