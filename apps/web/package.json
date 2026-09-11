@@ -18,14 +18,15 @@
     "@queenix/types": "*",
     "@queenix/ui": "*",
     "convex": "^1.18.2",
+    "lucide-react": "^0.469.0",
     "next": "^15.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "stripe": "^17.4.0",
-    "tamagui": "^1.130.0",
-    "lucide-react": "^0.469.0"
+    "tamagui": "^1.130.0"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "@types/node": "^22.10.5",
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
