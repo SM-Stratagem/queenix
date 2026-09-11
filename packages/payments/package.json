@@ -9,7 +9,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@queenix/types": "workspace:*",
+    "@queenix/types": "*",
     "stripe": "^17.4.0"
   },
   "devDependencies": {
