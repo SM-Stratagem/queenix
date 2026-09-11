@@ -25,9 +25,11 @@
     "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules .expo .turbo .data/*.db* *.tsbuildinfo"
   },
   "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@vitest/coverage-v8": "5.0.0",
     "concurrently": "^9.1.0",
     "typescript": "^5.7.2",
-    "@types/node": "^22.10.5"
+    "vitest": "4.1.11"
   },
   "engines": {
     "node": ">=20.0.0",
