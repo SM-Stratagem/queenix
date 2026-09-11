@@ -4,100 +4,31 @@ import {
   Screen,
   Text,
   Card,
-  Badge,
   Button,
   Input,
   Sheet,
   Header,
-  Divider,
   Skeleton,
   ErrorState,
-  EmptyState,
   useToast,
 } from '@queenix/ui';
 import { useConvexQuery, useConvexMutation, api } from '@/lib/convex';
+import { useRouter } from 'expo-router';
 import {
   Plus,
-  ShieldAlert,
-  Wrench,
-  HardHat,
-  MessageCircleWarning,
-  ChevronRight,
-  Clock,
-  AlertOctagon,
-  AlertTriangle,
-  Info,
   CheckCircle2,
-  User,
 } from '@tamagui/lucide-icons';
-
-type Severity = 'low' | 'medium' | 'high' | 'critical';
-type IncidentType = 'access_denied' | 'equipment' | 'safety' | 'complaint' | 'other';
-type IncidentStatus = 'open' | 'in_progress' | 'resolved';
-
-interface Incident {
-  id: string;
-  code: string;
-  type: IncidentType;
-  severity: Severity;
-  title: string;
-  location: string;
-  reportedBy: string;
-  reportedByInitials: string;
-  timeAgo: string;
-  status: IncidentStatus;
-  description: string;
-  createdAt: number;
-}
-
-const TYPE_META: Record<
-  IncidentType,
-  { label: string; icon: React.ReactNode; bg: string; fg: string }
-> = {
-  access_denied: {
-    label: 'Access denied',
-    icon: <ShieldAlert size={18} color="$danger" />,
-    bg: '$danger100',
-    fg: '$danger',
-  },
-  equipment: {
-    label: 'Equipment',
-    icon: <Wrench size={18} color="$warning" />,
-    bg: '$warning100',
-    fg: '$warning',
-  },
-  safety: {
-    label: 'Safety',
-    icon: <HardHat size={18} color="$warning" />,
-    bg: '$warning100',
-    fg: '$warning',
-  },
-  complaint: {
-    label: 'Complaint',
-    icon: <MessageCircleWarning size={18} color="$info" />,
-    bg: '$info100',
-    fg: '$info',
-  },
-  other: {
-    label: 'Other',
-    icon: <Info size={18} color="$textMuted" />,
-    bg: '$surfaceMuted',
-    fg: '$textMuted',
-  },
-};
-
-const SEVERITY_META: Record<Severity, { label: string; variant: 'success' | 'info' | 'warning' | 'danger' }> = {
-  low: { label: 'Low', variant: 'success' },
-  medium: { label: 'Medium', variant: 'info' },
-  high: { label: 'High', variant: 'warning' },
-  critical: { label: 'Critical', variant: 'danger' },
-};
-
-const STATUS_META: Record<IncidentStatus, { label: string; variant: 'neutral' | 'info' | 'success' }> = {
-  open: { label: 'Open', variant: 'info' },
-  in_progress: { label: 'In progress', variant: 'info' },
-  resolved: { label: 'Resolved', variant: 'success' },
-};
+import {
+  TYPE_META,
+  SEVERITY_META,
+  type Severity,
+  type IncidentType,
+  type IncidentStatus,
+  type Incident,
+} from '@/components/incidents/meta';
+import { SeverityStat } from '@/components/incidents/SeverityStat';
+import { IncidentCard } from '@/components/incidents/IncidentCard';
+import { IncidentDetail } from '@/components/incidents/IncidentDetail';
 
 function getInitials(name?: string | null): string {
   if (!name) return '·';
@@ -509,176 +440,3 @@ export default function IncidentsScreen() {
   );
 }
 
-function SeverityStat({
-  label,
-  count,
-  tone,
-  flex,
-}: {
-  label: string;
-  count: number;
-  tone: 'critical' | 'high' | 'medium' | 'low';
-  flex?: number;
-}) {
-  const colorMap = {
-    critical: '$danger',
-    high: '$warning',
-    medium: '$info',
-    low: '$success',
-  } as const;
-  const bgMap = {
-    critical: '$danger100',
-    high: '$warning100',
-    medium: '$info100',
-    low: '$success100',
-  } as const;
-  const iconMap = {
-    critical: <AlertOctagon size={16} color={colorMap[tone]} />,
-    high: <AlertTriangle size={16} color={colorMap[tone]} />,
-    medium: <Info size={16} color={colorMap[tone]} />,
-    low: <CheckCircle2 size={16} color={colorMap[tone]} />,
-  };
-  return (
-    <Card
-      variant="outlined"
-      padding="sm"
-      flex={flex}
-      accessibilityLabel={`${count} ${label} open incidents`}
-    >
-      <YStack gap="$1">
-        {iconMap[tone]}
-        <Text variant="h3" color={colorMap[tone]}>
-          {count}
-        </Text>
-        <Text variant="caption" color="muted">
-          {label}
-        </Text>
-      </YStack>
-    </Card>
-  );
-}
-
-function IncidentCard({
-  incident,
-  onPress,
-}: {
-  incident: Incident;
-  onPress: () => void;
-}) {
-  const t = TYPE_META[incident.type];
-  const s = SEVERITY_META[incident.severity];
-  const st = STATUS_META[incident.status];
-  return (
-    <Card
-      variant="outlined"
-      padding="sm"
-      onPress={onPress}
-      accessibilityLabel={`${incident.severity} severity ${incident.type.replace('_', ' ')} incident: ${incident.title}`}
-    >
-      <XStack alignItems="flex-start" gap="$3">
-        <YStack
-          backgroundColor={t.bg}
-          padding="$2.5"
-          borderRadius="$md"
-          alignItems="center"
-          justifyContent="center"
-        >
-          {t.icon}
-        </YStack>
-        <YStack flex={1} gap="$1">
-          <XStack alignItems="center" gap="$2" flexWrap="wrap">
-            <Text variant="caption" weight="600" color="brand">
-              {incident.code}
-            </Text>
-            <Badge label={t.label} variant="neutral" />
-            <Badge label={s.label} variant={s.variant} />
-            <Badge label={st.label} variant={st.variant} />
-          </XStack>
-          <Text variant="label" numberOfLines={2}>
-            {incident.title}
-          </Text>
-          <Text variant="caption" color="muted" numberOfLines={1}>
-            {incident.location}
-          </Text>
-          <XStack alignItems="center" gap="$2" marginTop="$0.5">
-            <User size={12} color="$textMuted" />
-            <Text variant="caption" color="secondary" numberOfLines={1}>
-              {incident.reportedBy}
-            </Text>
-            <Text variant="caption" color="muted">
-              •
-            </Text>
-            <XStack alignItems="center" gap="$1">
-              <Clock size={12} color="$textMuted" />
-              <Text variant="caption" color="muted">
-                {incident.timeAgo}
-              </Text>
-            </XStack>
-          </XStack>
-        </YStack>
-        <ChevronRight size={18} color="$textMuted" />
-      </XStack>
-    </Card>
-  );
-}
-
-function IncidentDetail({
-  incident,
-  onResolve,
-}: {
-  incident: Incident;
-  onResolve: () => void;
-}) {
-  const t = TYPE_META[incident.type];
-  const s = SEVERITY_META[incident.severity];
-  return (
-    <YStack gap="$3">
-      <XStack gap="$2" flexWrap="wrap">
-        <Badge label={t.label} variant="neutral" />
-        <Badge label={s.label} variant={s.variant} />
-        <Badge label={STATUS_META[incident.status].label} variant={STATUS_META[incident.status].variant} />
-      </XStack>
-      <Card variant="filled" backgroundColor="$surfaceMuted" padding="md">
-        <Text variant="label">Description</Text>
-        <Text variant="bodySmall" color="secondary" marginTop="$1">
-          {incident.description}
-        </Text>
-      </Card>
-      <YStack gap="$2">
-        <XStack justifyContent="space-between">
-          <Text variant="caption" color="muted">Location</Text>
-          <Text variant="caption" weight="600">{incident.location}</Text>
-        </XStack>
-        <Divider />
-        <XStack justifyContent="space-between">
-          <Text variant="caption" color="muted">Reported by</Text>
-          <Text variant="caption" weight="600">{incident.reportedBy}</Text>
-        </XStack>
-        <Divider />
-        <XStack justifyContent="space-between">
-          <Text variant="caption" color="muted">Reported</Text>
-          <Text variant="caption" weight="600">{incident.timeAgo}</Text>
-        </XStack>
-      </YStack>
-      <XStack gap="$2">
-        <Button
-          label="Mark resolved"
-          variant="primary"
-          size="md"
-          flex={1}
-          onPress={onResolve}
-          accessibilityLabel="Mark incident as resolved"
-          disabled={incident.status === 'resolved'}
-        />
-        <Button
-          label="Escalate"
-          variant="outline"
-          size="md"
-          flex={1}
-          onPress={() => {}}
-          accessibilityLabel="Escalate incident"
-        />
-      </XStack>
-    </YStack>
-  );
-}
