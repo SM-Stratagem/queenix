@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { YStack, XStack, ScrollView } from 'tamagui';
+import { useRouter } from 'expo-router';
 import {
   Screen,
   Text,
@@ -34,13 +35,13 @@ type Priority = 'low' | 'medium' | 'high' | 'critical';
 
 type Category = 'billing' | 'access' | 'class' | 'general';
 
-interface Ticket {
+interface SupportTicket {
   id: string;
   ticketCode: string;
   memberName: string;
   memberInitials: string;
   subject: string;
-  status: 'open' | 'in_progress' | 'waiting' | 'resolved';
+  status: "open" | "in_progress" | "waiting" | "resolved";
   priority: Priority;
   category: Category;
   timeAgo: string;
@@ -126,7 +127,7 @@ export default function OpsSupportScreen() {
     return ALL_MEMBERS.filter(
       (m) =>
         m.name.toLowerCase().includes(q) ||
-        m.id.toLowerCase().includes(q) ||
+        (m.id ?? "").toLowerCase().includes(q) ||
         m.tier.toLowerCase().includes(q)
     );
   }, [memberQuery]);
@@ -200,7 +201,7 @@ export default function OpsSupportScreen() {
               {ALL_MEMBERS.filter(
                 (m) =>
                   m.name.toLowerCase().includes(query.toLowerCase()) ||
-                  m.id.toLowerCase().includes(query.toLowerCase())
+                  (m.id ?? "").toLowerCase().includes(query.toLowerCase())
               ).length}{' '}
               result(s)
             </Text>
@@ -208,11 +209,11 @@ export default function OpsSupportScreen() {
               {ALL_MEMBERS.filter(
                 (m) =>
                   m.name.toLowerCase().includes(query.toLowerCase()) ||
-                  m.id.toLowerCase().includes(query.toLowerCase())
+                  (m.id ?? "").toLowerCase().includes(query.toLowerCase())
               )
                 .slice(0, 5)
                 .map((m) => (
-                  <MemberRow key={m.id} member={m} />
+                  <MemberRow key={m.id ?? m.name} member={m} />
                 ))}
             </YStack>
           </YStack>
@@ -246,7 +247,7 @@ export default function OpsSupportScreen() {
             <EmptyState
               title="Queue is clear"
               message="No open or in-progress tickets right now. Log a new ticket if a member needs help."
-              icon={<Ticket size={32} color="$textMuted" />}
+              icon={<TicketIcon size={32} color="$textMuted" />}
             />
           ) : (
             <YStack gap="$2">
@@ -276,7 +277,7 @@ export default function OpsSupportScreen() {
             <Input
               placeholder="Search member name or ID"
               value={selectedMember?.name ?? memberQuery}
-              onChangeText={(v) => {
+              onChangeText={(v: string) => {
                 setMemberQuery(v);
                 setSelectedMember(null);
               }}

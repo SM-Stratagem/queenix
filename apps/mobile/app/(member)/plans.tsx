@@ -81,7 +81,7 @@ export default function PlansScreen() {
           userId: session.userId,
           name: session.fullName,
           email: session.email,
-          phone: session.phone,
+          phone: (session as any).phone,
           amountCents: result.amountCents,
           currency: result.currency,
           description: `${plan.name} membership — ${plan.durationDays} days`,

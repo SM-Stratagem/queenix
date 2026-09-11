@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
           await callConvexMutation('mutations/payments:recordRefund', {
             stripePaymentIntentId: charge.payment_intent as string,
             amountCents: charge.amount_refunded,
-            reason: charge.reason ?? undefined,
+            reason: (charge as any).reason ?? undefined,
           });
         }
         break;
@@ -111,8 +111,8 @@ async function describeStripePaymentMethod(pmId: string): Promise<string | undef
     if (pm.type === 'card' && pm.card) {
       return `${pm.card.brand.toUpperCase()} **** ${pm.card.last4}`;
     }
-    if (pm.type === 'apple_pay') return 'Apple Pay';
-    if (pm.type === 'google_pay') return 'Google Pay';
+    if ((pm.type as string) === 'apple_pay') return 'Apple Pay';
+    if ((pm.type as string) === 'google_pay') return 'Google Pay';
     return pm.type;
   } catch {
     return undefined;

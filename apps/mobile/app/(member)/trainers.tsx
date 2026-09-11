@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useCallback } from 'react';
-import { YStack, XStack, ScrollView, RefreshControl } from 'tamagui';
+import { YStack, XStack, ScrollView } from 'tamagui';
+import { RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
   Screen,

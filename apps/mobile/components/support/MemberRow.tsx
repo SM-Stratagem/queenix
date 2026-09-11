@@ -12,6 +12,8 @@ export type MemberStatus = "active" | "frozen" | "lapsed"
 export type Tier = "Premium" | "Elite" | "Standard"
 
 export type Member = {
+  id?: string
+  initials?: string
   name: string
   tier: Tier
   visits: number

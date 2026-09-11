@@ -21,6 +21,7 @@ import {
   Users,
   TrendingUp,
   Award,
+  Calendar,
   ChevronRight,
   Sparkles,
 } from '@tamagui/lucide-icons';

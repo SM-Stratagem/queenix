@@ -39,7 +39,14 @@ interface ScannerHealth {
   devices: ScannerDevice[];
 }
 
-const kpis = [
+const kpis: Array<{
+  label: string
+  value: string
+  delta?: string
+  deltaType?: "up" | "down" | "neutral"
+  icon: any
+  color: string
+}> = [
   {
     label: 'Active members',
     value: '247',

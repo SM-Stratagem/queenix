@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View } from 'tamagui';
+import { View, type ViewProps } from 'tamagui';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -8,7 +8,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 
-export interface SkeletonProps {
+export type SkeletonProps = ViewProps & {
   width?: number | string;
   height?: number | string;
   borderRadius?: number;

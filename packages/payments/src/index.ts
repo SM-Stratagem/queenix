@@ -390,7 +390,7 @@ export const verifyTapWebhook = (
   rawBody: string,
   signature: string | null,
   secret: string,
-  encoding: Stripe.Webhook.Encoding = 'utf8'
+  encoding: BufferEncoding = 'utf8'
 ): boolean => {
   if (!signature) return false;
   // Lazy require so this file stays browser-safe.

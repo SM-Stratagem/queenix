@@ -1,13 +1,14 @@
 import React from 'react';
-import { Switch as TamaguiSwitch, XStack, YStack } from 'tamagui';
+import { Switch as TamaguiSwitch, XStack, YStack, type ViewProps } from 'tamagui';
 import { Text } from './Text';
 
-export interface SwitchProps {
+export type SwitchProps = ViewProps & {
   value: boolean;
   onValueChange: (value: boolean) => void;
   label?: string;
   description?: string;
   disabled?: boolean;
+  accessibilityLabel?: string;
 }
 
 export const Switch: React.FC<SwitchProps> = ({ value, onValueChange, label, description, disabled }) => {

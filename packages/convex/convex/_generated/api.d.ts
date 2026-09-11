@@ -20,6 +20,7 @@ import type * as mutations_users from "../mutations/users.js";
 import type * as queries_access from "../queries/access.js";
 import type * as queries_classes from "../queries/classes.js";
 import type * as queries_memberships from "../queries/memberships.js";
+import type * as queries_operations from "../queries/operations.js";
 import type * as queries_payments from "../queries/payments.js";
 import type * as queries_users from "../queries/users.js";
 import type * as seed from "../seed.js";
@@ -43,6 +44,7 @@ declare const fullApi: ApiFromModules<{
   "queries/access": typeof queries_access;
   "queries/classes": typeof queries_classes;
   "queries/memberships": typeof queries_memberships;
+  "queries/operations": typeof queries_operations;
   "queries/payments": typeof queries_payments;
   "queries/users": typeof queries_users;
   seed: typeof seed;

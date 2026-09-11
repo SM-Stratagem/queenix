@@ -1,13 +1,15 @@
 import React from "react"
 import { XStack, YStack } from "tamagui"
 import { Card, Text, Avatar, Badge } from "@queenix/ui"
-import { ChevronRight, Clock, Ticket } from "@tamagui/lucide-icons"
+import { ChevronRight, Clock, Ticket as TicketIcon } from "@tamagui/lucide-icons"
 
 export type Priority = "low" | "medium" | "high" | "critical"
 
 export type Ticket = {
+  id?: string
   ticketCode: string
   memberName: string
+  memberInitials?: string
   category: string
   priority: Priority
   subject: string
@@ -64,7 +66,7 @@ export function TicketRow({ ticket }: { ticket: Ticket }) {
             </XStack>
           </XStack>
           <XStack alignItems="center" gap="$1" marginTop="$0.5">
-            <Ticket size={12} color="$textMuted" />
+            <TicketIcon size={12} color="$textMuted" />
             <Text variant="caption" color="secondary" weight="500">
               {STATUS_LABEL[ticket.status]}
             </Text>

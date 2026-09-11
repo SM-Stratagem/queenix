@@ -1,6 +1,14 @@
 import type { ClassView, TrainerView } from "./types"
 import React from "react"
 import { XStack, YStack } from "tamagui"
+
+export function formatHour(ts: number): string {
+  return new Date(ts).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
+}
+
+export function formatDay(ts: number): string {
+  return new Date(ts).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })
+}
 import {
   Card,
   Text,

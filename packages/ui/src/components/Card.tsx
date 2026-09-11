@@ -1,7 +1,7 @@
 import React from 'react';
-import { Card as TamaguiCard, YStack, XStack, Text, View } from 'tamagui';
+import { Card as TamaguiCard, YStack, XStack, Text, View, type ViewProps } from 'tamagui';
 
-export interface CardProps {
+export type CardProps = ViewProps & {
   children?: React.ReactNode;
   title?: string;
   subtitle?: string;

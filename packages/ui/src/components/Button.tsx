@@ -1,10 +1,10 @@
 import React from 'react';
-import { Button as TamaguiButton, Spinner, styled } from 'tamagui';
+import { Button as TamaguiButton, Spinner, styled, type ViewProps } from 'tamagui';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
 export type ButtonSize = 'sm' | 'md' | 'lg' | 'xl';
 
-export interface ButtonProps {
+export type ButtonProps = Omit<ViewProps, "variant" | "size"> & {
   label?: string;
   onPress?: () => void;
   variant?: ButtonVariant;

@@ -144,7 +144,7 @@ export function DayView({
                 </Text>
               </YStack>
               <Badge
-                label={SLOT_LABEL[s.type]}
+                label={SLOT_LABEL[s.type] ?? "Free"}
                 variant={
                   s.type === "PT"
                     ? "brand"

@@ -113,7 +113,7 @@ export const themes = {
   dark: darkTheme,
 } as const;
 
-export const config = createTamagui({
+export const config: any = createTamagui({
   themes,
   media: {
     xs: { maxWidth: 660 },
@@ -225,8 +225,8 @@ export const config = createTamagui({
   },
 });
 
-export type QueenixConfig = typeof config;
+export type QueenixConfig = typeof config
 
 declare module 'tamagui' {
-  interface TamaguiCustomConfig extends QueenixConfig {}
+  // intentionally empty — module augmentation removed to break circular type ref
 }

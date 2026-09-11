@@ -18,6 +18,7 @@ import {
 } from '@queenix/ui';
 import { useAuth } from '@/lib/auth';
 import { useConvexQuery, useConvexMutation } from '@/lib/convex';
+import { SettingsItem } from '@/components/trainer-profile/SettingsItem';
 import { api } from '@queenix/convex';
 import {
   Star,

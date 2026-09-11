@@ -24,6 +24,7 @@ import {
   CheckCircle2,
 } from '@tamagui/lucide-icons';
 import { useConvexQuery, useConvexMutation } from '@/lib/convex';
+import { TabPill, TierRow } from '@/components/rewards/primitives';
 import { api } from '@queenix/convex';
 
 type TabKey = 'available' | 'history';
@@ -104,7 +105,9 @@ export default function RewardsScreen() {
   const handleRefer = useCallback(async () => {
     try {
       const ref = await createReferral({});
-      toast.success(`Referral link copied: queenix.gym/r/${ref.code}`);
+      if (ref?.code) {
+        toast.success(`Referral link copied: queenix.gym/r/${ref.code}`)
+      }
     } catch (err: any) {
       toast.error(err?.message ?? 'Could not create referral');
     }

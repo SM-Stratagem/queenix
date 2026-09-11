@@ -71,8 +71,8 @@ export default function OtpScreen() {
               key={idx}
               ref={(el) => (inputs.current[idx] = el)}
               value={digit}
-              onChangeText={(t) => handleChange(t, idx)}
-              onKeyPress={(e) => handleKeyPress(e, idx)}
+              onChangeText={(t: string) => handleChange(t, idx)}
+              onKeyPress={(e: any) => handleKeyPress(e, idx)}
               keyboardType="number-pad"
               maxLength={1}
               textAlign="center"

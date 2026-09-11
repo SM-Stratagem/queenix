@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { YStack, XStack, ScrollView, RefreshControl } from 'tamagui';
+import { YStack, XStack, ScrollView } from 'tamagui';
+import { RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Linking } from 'react-native';
 import {
@@ -26,10 +27,17 @@ import {
   ShieldCheck,
   Star,
   Gift,
+  Check,
   CheckCircle2,
   AlertCircle,
   Clock,
+  Calendar,
+  ChevronRight,
+  Crown,
+  Pause,
+  Play,
   RefreshCw,
+  Sparkles,
   X,
 } from '@tamagui/lucide-icons';
 import { PlanBenefit } from '@/components/payments/PlanBenefit';
