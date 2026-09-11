@@ -12,6 +12,8 @@
   "dependencies": {
     "@queenix/types": "*",
     "better-auth": "^1.1.10",
+    "better-sqlite3": "^11.5.0",
+    "drizzle-orm": "^0.36.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {
