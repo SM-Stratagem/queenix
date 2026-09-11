@@ -16,33 +16,23 @@ import {
   useToast,
 } from '@queenix/ui';
 import { useConvexQuery, useConvexMutation, api } from '@/lib/convex';
+import { MemberRow, type Member, type MemberStatus, type Tier } from '@/components/support/MemberRow';
+import { TicketRow, type Ticket } from '@/components/support/TicketRow';
 import {
   Search,
   Plus,
-  Clock,
-  MessageSquare,
-  Phone,
   ChevronRight,
-  Ticket,
+  Phone,
+  Ticket as TicketIcon,
+  Clock,
   Crown,
   Sparkles,
+  MessageSquare,
 } from '@tamagui/lucide-icons';
 
-type Tier = 'Premium' | 'Elite' | 'Standard';
-type MemberStatus = 'active' | 'frozen' | 'lapsed';
 type Priority = 'low' | 'medium' | 'high' | 'critical';
 
 type Category = 'billing' | 'access' | 'class' | 'general';
-
-interface Member {
-  id: string;
-  name: string;
-  initials: string;
-  tier: Tier;
-  status: MemberStatus;
-  lastVisit: string;
-  visits: number;
-}
 
 interface Ticket {
   id: string;
@@ -462,123 +452,3 @@ export default function OpsSupportScreen() {
   );
 }
 
-function MemberRow({ member }: { member: Member }) {
-  const statusVariant: Record<MemberStatus, 'success' | 'info' | 'neutral'> = {
-    active: 'success',
-    frozen: 'info',
-    lapsed: 'neutral',
-  };
-  const tierIcon =
-    member.tier === 'Elite' ? <Crown size={12} color="$brand" /> : <Sparkles size={12} color="$textMuted" />;
-  return (
-    <Card
-      variant="outlined"
-      padding="sm"
-      accessibilityLabel={`${member.name}, ${member.tier}, last visit ${member.lastVisit}`}
-    >
-      <XStack alignItems="center" gap="$3">
-        <Avatar name={member.name} size="md" fallbackColor="$brand" />
-        <YStack flex={1} gap="$0.5">
-          <Text variant="label" numberOfLines={1}>
-            {member.name}
-          </Text>
-          <XStack alignItems="center" gap="$1.5">
-            {tierIcon}
-            <Text variant="caption" color="secondary">
-              {member.tier} • {member.visits} visits
-            </Text>
-          </XStack>
-          <Text variant="caption" color="muted">
-            Last visit {member.lastVisit}
-          </Text>
-        </YStack>
-        <YStack alignItems="flex-end" gap="$1">
-          <Badge label={member.status} variant={statusVariant[member.status]} />
-          <XStack gap="$2">
-            <YStack
-              onPress={() => {}}
-              padding="$1.5"
-              borderRadius="$full"
-              backgroundColor="$surfaceMuted"
-              accessibilityLabel={`Message ${member.name}`}
-            >
-              <MessageSquare size={14} color="$textPrimary" />
-            </YStack>
-            <YStack
-              onPress={() => {}}
-              padding="$1.5"
-              borderRadius="$full"
-              backgroundColor="$surfaceMuted"
-              accessibilityLabel={`Call ${member.name}`}
-            >
-              <Phone size={14} color="$textPrimary" />
-            </YStack>
-          </XStack>
-        </YStack>
-      </XStack>
-    </Card>
-  );
-}
-
-function TicketRow({ ticket }: { ticket: Ticket }) {
-  const priorityVariant: Record<Priority, 'success' | 'info' | 'warning' | 'danger'> = {
-    low: 'success',
-    medium: 'info',
-    high: 'warning',
-    critical: 'danger',
-  };
-  const statusLabel: Record<Ticket['status'], string> = {
-    open: 'Open',
-    in_progress: 'In progress',
-    waiting: 'Waiting on member',
-    resolved: 'Resolved',
-  };
-  return (
-    <Card
-      variant="outlined"
-      padding="sm"
-      accessibilityLabel={`Ticket ${ticket.ticketCode}, ${ticket.priority} priority, ${statusLabel[ticket.status]}`}
-    >
-      <XStack alignItems="flex-start" gap="$3">
-        <Avatar
-          name={ticket.memberName}
-          size="md"
-          fallbackColor="$info"
-        />
-        <YStack flex={1} gap="$1">
-          <XStack alignItems="center" gap="$2" flexWrap="wrap">
-            <Text variant="caption" weight="600" color="brand">
-              {ticket.ticketCode}
-            </Text>
-            <Badge label={ticket.category} variant="neutral" />
-            <Badge label={ticket.priority} variant={priorityVariant[ticket.priority]} />
-          </XStack>
-          <Text variant="label" numberOfLines={2}>
-            {ticket.subject}
-          </Text>
-          <XStack alignItems="center" gap="$2">
-            <Text variant="caption" color="muted">
-              {ticket.memberName}
-            </Text>
-            <Text variant="caption" color="muted">
-              •
-            </Text>
-            <XStack alignItems="center" gap="$1">
-              <Clock size={12} color="$textMuted" />
-              <Text variant="caption" color="muted">
-                {ticket.timeAgo}
-              </Text>
-            </XStack>
-          </XStack>
-          <XStack alignItems="center" gap="$1" marginTop="$0.5">
-            <Ticket size={12} color="$textMuted" />
-            <Text variant="caption" color="secondary" weight="500">
-              {statusLabel[ticket.status]}
-            </Text>
-          </XStack>
-        </YStack>
-        <ChevronRight size={18} color="$textMuted" />
-      </XStack>
-    </Card>
-  );
-}
