@@ -1,0 +1,19 @@
+appId: host.exp.Exponent
+---
+# Maestro smoke for Queenix Gym mobile
+# Run from apps/mobile/ with `maestro test e2e/login.yaml`
+# Requires a running iOS simulator with Expo Go installed and the app
+# pointed at the local backend (see docs/RUNBOOK.md).
+
+- launchApp:
+    arguments:
+      # The auth + convex clients read these from the .env file at build time.
+      # For a deep-link smoke, override here.
+      # EXPO_PUBLIC_CONVEX_URL: http://localhost:3210
+
+# Login screen — selectors target testID/accessibility props from the actual UI.
+- assertVisible: "Welcome"
+- tap: "member@queenix.test"
+- inputText: "QueenixDemo123!"
+- tap: "Sign In"
+- assertVisible: "Home"

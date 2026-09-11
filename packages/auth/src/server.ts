@@ -2,15 +2,35 @@
  * Queenix Gym — BetterAuth server (replaces placeholder logic)
  * Mounted at /api/auth/[...all] in the Next.js web admin.
  * Handles sign up, sign in, OTP, session management, and Convex user sync.
+ *
+ * Local dev uses file-backed SQLite so no Postgres/cloud required.
+ * For production, swap the `database` block to a Postgres Drizzle adapter
+ * and set AUTH_DB_DRIVER=pg. Env-driven so no code change per env.
  */
 
 import { betterAuth } from 'better-auth';
-import { Pool } from 'pg';
+import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import Database from 'better-sqlite3';
+
+const usePg = process.env.AUTH_DB_DRIVER === 'pg';
+
+const sqlite = usePg
+  ? null
+  : (() => {
+      const path = process.env.AUTH_DB_PATH || '.data/queenix-auth.db';
+      const db = new Database(path);
+      db.pragma('journal_mode = WAL');
+      return db;
+    })();
 
 export const auth = betterAuth({
   appName: 'Queenix Gym',
   baseURL: process.env.AUTH_BASE_URL || 'http://localhost:3000',
   secret: process.env.AUTH_SECRET || 'dev-secret-replace-in-production-min-32-chars-required-xxx',
+
+  database: usePg
+    ? undefined
+    : drizzleAdapter(sqlite as any, { provider: 'sqlite' }),
 
   emailAndPassword: {
     enabled: true,

@@ -10,8 +10,8 @@
     "./components/*": "./src/components/*.tsx"
   },
   "dependencies": {
-    "@queenix/theme": "workspace:*",
-    "@queenix/types": "workspace:*",
+    "@queenix/theme": "*",
+    "@queenix/types": "*",
     "tamagui": "^1.130.0",
     "lucide-react-native": "^0.469.0",
     "react-native-svg": "^15.10.1"

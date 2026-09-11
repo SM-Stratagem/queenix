@@ -19,23 +19,25 @@ import { useAuth } from '@/lib/auth';
 import {
   CreditCard,
   Plus,
-  Check,
   Download,
-  Calendar,
-  Sparkles,
-  ChevronRight,
-  Crown,
-  Pause,
-  Play,
+  Receipt,
+  Banknote,
+  Wallet,
+  ShieldCheck,
+  Star,
+  Gift,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
   RefreshCw,
   X,
 } from '@tamagui/lucide-icons';
+import { PlanBenefit } from '@/components/payments/PlanBenefit';
+import { CardBrandLogo, type Brand } from '@/components/payments/CardBrandLogo';
 
 // ============================================================
 // Local view types
 // ============================================================
-
-type Brand = 'visa' | 'mastercard' | 'amex';
 
 function normalizeBrand(b?: string): Brand {
   const v = (b ?? '').toLowerCase();
@@ -574,29 +576,3 @@ export default function PaymentsScreen() {
   );
 }
 
-function PlanBenefit({ text }: { text: string }) {
-  return (
-    <XStack alignItems="center" gap="$2">
-      <YStack backgroundColor="$brand50" padding="$1" borderRadius="$full">
-        <Check size={12} color="$brand" />
-      </YStack>
-      <Text variant="bodySmall" color="primary">
-        {text}
-      </Text>
-    </XStack>
-  );
-}
-
-function CardBrandLogo({ brand }: { brand: Brand }) {
-  const styles = {
-    visa: { text: 'VISA', color: '$brand' },
-    mastercard: { text: 'MC', color: '$warning' },
-    amex: { text: 'AMEX', color: '$info700' },
-  } as const;
-  const s = styles[brand];
-  return (
-    <Text variant="caption" color={s.color as any} weight="800">
-      {s.text}
-    </Text>
-  );
-}

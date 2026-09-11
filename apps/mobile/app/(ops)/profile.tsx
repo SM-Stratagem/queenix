@@ -24,7 +24,6 @@ import {
   Bell,
   FileText,
   LogOut,
-  ChevronRight,
   Clock,
   Calendar,
   Phone,
@@ -39,15 +38,10 @@ import {
   Building2,
   Fingerprint,
 } from '@tamagui/lucide-icons';
-
-interface Shift {
-  id: string;
-  date: string;
-  start: string;
-  end: string;
-  hoursLogged: string;
-  status: 'completed' | 'active' | 'upcoming';
-}
+import { ContactRow, type Shift } from '@/components/profile/ContactRow';
+import { ShiftStat } from '@/components/profile/ShiftStat';
+import { SettingsRow } from '@/components/profile/SettingsRow';
+import { ShiftRow } from '@/components/profile/ShiftRow';
 
 function formatTime(ms: number): string {
   return new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -540,130 +534,5 @@ export default function OpsProfileScreen() {
         </YStack>
       </Sheet>
     </Screen>
-  );
-}
-
-function ContactRow({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <XStack alignItems="center" gap="$2">
-      {icon}
-      <Text variant="caption" color="muted" width={90}>
-        {label}
-      </Text>
-      <Text variant="bodySmall" weight="500" numberOfLines={1} flex={1}>
-        {value}
-      </Text>
-    </XStack>
-  );
-}
-
-function ShiftStat({
-  icon,
-  label,
-  value,
-  flex,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  flex?: number;
-}) {
-  return (
-    <Card variant="outlined" padding="sm" flex={flex}>
-      <YStack gap="$1">
-        {icon}
-        <Text variant="h3">{value}</Text>
-        <Text variant="caption" color="muted">
-          {label}
-        </Text>
-      </YStack>
-    </Card>
-  );
-}
-
-function SettingsRow({
-  icon,
-  label,
-  description,
-  right,
-  onPress,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  description?: string;
-  right?: React.ReactNode;
-  onPress?: () => void;
-}) {
-  return (
-    <Card
-      variant="outlined"
-      padding="sm"
-      onPress={onPress}
-      accessibilityLabel={label}
-    >
-      <XStack alignItems="center" gap="$3">
-        <YStack
-          backgroundColor="$surfaceMuted"
-          padding="$2.5"
-          borderRadius="$md"
-        >
-          {icon}
-        </YStack>
-        <YStack flex={1} gap="$0.5">
-          <Text variant="label">{label}</Text>
-          {description && (
-            <Text variant="caption" color="muted" numberOfLines={1}>
-              {description}
-            </Text>
-          )}
-        </YStack>
-        {right ?? <ChevronRight size={18} color="$textMuted" />}
-      </XStack>
-    </Card>
-  );
-}
-
-function ShiftRow({ shift }: { shift: Shift }) {
-  return (
-    <Card
-      variant="outlined"
-      padding="sm"
-      accessibilityLabel={`${shift.date}, ${shift.start} to ${shift.end}, ${shift.hoursLogged}`}
-    >
-      <XStack alignItems="center" gap="$3">
-        <YStack
-          backgroundColor="$brand50"
-          padding="$2.5"
-          borderRadius="$md"
-          alignItems="center"
-          justifyContent="center"
-        >
-          <Clock size={18} color="$brand" />
-        </YStack>
-        <YStack flex={1} gap="$0.5">
-          <Text variant="label">{shift.date}</Text>
-          <Text variant="caption" color="secondary">
-            {shift.start} → {shift.end}
-          </Text>
-        </YStack>
-        <YStack alignItems="flex-end" gap="$0.5">
-          <Text variant="label" color="brand">
-            {shift.hoursLogged}
-          </Text>
-          <Badge
-            label={shift.status === 'active' ? 'Active' : shift.status === 'completed' ? 'Completed' : 'Upcoming'}
-            variant={shift.status === 'active' ? 'info' : shift.status === 'completed' ? 'success' : 'neutral'}
-          />
-        </YStack>
-      </XStack>
-    </Card>
   );
 }

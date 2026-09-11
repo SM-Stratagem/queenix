@@ -1,0 +1,18 @@
+FROM node:20-alpine
+WORKDIR /app
+
+RUN apk add --no-cache libc6-compat curl
+
+COPY package.json package-lock.json .npmrc ./
+COPY scripts scripts
+COPY apps/web/package.json apps/web/
+COPY packages packages
+COPY apps apps
+
+RUN npm install
+
+ENV NODE_ENV=development
+ENV PORT=3000
+EXPOSE 3000
+
+CMD ["npm", "run", "dev", "--workspace", "@queenix/web"]

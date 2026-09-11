@@ -16,12 +16,12 @@
     "clean": "rm -rf .expo node_modules .next dist"
   },
   "dependencies": {
-    "@queenix/auth": "workspace:*",
-    "@queenix/convex": "workspace:*",
-    "@queenix/i18n": "workspace:*",
-    "@queenix/theme": "workspace:*",
-    "@queenix/types": "workspace:*",
-    "@queenix/ui": "workspace:*",
+    "@queenix/auth": "*",
+    "@queenix/convex": "*",
+    "@queenix/i18n": "*",
+    "@queenix/theme": "*",
+    "@queenix/types": "*",
+    "@queenix/ui": "*",
     "@tamagui/lucide-icons": "^1.130.0",
     "convex": "^1.18.2",
     "expo": "~53.0.0",

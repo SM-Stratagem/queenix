@@ -3,25 +3,36 @@
   "version": "1.0.0",
   "private": true,
   "description": "Queenix Gym - women's gym platform (Member, Trainer, Owner, Operations) with web admin",
-  "packageManager": "pnpm@10.28.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "pnpm --filter @queenix/mobile start",
-    "android": "pnpm --filter @queenix/mobile android",
-    "ios": "pnpm --filter @queenix/mobile ios",
-    "web": "pnpm --filter @queenix/mobile web",
-    "convex": "pnpm --filter @queenix/convex dev",
-    "lint": "turbo run lint",
-    "typecheck": "turbo run typecheck",
-    "build": "turbo run build",
-    "clean": "turbo run clean && rm -rf node_modules"
+    "dev": "concurrently -k -n web,mobile -c blue,magenta \"npm run dev --workspace @queenix/web\" \"npm run start --workspace @queenix/mobile\"",
+    "dev:web": "npm run dev --workspace @queenix/web",
+    "dev:mobile": "npm run start --workspace @queenix/mobile",
+    "dev:convex": "npm run dev --workspace @queenix/convex",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "db:migrate": "cd apps/web && npx better-auth-cli@latest migrate --config ../../packages/auth/src/server.ts -y",
+    "seed": "node scripts/seed-demo-users.mjs",
+    "compose:up": "docker compose up -d",
+    "compose:down": "docker compose down",
+    "compose:logs": "docker compose logs -f",
+    "postinstall": "node scripts/init-env.mjs",
+    "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules .expo .turbo .data/*.db* *.tsbuildinfo"
   },
   "devDependencies": {
-    "turbo": "^2.3.3",
+    "@types/node": "^22.10.5",
+    "@vitest/coverage-v8": "5.0.0",
+    "concurrently": "^9.1.0",
     "typescript": "^5.7.2",
-    "@types/node": "^22.10.5"
+    "vitest": "4.1.11"
   },
   "engines": {
     "node": ">=20.0.0",
-    "pnpm": ">=10.0.0"
+    "npm": ">=10.0.0"
   }
 }
