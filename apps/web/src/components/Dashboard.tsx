@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { ScannerHealthPanel } from './dashboard/ScannerHealthPanel';
+import { KpiGrid, AlertsList, type Kpi, type Alert } from './dashboard/KpiGrid';
 import {
   TrendingUp,
   TrendingDown,
@@ -81,7 +82,7 @@ const kpis: Array<{
   },
 ];
 
-const alerts = [
+const alerts: Alert[] = [
   { id: 1, severity: 'high', message: '2 access scanners reported offline', time: '2m ago' },
   { id: 2, severity: 'medium', message: 'Trainer cert expiring: Layla Hassan (3 days)', time: '1h ago' },
   { id: 3, severity: 'low', message: '5 memberships expiring this week', time: '3h ago' },
@@ -123,66 +124,7 @@ export function Dashboard() {
       </div>
 
       {/* KPI Grid */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-          gap: 16,
-        }}
-      >
-        {kpis.map((kpi) => {
-          const Icon = kpi.icon;
-          return (
-            <div
-              key={kpi.label}
-              style={{
-                background: 'var(--bg-elevated)',
-                border: '1px solid var(--border)',
-                borderRadius: 16,
-                padding: 20,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 8,
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 12,
-                    background: `${kpi.color}15`,
-                    color: kpi.color,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Icon size={20} />
-                </div>
-                {kpi.deltaType === 'up' && <TrendingUp size={16} color="var(--success)" />}
-                {kpi.deltaType === 'down' && <TrendingDown size={16} color="var(--danger)" />}
-              </div>
-              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{kpi.label}</div>
-              <div style={{ fontSize: 24, fontWeight: 800 }}>{kpi.value}</div>
-              <div
-                style={{
-                  fontSize: 12,
-                  color:
-                    kpi.deltaType === 'up'
-                      ? 'var(--success)'
-                      : kpi.deltaType === 'down'
-                      ? 'var(--danger)'
-                      : 'var(--text-muted)',
-                  fontWeight: 600,
-                }}
-              >
-                {kpi.delta}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      <KpiGrid kpis={kpis} />
 
       {/* Two-column layout: classes + alerts */}
       <div
@@ -276,63 +218,7 @@ export function Dashboard() {
         </div>
 
         {/* Alerts */}
-        <div
-          style={{
-            background: 'var(--bg-elevated)',
-            border: '1px solid var(--border)',
-            borderRadius: 16,
-            padding: 20,
-          }}
-        >
-          <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 16px' }}>Alerts</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {alerts.map((alert) => (
-              <div
-                key={alert.id}
-                style={{
-                  display: 'flex',
-                  gap: 12,
-                  padding: 12,
-                  background: 'var(--bg-muted)',
-                  borderRadius: 10,
-                  borderLeft: `3px solid ${
-                    alert.severity === 'high'
-                      ? 'var(--danger)'
-                      : alert.severity === 'medium'
-                      ? 'var(--warning)'
-                      : 'var(--text-muted)'
-                  }`,
-                }}
-              >
-                <AlertCircle
-                  size={18}
-                  color={
-                    alert.severity === 'high'
-                      ? 'var(--danger)'
-                      : alert.severity === 'medium'
-                      ? 'var(--warning)'
-                      : 'var(--text-muted)'
-                  }
-                />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 500 }}>{alert.message}</div>
-                  <div
-                    style={{
-                      fontSize: 11,
-                      color: 'var(--text-muted)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      marginTop: 4,
-                    }}
-                  >
-                    <Clock size={10} /> {alert.time}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <AlertsList alerts={alerts} />
       </div>
 
       {/* Connected scanners (NEW) */}
