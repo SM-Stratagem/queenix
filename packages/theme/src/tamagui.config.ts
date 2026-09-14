@@ -1,6 +1,13 @@
 /**
  * Queenix Gym — Tamagui theme configuration
- * Light + dark mode with brand colors.
+ *
+ * Light-mode only by design. We pin to light so screenshots and brand
+ * contrast are consistent across devices — the app should feel calm,
+ * fast, and predictable, not chase the OS preference.
+ *
+ * If a future theme is needed, add it next to `lightTheme` and to the
+ * `themes` object below — but do NOT re-introduce `dark: darkTheme`
+ * without also wiring it through `_layout.tsx`.
  */
 
 import { createTamagui, createTheme } from 'tamagui';
@@ -57,61 +64,10 @@ const lightTheme = createTheme({
   textInfo: palette.info700,
 });
 
-const darkTheme = createTheme({
-  background: palette.gray950,
-  backgroundHover: palette.gray900,
-  backgroundPress: palette.gray800,
-  backgroundFocus: palette.gray800,
-  backgroundStrong: palette.gray900,
-  backgroundTransparent: 'rgba(0,0,0,0)',
-
-  color: palette.gray50,
-  colorHover: palette.gray0,
-  colorPress: palette.gray100,
-  colorFocus: palette.gray100,
-  colorTransparent: 'rgba(250,250,250,0)',
-
-  borderColor: palette.gray800,
-  borderColorHover: palette.gray700,
-  borderColorPress: palette.gray600,
-  borderColorFocus: palette.brand400,
-
-  placeholderColor: palette.gray500,
-
-  // Brand
-  brand: palette.brand400,
-  brandHover: palette.brand300,
-  brandPress: palette.brand200,
-
-  // Status
-  success: palette.success500,
-  warning: palette.warning500,
-  danger: palette.danger500,
-  info: palette.info500,
-
-  // Surfaces
-  surface: palette.gray950,
-  surfaceElevated: palette.gray900,
-  surfaceMuted: palette.gray900,
-  surfaceInverse: palette.gray0,
-
-  // Text variants
-  textPrimary: palette.gray50,
-  textSecondary: palette.gray300,
-  textMuted: palette.gray400,
-  textInverse: palette.gray900,
-  textBrand: palette.brand300,
-  textOnBrand: palette.gray950,
-  textSuccess: palette.success500,
-  textWarning: palette.warning500,
-  textDanger: palette.danger500,
-  textInfo: palette.info500,
-});
-
 export const themes = {
   light: lightTheme,
-  dark: darkTheme,
-} as const;
+  // Dark intentionally removed — see file header.
+} as const
 
 export const config: any = createTamagui({
   themes,

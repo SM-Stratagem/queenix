@@ -1,67 +1,75 @@
-import { TamaguiProvider, Theme } from 'tamagui';
-import { useColorScheme } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { Stack } from 'expo-router';
-import { StatusBar } from '@queenix/ui';
-import { config } from '@queenix/theme';
-import { ConvexProvider, ConvexReactClient } from 'convex/react';
-import { AuthProvider, useAuth } from '@/lib/auth';
-import { ToastProvider } from '@queenix/ui';
-import { initI18n } from '@queenix/i18n';
-import { useEffect, useState } from 'react';
-import { View, ActivityIndicator } from 'react-native';
-import * as SplashScreen from 'expo-splash-screen';
-import * as Font from 'expo-font';
+import React, { useEffect, useMemo, useState } from "react"
+import { TamaguiProvider, Theme } from "tamagui"
+import { GestureHandlerRootView } from "react-native-gesture-handler"
+import { SafeAreaProvider } from "react-native-safe-area-context"
+import { Stack } from "expo-router"
+import { StatusBar } from "@queenix/ui"
+import { config } from "@queenix/theme"
+import { ConvexProvider, ConvexReactClient } from "convex/react"
+import { AuthProvider, useAuth } from "@/lib/auth"
+import { ToastProvider } from "@queenix/ui"
+import { initI18n } from "@queenix/i18n"
+import { View, ActivityIndicator } from "react-native"
+import * as SplashScreen from "expo-splash-screen"
+import * as Font from "expo-font"
 
-SplashScreen.preventAutoHideAsync().catch(() => {});
+SplashScreen.preventAutoHideAsync().catch(() => {})
 
-const convex = new ConvexReactClient(
-  process.env.EXPO_PUBLIC_CONVEX_URL || 'https://placeholder.convex.cloud',
-  { unsavedChangesWarning: false }
-);
+initI18n()
 
-initI18n();
+/**
+ * Memoized Convex client. The instance must be stable across renders so
+ * that in-flight queries don't get cancelled every commit. Constructed once
+ * at module load.
+ */
+const convexUrl =
+  process.env.EXPO_PUBLIC_CONVEX_URL || "https://placeholder.convex.cloud"
+const convex = new ConvexReactClient(convexUrl, { unsavedChangesWarning: false })
+
+/**
+ * Pin to LIGHT mode. The theme package intentionally ships only `light` —
+ * the OS preference is intentionally ignored so the app's brand and
+ * contrast stay consistent. If you ever add `dark: darkTheme`, also wire
+ * it here.
+ */
+const FIXED_THEME = "light" as const
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-  const [appReady, setAppReady] = useState(false);
+  const [appReady, setAppReady] = useState(false)
 
   useEffect(() => {
+    let cancelled = false
     async function prepare() {
       try {
         await Font.loadAsync({
-          Inter: require('@tamagui/font-inter/otf/Inter-Medium.otf'),
-          'Inter-Bold': require('@tamagui/font-inter/otf/Inter-Bold.otf'),
-        });
+          Inter: require("@tamagui/font-inter/otf/Inter-Medium.otf"),
+          "Inter-Bold": require("@tamagui/font-inter/otf/Inter-Bold.otf"),
+        })
       } catch (e) {
-        console.warn('Font load failed, using system font', e);
+        console.warn("Font load failed, using system font", e)
       } finally {
-        setAppReady(true);
-        await SplashScreen.hideAsync();
+        if (!cancelled) {
+          setAppReady(true)
+          SplashScreen.hideAsync().catch(() => {})
+        }
       }
     }
-    prepare();
-  }, []);
-
-  if (!appReady) {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
+    prepare()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <TamaguiProvider config={config} defaultTheme={colorScheme ?? 'light'}>
-          <Theme name={colorScheme === 'dark' ? 'dark' : 'light'}>
+        <TamaguiProvider config={config} defaultTheme={FIXED_THEME}>
+          <Theme name={FIXED_THEME}>
             <ConvexProvider client={convex}>
               <AuthProvider>
                 <ToastProvider>
-                  <StatusBar />
-                  <RootNavigator />
+                  <StatusBar style="dark" />
+                  {appReady ? <RootNavigator /> : <AppLoader />}
                 </ToastProvider>
               </AuthProvider>
             </ConvexProvider>
@@ -69,33 +77,43 @@ export default function RootLayout() {
         </TamaguiProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
-  );
+  )
+}
+
+function AppLoader() {
+  return (
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+      <ActivityIndicator size="large" />
+    </View>
+  )
 }
 
 function RootNavigator() {
-  const { isLoading, session } = useAuth();
+  const { isLoading, session } = useAuth()
 
-  if (isLoading) {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" />
-      </View>
-    );
-  }
+  // Single Stack instance per auth state — switching identity flips
+  // the redirect prop, which Expo Router handles atomically.
+  const stackProps = useMemo(
+    () => ({
+      screenOptions: {
+        headerShown: false,
+        animation: "fade" as const,
+        gestureEnabled: true,
+        contentStyle: { backgroundColor: "transparent" },
+      },
+    }),
+    []
+  )
+
+  if (isLoading) return <AppLoader />
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        animation: 'fade',
-        gestureEnabled: true,
-      }}
-    >
+    <Stack {...stackProps}>
       <Stack.Screen name="(auth)" redirect={!!session} />
       <Stack.Screen name="(member)" redirect={!session} />
       <Stack.Screen name="(trainer)" redirect={!session} />
       <Stack.Screen name="(owner)" redirect={!session} />
       <Stack.Screen name="(ops)" redirect={!session} />
     </Stack>
-  );
+  )
 }
