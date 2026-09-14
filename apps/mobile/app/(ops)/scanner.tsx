@@ -31,36 +31,15 @@ import {
 } from '@tamagui/lucide-icons';
 import { CornerBracket } from '@/components/scanner/CornerBracket';
 import { CheckInRow } from '@/components/scanner/CheckInRow';
+import { ScannerStatusBanner } from '@/components/scanner/ScannerStatusBanner';
+import { formatRelative, getInitials } from '@/components/scanner/format';
+import { LastResultCard, type LastScan } from '@/components/scanner/LastResultCard';
+import { LiveCapacityBar } from '@/components/scanner/LiveCapacityBar';
 
 type CheckInStatus = 'granted' | 'denied';
 
-interface LastScan {
-  token: string;
-  granted: boolean;
-  reason?: string;
-  user?: {
-    _id: string;
-    fullName?: string;
-    avatarUrl?: string;
-  } | null;
-  scannedAt: number;
-  direction: 'in' | 'out';
-}
-
-function getInitials(name?: string | null): string {
-  if (!name) return '·';
-  const parts = name.trim().split(/\s+/);
-  return (parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '');
-}
-
-function formatRelative(ms: number): string {
-  const d = Date.now() - ms;
-  if (d < 5000) return 'Just now';
-  if (d < 60_000) return `${Math.floor(d / 1000)}s ago`;
-  if (d < 3_600_000) return `${Math.floor(d / 60_000)} min ago`;
-  if (d < 86_400_000) return `${Math.floor(d / 3_600_000)}h ago`;
-  return `${Math.floor(d / 86_400_000)}d ago`;
-}
+// LastScan type imported from @/components/scanner/LastResultCard
+// Helpers moved to @/components/scanner/format
 
 export default function ScannerScreen() {
   const router = useRouter();
@@ -254,35 +233,7 @@ export default function ScannerScreen() {
         </YStack>
 
         {/* Live capacity bar */}
-        <YStack paddingHorizontal="$4" marginTop="$3">
-          <Card variant="outlined" padding="sm">
-            <XStack alignItems="center" justifyContent="space-between" marginBottom="$2">
-              <YStack>
-                <Text variant="label">Live occupancy</Text>
-                <Text variant="caption" color="muted">
-                  {isBusy ? 'Near capacity' : 'Comfortable flow'}
-                </Text>
-              </YStack>
-              <Badge
-                label={isBusy ? 'Busy' : 'Normal'}
-                variant={isBusy ? 'warning' : 'success'}
-              />
-            </XStack>
-            <YStack
-              height={8}
-              backgroundColor="$surfaceMuted"
-              borderRadius="$full"
-              overflow="hidden"
-            >
-              <YStack
-                height="100%"
-                width={`${capacityRatio * 100}%`}
-                backgroundColor={isBusy ? '$warning' : '$brand'}
-                borderRadius="$full"
-              />
-            </YStack>
-          </Card>
-        </YStack>
+        <LiveCapacityBar liveCount={liveCount} maxCapacity={maxCapacity} />
 
         {/* QR scanner viewport */}
         <YStack paddingHorizontal="$4" marginTop="$4" alignItems="center">
@@ -496,50 +447,7 @@ export default function ScannerScreen() {
 
         {/* Last result */}
         {lastScan && (
-          <YStack paddingHorizontal="$4" marginTop="$4">
-            <Text variant="h4" marginBottom="$2">Last result</Text>
-            <Card
-              variant="elevated"
-              padding="md"
-              backgroundColor={lastScan.granted ? '$success50' : '$danger50'}
-              borderColor={lastScan.granted ? '$success' : '$danger'}
-              accessibilityLabel={`Last scan ${lastScan.granted ? 'granted' : 'denied'}`}
-            >
-              <XStack alignItems="center" gap="$3">
-                <YStack
-                  backgroundColor={lastScan.granted ? '$success' : '$danger'}
-                  padding="$2.5"
-                  borderRadius="$full"
-                >
-                  {lastScan.granted ? (
-                    <CheckCircle2 size={20} color="$textOnBrand" />
-                  ) : (
-                    <XCircle size={20} color="$textOnBrand" />
-                  )}
-                </YStack>
-                <YStack flex={1}>
-                  <Text variant="label" weight="700">
-                    {lastScan.granted
-                      ? lastScan.user?.fullName ?? 'Access granted'
-                      : lastScan.reason ?? 'Access denied'}
-                  </Text>
-                  <Text variant="caption" color="muted">
-                    {formatRelative(lastScan.scannedAt)} • {lastScan.direction.toUpperCase()}
-                  </Text>
-                </YStack>
-                {lastScan.granted && (
-                  <Button
-                    label="Reset"
-                    variant="ghost"
-                    size="sm"
-                    icon={<RotateCw size={14} color="$textMuted" />}
-                    onPress={() => setLastScan(null)}
-                    accessibilityLabel="Clear last result"
-                  />
-                )}
-              </XStack>
-            </Card>
-          </YStack>
+          <LastResultCard scan={lastScan} onReset={() => setLastScan(null)} />
         )}
 
         {/* Recent check-ins */}
