@@ -1,4 +1,13 @@
+import {
+  formatTime,
+  getTimeGreeting,
+  getStatusVariant,
+  getStatusLabel,
+  deriveStatus,
+  type SessionStatus,
+} from '@/components/trainer-today/format';
 import React, { useMemo } from 'react';
+import { HeroStat, QuickAction, SessionRow } from '@/components/trainer-today/Cards';
 import { YStack, XStack, ScrollView } from 'tamagui';
 import { useRouter } from 'expo-router';
 import {
@@ -31,39 +40,6 @@ import {
 } from '@tamagui/lucide-icons';
 
 type SessionStatus = 'completed' | 'in-progress' | 'upcoming';
-
-function formatTime(ts: number): string {
-  const d = new Date(ts);
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-}
-
-function getTimeGreeting() {
-  const h = new Date().getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 17) return 'Good afternoon';
-  return 'Good evening';
-}
-
-function getStatusVariant(status: SessionStatus): 'success' | 'brand' | 'neutral' {
-  if (status === 'completed') return 'success';
-  if (status === 'in-progress') return 'brand';
-  return 'neutral';
-}
-
-function getStatusLabel(status: SessionStatus): string {
-  if (status === 'completed') return 'Completed';
-  if (status === 'in-progress') return 'In progress';
-  return 'Upcoming';
-}
-
-function deriveStatus(scheduledAt: number, durationMinutes: number, dbStatus: string): SessionStatus {
-  const now = Date.now();
-  const end = scheduledAt + durationMinutes * 60 * 1000;
-  if (dbStatus === 'completed' || end < now) return 'completed';
-  if (dbStatus === 'no_show' || dbStatus === 'cancelled') return 'completed';
-  if (scheduledAt <= now && now < end) return 'in-progress';
-  return 'upcoming';
-}
 
 export default function TrainerToday() {
   const router = useRouter();
@@ -238,162 +214,5 @@ export default function TrainerToday() {
         </YStack>
       </ScrollView>
     </Screen>
-  );
-}
-
-function HeroStat({
-  icon,
-  value,
-  label,
-  flex,
-}: {
-  icon: React.ReactNode;
-  value: string;
-  label: string;
-  flex?: number;
-}) {
-  return (
-    <YStack
-      flex={flex}
-      gap="$1"
-      backgroundColor="$surfaceMuted"
-      padding="$3"
-      borderRadius="$md"
-    >
-      <XStack>{icon}</XStack>
-      <Text variant="h3">{value}</Text>
-      <Text variant="caption" color="muted">
-        {label}
-      </Text>
-    </YStack>
-  );
-}
-
-function QuickAction({
-  icon,
-  label,
-  onPress,
-  flex,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  onPress: () => void;
-  flex?: number;
-}) {
-  return (
-    <YStack
-      flex={flex}
-      alignItems="center"
-      gap="$2"
-      onPress={onPress}
-      pressStyle={{ opacity: 0.7, scale: 0.97 }}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-    >
-      <YStack
-        backgroundColor="$brand"
-        padding="$3"
-        borderRadius="$xl"
-        alignItems="center"
-        justifyContent="center"
-        width={56}
-        height={56}
-      >
-        {icon}
-      </YStack>
-      <Text variant="caption" weight="600" align="center">
-        {label}
-      </Text>
-    </YStack>
-  );
-}
-
-function SessionRow({
-  scheduledAt,
-  durationMinutes,
-  memberName,
-  memberId,
-  dbStatus,
-  onStart,
-  onViewNotes,
-}: {
-  scheduledAt: number;
-  durationMinutes: number;
-  memberName: string;
-  memberId: string;
-  dbStatus: string;
-  onStart: () => void;
-  onViewNotes: () => void;
-}) {
-  const status = deriveStatus(scheduledAt, durationMinutes, dbStatus);
-  const variant = getStatusVariant(status);
-  const statusLabel = getStatusLabel(status);
-  const startTime = formatTime(scheduledAt);
-  const endTime = formatTime(scheduledAt + durationMinutes * 60 * 1000);
-
-  return (
-    <Card
-      variant="outlined"
-      padding="sm"
-      onPress={status === 'upcoming' || status === 'in-progress' ? onStart : onViewNotes}
-      accessibilityLabel={`PT with ${memberName} at ${startTime}, ${statusLabel}`}
-    >
-      <XStack alignItems="center" gap="$3">
-        <YStack alignItems="center" width={56} gap="$0.5">
-          <Text variant="h4" color={status === 'completed' ? 'muted' : 'primary'}>
-            {startTime}
-          </Text>
-          <Text variant="caption" color="muted">
-            {durationMinutes}m
-          </Text>
-        </YStack>
-        <YStack
-          width={3}
-          alignSelf="stretch"
-          backgroundColor="$brand"
-          borderRadius="$full"
-        />
-        <YStack flex={1} gap="$1">
-          <XStack alignItems="center" gap="$2">
-            <Text
-              variant="label"
-              textDecorationLine={status === 'completed' ? 'line-through' : 'none'}
-            >
-              {memberName}
-            </Text>
-            <Badge label="PT" variant="brand" size="sm" />
-          </XStack>
-          <Text variant="caption" color="muted">
-            {startTime}–{endTime}
-          </Text>
-          <XStack marginTop="$1">
-            <Badge label={statusLabel} variant={variant} size="sm" />
-          </XStack>
-        </YStack>
-        <YStack>
-          {status === 'upcoming' ? (
-            <Button
-              label="Start"
-              size="sm"
-              variant="primary"
-              onPress={onStart}
-              icon={<Play size={14} color="$textOnBrand" />}
-            />
-          ) : status === 'in-progress' ? (
-            <Button label="Resume" size="sm" variant="primary" onPress={onStart} />
-          ) : (
-            <XStack
-              onPress={onViewNotes}
-              pressStyle={{ opacity: 0.6 }}
-              accessibilityRole="button"
-              accessibilityLabel="View client detail"
-              padding="$2"
-            >
-              <FileText size={20} color="$textMuted" />
-            </XStack>
-          )}
-        </YStack>
-      </XStack>
-    </Card>
   );
 }
