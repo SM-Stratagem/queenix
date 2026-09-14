@@ -1,36 +1,25 @@
 /**
- * Queenix Gym — BetterAuth server (replaces placeholder logic)
- * Mounted at /api/auth/[...all] in the Next.js web admin.
- * Handles sign up, sign in, OTP, session management, and Convex user sync.
- *
- * Local dev uses file-backed SQLite so no Postgres/cloud required.
- * For production, swap the `database` block to a Postgres Drizzle adapter
- * and set AUTH_DB_DRIVER=pg. Env-driven so no code change per env.
+ * Queenix Gym — BetterAuth server (production-ready)
+ * Uses BetterAuth's built-in Kysely adapter over better-sqlite3 so the
+ * schema lives in a single, migratable SQLite file. No cloud DB required.
  */
 
 import { betterAuth } from 'better-auth';
-import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import Database from 'better-sqlite3';
+import { Kysely, SqliteDialect } from 'kysely';
 
-const usePg = process.env.AUTH_DB_DRIVER === 'pg';
+const dbPath = process.env.AUTH_DB_PATH || '.data/queenix-auth.db';
+const sqlite = new Database(dbPath);
+sqlite.pragma('journal_mode = WAL');
 
-const sqlite = usePg
-  ? null
-  : (() => {
-      const path = process.env.AUTH_DB_PATH || '.data/queenix-auth.db';
-      const db = new Database(path);
-      db.pragma('journal_mode = WAL');
-      return db;
-    })();
+const kysely = new Kysely({ dialect: new SqliteDialect({ database: sqlite }) });
 
 export const auth = betterAuth({
   appName: 'Queenix Gym',
   baseURL: process.env.AUTH_BASE_URL || 'http://localhost:3000',
-  secret: process.env.AUTH_SECRET || 'dev-secret-replace-in-production-min-32-chars-required-xxx',
+  secret: process.env.AUTH_SECRET || 'dev-secret-replace-in-production-min-32-chars',
 
-  database: usePg
-    ? undefined
-    : drizzleAdapter(sqlite as any, { provider: 'sqlite' }),
+  database: { db: kysely, type: 'sqlite' },
 
   emailAndPassword: {
     enabled: true,
@@ -76,13 +65,12 @@ export const auth = betterAuth({
     user: {
       create: {
         after: async (user) => {
-          // Sync to Convex
           if (process.env.CONVEX_SITE_URL && process.env.CONVEX_DEPLOY_KEY) {
             await fetch(`${process.env.CONVEX_SITE_URL}/api/mutation`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Convex ${process.env.CONVEX_DEPLOY_KEY}`,
+                Authorization: `Convex ${process.env.CONVEX_DEPLOY_KEY}`,
               },
               body: JSON.stringify({
                 path: 'mutations/users:syncFromBetterAuth',
@@ -93,7 +81,7 @@ export const auth = betterAuth({
                   roles: (user as any).roles ?? ['member'],
                 },
               }),
-            }).catch((e) => console.error('Convex sync failed', e));
+            }).catch((e) => console.error('Convex sync failed', e))
           }
         },
       },
@@ -107,12 +95,13 @@ export const auth = betterAuth({
 
   trustedOrigins: [
     'http://localhost:3000',
+    'http://localhost:3300',
     'http://localhost:8081',
     'http://localhost:19006',
     'http://localhost:19000',
     'exp://localhost:8081',
     process.env.AUTH_BASE_URL || '',
   ].filter(Boolean),
-});
+})
 
-export type Auth = typeof auth;
+export type Auth = typeof auth

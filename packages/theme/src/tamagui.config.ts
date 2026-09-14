@@ -138,6 +138,7 @@ export const config: any = createTamagui({
     radius: radii,
     size: {
       0: 0,
+      true: 16, // Tamagui 2.x requires a `true` token = the default size
       1: 4,
       2: 8,
       3: 12,

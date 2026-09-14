@@ -1,9 +1,11 @@
 /**
  * Queenix Gym — Sample data seeder
  * Run: npx convex run seed:seedSampleData
+ *      npx convex run seed:seedDemoUsers --args '<json>'  (called by scripts/seed-demo-users.mjs)
  */
 
 import { mutation } from './_generated/server';
+import { v } from 'convex/values';
 
 export const seedSampleData = mutation({
   args: {},
@@ -62,5 +64,83 @@ export const seedSampleData = mutation({
       message: 'Seeded membership plans',
       plans: { basicPlanId, premiumPlanId, vipPlanId },
     };
+  },
+});
+
+export const seedDemoUsers = mutation({
+  args: {
+    users: v.array(
+      v.object({
+        email: v.string(),
+        betterAuthUserId: v.string(),
+        fullName: v.string(),
+        roles: v.array(v.string()),
+        activeRole: v.string(),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    let created = 0;
+    let skipped = 0;
+    for (const u of args.users) {
+      const existing = await ctx.db
+        .query('users')
+        .withIndex('by_email', (q: any) => q.eq('email', u.email))
+        .first();
+      if (existing) {
+        skipped++;
+        continue;
+      }
+      await ctx.db.insert('users', {
+        betterAuthUserId: u.betterAuthUserId,
+        email: u.email,
+        fullName: u.fullName,
+        activeRole: u.activeRole as 'member' | 'trainer' | 'owner' | 'operations',
+        roles: u.roles as ('member' | 'trainer' | 'owner' | 'operations')[],
+        emailVerified: true,
+        phoneVerified: false,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+      created++;
+    }
+    return { ok: true, created, skipped };
+  },
+});
+
+export const syncFromBetterAuth = mutation({
+  args: {
+    betterAuthUserId: v.string(),
+    email: v.string(),
+    fullName: v.string(),
+    roles: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query('users')
+      .withIndex('by_betterAuthUserId', (q: any) =>
+        q.eq('betterAuthUserId', args.betterAuthUserId)
+      )
+      .first();
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        fullName: args.fullName,
+        roles: args.roles as ('member' | 'trainer' | 'owner' | 'operations')[],
+        updatedAt: Date.now(),
+      });
+      return { ok: true, created: false };
+    }
+    await ctx.db.insert('users', {
+      betterAuthUserId: args.betterAuthUserId,
+      email: args.email,
+      fullName: args.fullName,
+      activeRole: (args.roles[0] ?? 'member') as 'member' | 'trainer' | 'owner' | 'operations',
+      roles: args.roles as ('member' | 'trainer' | 'owner' | 'operations')[],
+      emailVerified: true,
+      phoneVerified: false,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+    return { ok: true, created: true };
   },
 });

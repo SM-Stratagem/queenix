@@ -61,6 +61,7 @@ export const palette = {
 
 export const spacing = {
   px: 1,
+  true: 4, // Tamagui 2.x requires a `true` token = the default space
   0: 0,
   0.5: 2,
   1: 4,
@@ -97,16 +98,17 @@ export const spacing = {
 } as const;
 
 export const radii = {
-  none: 0,
-  sm: 4,
-  base: 8,
-  md: 10,
-  lg: 12,
-  xl: 16,
-  '2xl': 20,
-  '3xl': 24,
-  full: 9999,
-} as const;
+  0: 0,
+  true: 10, // Tamagui 2.x requires numeric keys with a `true` default
+  1: 4,
+  2: 8,
+  3: 10,
+  4: 12,
+  5: 16,
+  6: 20,
+  7: 24,
+  99: 9999, // use as `pill` in styles
+} as const
 
 export const fontSizes = {
   '2xs': 10,

@@ -16,12 +16,12 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "db:migrate": "node scripts/migrate-auth-db.mjs",
+    "db:migrate": "AUTH_DB_PATH=apps/web/.data/queenix-auth.db npx -y @better-auth/cli@latest migrate --config packages/auth/src/server.ts -y",
     "seed": "node scripts/seed-demo-users.mjs",
     "compose:up": "docker compose up -d",
     "compose:down": "docker compose down",
     "compose:logs": "docker compose logs -f",
-    "postinstall": "node scripts/init-env.mjs",
+    "postinstall": "node scripts/init-env.mjs && node scripts/patch-tamagui-react19.mjs",
     "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules .expo .turbo .data/*.db* *.tsbuildinfo"
   },
   "devDependencies": {

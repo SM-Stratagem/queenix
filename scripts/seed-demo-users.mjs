@@ -19,7 +19,6 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 
 // fileURLToPath (not `new URL(...).pathname`) so workspace paths with
@@ -40,10 +39,13 @@ function loadEnvFile(file) {
 }
 const env = loadEnvFile(path.join(ROOT, '.env.testing'));
 
-const AUTH_BASE = env.AUTH_BASE_URL ?? 'http://localhost:3000';
-const CONVEX_URL = env.EXPO_PUBLIC_CONVEX_URL ?? 'http://127.0.0.1:3210';
-const PASSWORD = env.DEMO_PASSWORD ?? 'QueenixDemo123!';
-const DB_PATH = path.join(ROOT, 'apps/web/.data/queenix-auth.db');
+// Shell env wins; .env.testing is the default.
+const AUTH_BASE = process.env.AUTH_BASE_URL ?? env.AUTH_BASE_URL ?? 'http://localhost:3000';
+const CONVEX_URL =
+  process.env.EXPO_PUBLIC_CONVEX_URL ?? env.EXPO_PUBLIC_CONVEX_URL ?? 'http://127.0.0.1:3210';
+const PASSWORD = process.env.DEMO_PASSWORD ?? env.DEMO_PASSWORD ?? 'QueenixDemo123!';
+const DB_PATH =
+  process.env.AUTH_DB_PATH ?? env.AUTH_DB_PATH ?? path.join(ROOT, 'apps/web/.data/queenix-auth.db');
 
 const DEMOS = [
   { role: 'member', email: env.DEMO_MEMBER_EMAIL, name: env.DEMO_MEMBER_NAME ?? 'Amna Member' },
@@ -52,14 +54,27 @@ const DEMOS = [
   { role: 'operations', email: env.DEMO_OPERATIONS_EMAIL, name: env.DEMO_OPERATIONS_NAME ?? 'Khalid Ops' },
 ];
 
-async function api(pathname, body) {
+async function api(pathname, body, method = 'POST', extraHeaders = {}) {
   const res = await fetch(`${AUTH_BASE}${pathname}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      Origin: AUTH_BASE,
+      ...extraHeaders,
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
   return { status: res.status, data };
+}
+
+async function setRoleViaAdmin(userId, role) {
+  return api(
+    `/api/admin/users/${userId}/role`,
+    { activeRole: role, roles: [role] },
+    'POST',
+    { 'x-queenix-admin-token': process.env.QUEENIX_ADMIN_TOKEN ?? 'queenix-dev-admin-token' }
+  );
 }
 
 async function ensureAuthUser({ email, name }) {
@@ -73,10 +88,10 @@ async function ensureAuthUser({ email, name }) {
 
 async function main() {
   // --- preconditions ---------------------------------------------------------
-  try {
-    const r = await fetch(`${AUTH_BASE}/api/auth/get-session`);
-    if (!r.ok && r.status !== 401) throw new Error(`HTTP ${r.status}`);
-  } catch (e) {
+try {
+      const r = await fetch(`${AUTH_BASE}/api/auth/get-session`, { headers: { Origin: AUTH_BASE } });
+      if (!r.ok && r.status !== 401 && r.status !== 403) throw new Error(`HTTP ${r.status}`);
+    } catch (e) {
     console.error(`✗ Web/auth not reachable at ${AUTH_BASE} (${e.message}).`);
     console.error('  Start it first:  pnpm --filter @queenix/web dev');
     process.exit(1);
@@ -88,13 +103,12 @@ async function main() {
   }
 
   // --- 1+2. auth accounts + role patch ----------------------------------------
-  const sqlite = new DatabaseSync(DB_PATH);
-  const setRoles = sqlite.prepare('UPDATE "user" SET roles = ?, "activeRole" = ? WHERE id = ?');
-
+  // Use BetterAuth API to set roles (the storage SQLite belongs to the container).
   const linked = [];
   for (const demo of DEMOS) {
     const { id, created } = await ensureAuthUser(demo);
-    setRoles.run(JSON.stringify([demo.role]), demo.role, id);
+    // Apply role via admin endpoint so demo accounts have the correct role.
+    await setRoleViaAdmin(id, demo.role);
     linked.push({
       email: demo.email,
       betterAuthUserId: id,
@@ -104,22 +118,34 @@ async function main() {
     });
     console.log(`${created ? 'created' : 'exists '}  ${demo.role.padEnd(10)} ${demo.email}`);
   }
-  sqlite.close();
 
   // --- 3. Convex link ----------------------------------------------------------
+  // Self-hosted Convex: POST to /api/run/<module>/<function> with {args, format}.
+  // Cloud Convex:     POST to /api/mutation        with {path, args, format}.
+  const isSelfHosted = CONVEX_URL.includes('localhost') || CONVEX_URL.includes('127.');
+  const convexUrl = isSelfHosted
+    ? `${CONVEX_URL}/api/run/seed/seedDemoUsers`
+    : `${CONVEX_URL}/api/mutation`;
+  const convexBody = isSelfHosted
+    ? { args: { users: linked }, format: 'json' }
+    : {
+        path: 'seed:seedDemoUsers',
+        args: { users: linked },
+        format: 'json',
+      };
   let convexRes;
   try {
-    convexRes = await fetch(`${CONVEX_URL}/api/mutation`, {
+    const res = await fetch(convexUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: 'seed:seedDemoUsers', args: { users: linked }, format: 'json' }),
-    }).then((r) => r.json());
+      body: JSON.stringify(convexBody),
+    });
+    convexRes = { status: res.status, body: await res.text().catch(() => '') };
   } catch (e) {
     console.error(`✗ Convex not reachable at ${CONVEX_URL} (${e.message}).`);
-    console.error('  Start it first:  pnpm --filter @queenix/convex dev');
     process.exit(1);
   }
-  console.log('convex seedDemoUsers:', JSON.stringify(convexRes).slice(0, 400));
+  console.log('convex seedDemoUsers:', JSON.stringify(convexRes).slice(0, 300));
 
   console.log('\nDone. Log in anywhere with:');
   for (const demo of DEMOS) console.log(`  ${demo.role.padEnd(10)} ${demo.email} / ${PASSWORD}`);

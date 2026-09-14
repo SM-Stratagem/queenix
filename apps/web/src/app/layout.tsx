@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
-import { TamaguiProvider, Theme } from 'tamagui';
-import { config } from '@queenix/theme';
+import { QueenixProvider } from '@/components/TamaguiProvider';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -12,9 +11,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
-        <TamaguiProvider config={config} defaultTheme="light">
-          <Theme name="light">{children}</Theme>
-        </TamaguiProvider>
+        <QueenixProvider>{children}</QueenixProvider>
       </body>
     </html>
   );

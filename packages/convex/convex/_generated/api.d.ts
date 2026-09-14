@@ -9,7 +9,7 @@
  */
 
 import type * as _helpers from "../_helpers.js";
-import type * as index from "../index.js";
+import type * as api_ from "../api.js";
 import type * as mutations_access from "../mutations/access.js";
 import type * as mutations_bookings from "../mutations/bookings.js";
 import type * as mutations_loyalty from "../mutations/loyalty.js";
@@ -33,7 +33,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   _helpers: typeof _helpers;
-  index: typeof index;
+  api: typeof api_;
   "mutations/access": typeof mutations_access;
   "mutations/bookings": typeof mutations_bookings;
   "mutations/loyalty": typeof mutations_loyalty;
