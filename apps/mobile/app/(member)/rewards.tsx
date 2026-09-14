@@ -25,6 +25,7 @@ import {
 } from '@tamagui/lucide-icons';
 import { useConvexQuery, useConvexMutation } from '@/lib/convex';
 import { TabPill, TierRow } from '@/components/rewards/primitives';
+import { PointsHeroCard } from '@/components/rewards/PointsHero';
 import { api } from '@queenix/convex';
 
 type TabKey = 'available' | 'history';
@@ -129,64 +130,15 @@ export default function RewardsScreen() {
 
         {/* Hero points card */}
         <YStack paddingHorizontal="$4" marginTop="$3">
-          <YStack
-            backgroundColor="$brand"
-            padding="$5"
-            borderRadius="$xl"
-            gap="$3"
-            shadowColor="$shadowColor"
-            shadowOffset={{ width: 0, height: 4 }}
-            shadowOpacity={0.15}
-            shadowRadius={12}
-            elevation={6}
-          >
-            <XStack justifyContent="space-between" alignItems="center">
-              <XStack alignItems="center" gap="$2">
-                <YStack backgroundColor="$brand600" padding="$2" borderRadius="$full">
-                  <Award size={18} color="$textOnBrand" />
-                </YStack>
-                <Text variant="caption" weight="700" textTransform="uppercase">
-                  Your points
-                </Text>
-              </XStack>
-              <Badge label={tier} variant={tierVariant(tier)} />
-            </XStack>
-
-            <YStack>
-              {loyalty === undefined ? (
-                <Skeleton width="40%" height={48} />
-              ) : (
-                <Text variant="display">
-                  {pointsBalance.toLocaleString()}
-                </Text>
-              )}
-              <Text variant="bodySmall" color="muted">
-                {Math.max(0, NEXT_TIER_COST - pointsBalance)} pts to Platinum
-              </Text>
-            </YStack>
-
-            <Progress
-              value={tierProgressPct}
-              size="sm"
-              color="$warning500"
-              backgroundColor="$brand600"
-            />
-
-            <XStack gap="$2" marginTop="$2">
-              <Button
-                label="How to earn"
-                variant="secondary"
-                size="sm"
-                onPress={() => toast.info('100 pts per class, 500 for referrals')}
-              />
-              <Button
-                label="Tiers"
-                variant="ghost"
-                size="sm"
-                onPress={() => toast.info('Tier breakdown coming soon')}
-              />
-            </XStack>
-          </YStack>
+          <PointsHeroCard
+            tier={tier}
+            pointsBalance={pointsBalance}
+            tierProgressPct={tierProgressPct}
+            toNextLabel={`${Math.max(0, NEXT_TIER_COST - pointsBalance)} pts to Platinum`}
+            isLoading={loyalty === undefined}
+            onHowToEarn={() => toast.info('100 pts per class, 500 for referrals')}
+            onTiers={() => toast.info('Tier breakdown coming soon')}
+          />
         </YStack>
 
         {/* Refer a friend */}
