@@ -27,6 +27,13 @@ import { useConvexQuery, useConvexMutation } from '@/lib/convex';
 import { TabPill, TierRow } from '@/components/rewards/primitives';
 import { PointsHeroCard } from '@/components/rewards/PointsHero';
 import { api } from '@queenix/convex';
+import {
+  formatDate,
+  tierForBalance,
+  tierVariant,
+  NEXT_TIER_COST,
+  type Tier,
+} from '@/components/rewards/format';
 
 type TabKey = 'available' | 'history';
 
@@ -39,25 +46,6 @@ interface HistoryItem {
 }
 
 const NEXT_TIER_COST = 2000;
-
-function formatDate(ts: number): string {
-  return new Date(ts).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-  });
-}
-
-function tierForBalance(balance: number): 'Silver' | 'Gold' | 'Platinum' {
-  if (balance >= 2000) return 'Platinum';
-  if (balance >= 500) return 'Gold';
-  return 'Silver';
-}
-
-function tierVariant(tier: 'Silver' | 'Gold' | 'Platinum'): 'neutral' | 'warning' | 'brand' {
-  if (tier === 'Platinum') return 'brand';
-  if (tier === 'Gold') return 'warning';
-  return 'neutral';
-}
 
 export default function RewardsScreen() {
   const router = useRouter();
