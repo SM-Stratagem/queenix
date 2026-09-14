@@ -52,31 +52,6 @@ const slotLabel: Record<SlotType, string> = {
   Blocked: 'Blocked',
 };
 
-function getMonday(offsetWeeks: number): Date {
-  const now = new Date();
-  const day = (now.getDay() + 6) % 7; // 0 = Mon
-  const monday = new Date(now);
-  monday.setDate(now.getDate() - day + offsetWeeks * 7);
-  return monday;
-}
-
-function getWeekRange(offsetWeeks: number): string {
-  const monday = getMonday(offsetWeeks);
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  const fmt = (d: Date) =>
-    d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
-  return `${fmt(monday)} – ${fmt(sunday)}`;
-}
-
-function getDayNumbers(offsetWeeks: number): number[] {
-  const monday = getMonday(offsetWeeks);
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    return d.getDate();
-  });
-}
 
 export default function TrainerSchedule() {
   const router = useRouter();
