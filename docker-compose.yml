@@ -56,10 +56,13 @@ services:
     environment:
       NODE_ENV: development
       CONVEX_SELF_HOSTED_URL: http://convex-backend:3210
+      CONVEX_SITE_URL: http://localhost:3211
+      NEXT_PUBLIC_CONVEX_URL: http://localhost:3210
       AUTH_BASE_URL: ${AUTH_BASE_URL:-http://localhost:3000}
       AUTH_TRUST_HOST: "true"
       AUTH_DB_PATH: /app/.data/queenix-auth.db
       AUTH_SECRET: ${AUTH_SECRET:-testing-secret-replace-before-production-min-32-chars-0123456789ab}
+      QUEENIX_ADMIN_TOKEN: ${QUEENIX_ADMIN_TOKEN:-queenix-dev-admin-token}
       PAYMENTS_PROVIDER: ${PAYMENTS_PROVIDER:-mock}
     depends_on:
       convex-backend:

@@ -19,6 +19,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createPayment } from '@queenix/payments';
+import { getConvexApiUrl } from '@/lib/convex-env';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const siteUrl = process.env.CONVEX_SITE_URL ?? process.env.NEXT_PUBLIC_CONVEX_URL;
+  const siteUrl = getConvexApiUrl();
   const deployKey = process.env.CONVEX_DEPLOY_KEY;
   if (!siteUrl) {
     return NextResponse.json({ error: 'CONVEX_SITE_URL not configured' }, { status: 500 });

@@ -27,8 +27,8 @@ function sign(payload: object): string {
  * Used by both mobile (Expo) and web admin clients before they open a
  * `useConvexQuery` stream.
  */
-export async function GET() {
-  const session = await auth.api.getSession({ headers: new Headers() })
+export async function GET(req: Request) {
+  const session = await auth.api.getSession({ headers: req.headers })
   if (!session?.user?.id || !session?.session?.id) {
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 })
   }

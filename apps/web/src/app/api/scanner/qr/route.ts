@@ -27,6 +27,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { ConvexHttpClient } from 'convex/browser';
+import { getConvexApiUrl } from '@/lib/convex-env';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -49,7 +50,13 @@ function isDeviceAllowed(deviceId: string): boolean {
 }
 
 function getConvexClient(): ConvexHttpClient | null {
-  const url = process.env.CONVEX_SITE_URL ?? process.env.NEXT_PUBLIC_CONVEX_URL;
+  // Self-hosted Convex: the HTTP API lives at :3210 (NOT :3211, which is the
+  // dashboard UI). The Next.js admin typically runs alongside Convex in
+  // docker-compose, so reach the API at `convex-backend:3210`.
+  const url =
+    process.env.CONVEX_SELF_HOSTED_URL ??
+    process.env.NEXT_PUBLIC_CONVEX_URL ??
+    process.env.CONVEX_SITE_URL;
   if (!url) return null;
   return new ConvexHttpClient(url);
 }

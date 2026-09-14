@@ -32,6 +32,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { ConvexHttpClient } from 'convex/browser';
+import { getConvexApiUrl } from '@/lib/convex-env';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -56,7 +57,7 @@ function isDeviceAllowed(deviceId: string): boolean {
 }
 
 function getConvexClient(): ConvexHttpClient | null {
-  const url = process.env.CONVEX_SITE_URL ?? process.env.NEXT_PUBLIC_CONVEX_URL;
+  const url = getConvexApiUrl();
   if (!url) return null;
   return new ConvexHttpClient(url);
 }

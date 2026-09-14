@@ -4,7 +4,7 @@
  *      npx convex run seed:seedDemoUsers --args '<json>'  (called by scripts/seed-demo-users.mjs)
  */
 
-import { mutation } from './_generated/server';
+import { mutation, query } from './_generated/server';
 import { v } from 'convex/values';
 
 export const seedSampleData = mutation({
@@ -64,6 +64,20 @@ export const seedSampleData = mutation({
       message: 'Seeded membership plans',
       plans: { basicPlanId, premiumPlanId, vipPlanId },
     };
+  },
+});
+
+export const listDemoUsers = query({
+  args: {},
+  handler: async (ctx) => {
+    const users = await ctx.db.query('users').collect();
+    return users.map((u) => ({
+      email: u.email,
+      activeRole: u.activeRole,
+      roles: u.roles,
+      emailVerified: u.emailVerified,
+      betterAuthUserId: u.betterAuthUserId,
+    }));
   },
 });
 
