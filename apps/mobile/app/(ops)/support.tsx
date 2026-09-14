@@ -49,9 +49,6 @@ interface SupportTicket {
 }
 
 
-const TICKET_CODE_PREFIX = 'QNX';
-const CATEGORIES: Category[] = ['access', 'class', 'billing', 'general'];
-const PRIORITIES: Priority[] = ['low', 'medium', 'high', 'critical'];
 
 export default function OpsSupportScreen() {
   const router = useRouter();
