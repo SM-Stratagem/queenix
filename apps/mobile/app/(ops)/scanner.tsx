@@ -34,6 +34,7 @@ import { CheckInRow } from '@/components/scanner/CheckInRow';
 import { ScannerStatusBanner } from '@/components/scanner/ScannerStatusBanner';
 import { formatRelative, getInitials } from '@/components/scanner/format';
 import { LastResultCard, type LastScan } from '@/components/scanner/LastResultCard';
+import { ScannerViewfinder, ScannerControls } from '@/components/scanner/scanControls';
 import { LiveCapacityBar } from '@/components/scanner/LiveCapacityBar';
 
 type CheckInStatus = 'granted' | 'denied';
@@ -236,214 +237,24 @@ export default function ScannerScreen() {
         <LiveCapacityBar liveCount={liveCount} maxCapacity={maxCapacity} />
 
         {/* QR scanner viewport */}
-        <YStack paddingHorizontal="$4" marginTop="$4" alignItems="center">
-          <Card
-            variant="elevated"
-            padding="md"
-            onPress={() => setScanning((s) => !s)}
-            accessibilityLabel={scanning ? 'Stop scanning' : 'Start scanning'}
-          >
-            <YStack
-              width={280}
-              height={280}
-              alignItems="center"
-              justifyContent="center"
-              position="relative"
-            >
-              {/* Outer frame */}
-              <YStack
-                position="absolute"
-                top={0}
-                left={0}
-                right={0}
-                bottom={0}
-                borderWidth={3}
-                borderColor={scanning ? '$brand' : '$borderColor'}
-                borderRadius="$lg"
-                backgroundColor="$surfaceMuted"
-                overflow="hidden"
-              />
-              {/* Live camera preview (when available) */}
-              {CameraComponent && codeScanner && hasPermission && scanning ? (
-                <YStack
-                  position="absolute"
-                  top={0}
-                  left={0}
-                  right={0}
-                  bottom={0}
-                  borderRadius="$lg"
-                  overflow="hidden"
-                >
-                  <CameraComponent
-                    style={{ flex: 1 }}
-                    device={undefined}
-                    isActive={scanning}
-                    codeScanner={codeScanner.codeScanner({
-                      codeTypes: ['qr', 'ean-13'],
-                      onCodeScanned: (codes: any[]) => {
-                        const value = codes?.[0]?.value;
-                        if (value) handleToken(String(value));
-                      },
-                    })}
-                  />
-                </YStack>
-              ) : null}
-              {/* Corner brackets */}
-              <CornerBracket position="tl" />
-              <CornerBracket position="tr" />
-              <CornerBracket position="bl" />
-              <CornerBracket position="br" />
-              {/* Center overlay (only if camera not active) */}
-              {!(CameraComponent && hasPermission && scanning) && (
-                <YStack alignItems="center" gap="$2" zIndex={2}>
-                  <YStack
-                    backgroundColor="$surface"
-                    padding="$3"
-                    borderRadius="$full"
-                    borderWidth={1}
-                    borderColor="$borderColor"
-                  >
-                    {scanning ? (
-                      <Camera size={32} color="$brand" />
-                    ) : (
-                      <ScanLine size={32} color="$textMuted" />
-                    )}
-                  </YStack>
-                  <Text variant="label" color={scanning ? 'brand' : 'muted'}>
-                    {hasPermission === false
-                      ? 'Camera unavailable'
-                      : scanning
-                      ? 'Scanning…'
-                      : 'Tap to scan'}
-                  </Text>
-                  <Text variant="caption" color="muted" textAlign="center">
-                    {hasPermission === false
-                      ? 'Grant camera permission\nto enable scanning'
-                      : scanning
-                      ? 'Hold member QR\nwithin the frame'
-                      : 'Camera is off'}
-                  </Text>
-                </YStack>
-              )}
-            </YStack>
-          </Card>
+        <ScannerViewfinder
+          scanning={scanning}
+          hasPermission={hasPermission}
+          CameraComponent={CameraComponent}
+          codeScanner={codeScanner}
+          handleToken={handleToken}
+          setScanning={setScanning}
+        />
 
-          {/* Direction toggle + manual entry */}
-          <YStack marginTop="$4" width={280} gap="$2">
-            <XStack gap="$2">
-              <YStack
-                flex={1}
-                paddingVertical="$2.5"
-                alignItems="center"
-                borderRadius="$md"
-                backgroundColor={direction === 'in' ? '$brand' : '$surfaceMuted'}
-                onPress={() => setDirection('in')}
-                accessibilityRole="button"
-                accessibilityState={{ selected: direction === 'in' }}
-                accessibilityLabel="Set direction to in"
-              >
-                <Text
-                  variant="caption"
-                  weight="600"
-                  color={direction === 'in' ? 'inverse' : 'muted'}
-                  textTransform="uppercase"
-                >
-                  In
-                </Text>
-              </YStack>
-              <YStack
-                flex={1}
-                paddingVertical="$2.5"
-                alignItems="center"
-                borderRadius="$md"
-                backgroundColor={direction === 'out' ? '$brand' : '$surfaceMuted'}
-                onPress={() => setDirection('out')}
-                accessibilityRole="button"
-                accessibilityState={{ selected: direction === 'out' }}
-                accessibilityLabel="Set direction to out"
-              >
-                <Text
-                  variant="caption"
-                  weight="600"
-                  color={direction === 'out' ? 'inverse' : 'muted'}
-                  textTransform="uppercase"
-                >
-                  Out
-                </Text>
-              </YStack>
-            </XStack>
-            <XStack gap="$2" alignItems="center">
-              <YStack
-                flex={1}
-                borderWidth={1}
-                borderColor="$borderColor"
-                borderRadius="$md"
-                paddingHorizontal="$3"
-                paddingVertical="$2"
-                backgroundColor="$surface"
-              >
-                <XStack alignItems="center" gap="$2">
-                  <Search size={16} color="$textMuted" />
-                  <YStack flex={1}>
-                    <Text
-                      variant="bodySmall"
-                      color={manualToken ? 'primary' : 'muted'}
-                      onPress={() => {
-                        // Focus is handled by the native input below in a real app;
-                        // for compact UX we use a simple text field via the system
-                      }}
-                    >
-                      {manualToken || 'Manual token entry'}
-                    </Text>
-                  </YStack>
-                </XStack>
-                {/* Hidden but functional input */}
-                <YStack
-                  accessibilityElementsHidden
-                  importantForAccessibility="no"
-                  position="absolute"
-                  top={0}
-                  left={0}
-                  right={0}
-                  bottom={0}
-                  opacity={0.01}
-                >
-                  <input
-                    value={manualToken}
-                    onChange={(e: any) => setManualToken(e.target.value)}
-                    onKeyDown={(e: any) => {
-                      if (e.key === 'Enter') handleManualEntry();
-                    }}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      border: 'none',
-                      background: 'transparent',
-                      color: 'transparent',
-                      outline: 'none',
-                    }}
-                  />
-                </YStack>
-              </YStack>
-              <Button
-                label="Submit"
-                variant="primary"
-                size="md"
-                onPress={handleManualEntry}
-                accessibilityLabel="Submit manual token"
-              />
-            </XStack>
-            <Button
-              label="Open main door"
-              variant="outline"
-              size="md"
-              fullWidth
-              icon={<DoorOpen size={18} color="$brand" />}
-              onPress={() => toast.info('Door relay triggered')}
-              accessibilityLabel="Manually open the main door"
-            />
-          </YStack>
-        </YStack>
+        {/* Direction toggle + manual entry */}
+        <ScannerControls
+          direction={direction}
+          setDirection={setDirection}
+          manualToken={manualToken}
+          setManualToken={setManualToken}
+          handleManualEntry={handleManualEntry}
+          toast={toast}
+        />
 
         {/* Last result */}
         {lastScan && (

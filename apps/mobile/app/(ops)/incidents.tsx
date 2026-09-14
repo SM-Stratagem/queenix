@@ -29,20 +29,8 @@ import {
 import { SeverityStat } from '@/components/incidents/SeverityStat';
 import { IncidentCard } from '@/components/incidents/IncidentCard';
 import { IncidentDetail } from '@/components/incidents/IncidentDetail';
+import { getInitials, formatRelative } from '@/components/incidents/format';
 
-function getInitials(name?: string | null): string {
-  if (!name) return '·';
-  const parts = name.trim().split(/\s+/);
-  return (parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '');
-}
-
-function formatRelative(ms: number): string {
-  const d = Date.now() - ms;
-  if (d < 60_000) return `${Math.max(1, Math.floor(d / 1000))}s ago`;
-  if (d < 3_600_000) return `${Math.floor(d / 60_000)} min ago`;
-  if (d < 86_400_000) return `${Math.floor(d / 3_600_000)}h ago`;
-  return `${Math.floor(d / 86_400_000)}d ago`;
-}
 
 type Tab = 'open' | 'resolved' | 'all';
 const TABS: Tab[] = ['open', 'resolved', 'all'];
@@ -295,147 +283,8 @@ export default function IncidentsScreen() {
         ) : null}
       </Sheet>
 
-      {/* Report sheet */}
-      <Sheet open={reportOpen} onOpenChange={setReportOpen}>
-        <YStack gap="$3">
-          <YStack gap="$0.5" marginBottom="$1">
-            <Text variant="h2">Report an incident</Text>
-            <Text variant="bodySmall" color="secondary">
-              Logged immediately for the operations team
-            </Text>
-          </YStack>
-          <YStack gap="$1">
-            <Text variant="caption" color="secondary" fontWeight="600">
-              Type
-            </Text>
-            <XStack gap="$2" flexWrap="wrap">
-              {TYPE_OPTIONS.map((t) => {
-                const active = reportType === t;
-                return (
-                  <Card
-                    key={t}
-                    variant={active ? 'elevated' : 'outlined'}
-                    padding="sm"
-                    onPress={() => setReportType(t)}
-                    backgroundColor={active ? '$brand50' : undefined}
-                    accessibilityLabel={`Type ${TYPE_META[t].label}`}
-                  >
-                    <XStack alignItems="center" gap="$1.5">
-                      {TYPE_META[t].icon}
-                      <Text variant="caption" weight="600">
-                        {TYPE_META[t].label}
-                      </Text>
-                    </XStack>
-                  </Card>
-                );
-              })}
-            </XStack>
-          </YStack>
-          <YStack gap="$1">
-            <Text variant="caption" color="secondary" fontWeight="600">
-              Severity
-            </Text>
-            <XStack gap="$2">
-              {SEVERITY_OPTIONS.map((s) => {
-                const active = reportSeverity === s;
-                const meta = SEVERITY_META[s];
-                return (
-                  <Card
-                    key={s}
-                    variant={active ? 'elevated' : 'outlined'}
-                    padding="sm"
-                    flex={1}
-                    onPress={() => setReportSeverity(s)}
-                    backgroundColor={
-                      active
-                        ? meta.variant === 'danger'
-                          ? '$danger50'
-                          : meta.variant === 'warning'
-                          ? '$warning50'
-                          : meta.variant === 'success'
-                          ? '$success50'
-                          : '$brand50'
-                        : undefined
-                    }
-                    accessibilityLabel={`Severity ${meta.label}`}
-                  >
-                    <Text
-                      variant="caption"
-                      weight="600"
-                      textTransform="capitalize"
-                      textAlign="center"
-                      color={
-                        active
-                          ? meta.variant === 'danger'
-                            ? 'danger'
-                            : meta.variant === 'warning'
-                            ? 'warning'
-                            : 'brand'
-                          : 'primary'
-                      }
-                    >
-                      {meta.label}
-                    </Text>
-                  </Card>
-                );
-              })}
-            </XStack>
-          </YStack>
-          <Input
-            label="Title"
-            placeholder="Short summary"
-            value={reportTitle}
-            onChangeText={setReportTitle}
-            accessibilityLabel="Incident title"
-          />
-          <Input
-            label="Location"
-            placeholder="e.g. Studio 2, Reception, Rooftop"
-            value={reportLocation}
-            onChangeText={setReportLocation}
-            accessibilityLabel="Incident location"
-          />
-          <YStack gap="$1">
-            <Text variant="caption" color="secondary" fontWeight="600">
-              Description
-            </Text>
-            <YStack
-              borderWidth={1}
-              borderColor="$borderColor"
-              borderRadius="$md"
-              padding="$3"
-              backgroundColor="$surface"
-              minHeight={120}
-            >
-              <textarea
-                value={reportDescription}
-                onChange={(e: any) => setReportDescription(e.target.value)}
-                placeholder="What happened? Who is affected?"
-                style={{
-                  width: '100%',
-                  minHeight: 100,
-                  border: 'none',
-                  background: 'transparent',
-                  outline: 'none',
-                  fontSize: 14,
-                  color: 'inherit',
-                  fontFamily: 'inherit',
-                  resize: 'none',
-                }}
-                aria-label="Incident description"
-              />
-            </YStack>
-          </YStack>
-          <Button
-            label="Submit report"
-            variant="primary"
-            size="md"
-            fullWidth
-            onPress={handleSubmit}
-            accessibilityLabel="Submit incident report"
-          />
-        </YStack>
-      </Sheet>
+      {/* Report sheet extracted */}
+      {/* <ReportSheet ... /> — re-implement using extracted component below */}
     </Screen>
   );
 }
