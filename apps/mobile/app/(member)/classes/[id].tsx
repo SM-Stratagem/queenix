@@ -29,61 +29,17 @@ import {
 } from '@tamagui/lucide-icons';
 import { useConvexQuery, useConvexMutation } from '@/lib/convex';
 import { api } from '@queenix/convex';
+import {
+  categoryFromString,
+  levelFromString,
+  formatDay,
+  formatHour,
+  makeIdempotencyKey,
+} from '@/components/class-detail/format';
 
 type ClassCategory = 'HIIT' | 'Yoga' | 'Strength' | 'Cardio' | 'Pilates';
 type Level = 'Beginner' | 'Intermediate' | 'Advanced';
 
-function categoryFromString(raw: string | undefined): ClassCategory {
-  const allowed: ClassCategory[] = ['HIIT', 'Yoga', 'Strength', 'Cardio', 'Pilates'];
-  if ((allowed as string[]).includes(raw ?? '')) {
-    return raw as ClassCategory;
-  }
-  return 'Yoga';
-}
-
-function levelFromString(raw: string | undefined): Level {
-  if (raw === 'beginner') return 'Beginner';
-  if (raw === 'advanced') return 'Advanced';
-  return 'Intermediate';
-}
-
-function categoryStyle(category: ClassCategory) {
-  switch (category) {
-    case 'HIIT':
-      return { hue: '$warning50', iconColor: '$warning', Icon: Flame };
-    case 'Yoga':
-      return { hue: '$brand50', iconColor: '$brand', Icon: Heart };
-    case 'Strength':
-      return { hue: '$success50', iconColor: '$success700', Icon: Dumbbell };
-    case 'Cardio':
-      return { hue: '$danger50', iconColor: '$danger', Icon: Zap };
-    case 'Pilates':
-      return { hue: '$info50', iconColor: '$info700', Icon: Sparkles };
-  }
-}
-
-function formatDay(ts: number): string {
-  const d = new Date(ts);
-  const today = new Date();
-  const tomorrow = new Date();
-  tomorrow.setDate(today.getDate() + 1);
-  if (d.toDateString() === today.toDateString()) return 'Today';
-  if (d.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
-  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
-}
-
-function formatHour(ts: number): string {
-  const d = new Date(ts);
-  const h = d.getHours();
-  const m = d.getMinutes();
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const hh = h % 12 || 12;
-  return `${hh}:${m.toString().padStart(2, '0')} ${ampm}`;
-}
-
-function makeIdempotencyKey(): string {
-  return `bk_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-}
 
 export default function ClassDetailScreen() {
   const router = useRouter();

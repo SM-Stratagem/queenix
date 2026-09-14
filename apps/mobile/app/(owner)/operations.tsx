@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { Screen, Text, Card, Badge, Button, Skeleton, EmptyState, useToast } from '@queenix/ui';
 import { useConvexQuery } from '@/lib/convex';
 import { api } from '@queenix/convex';
+import { AccessView, TabChip } from '@/components/owner-operations/Tabs';
 import {
   DoorOpen,
   Users,
@@ -281,109 +282,5 @@ export default function OwnerOperations() {
         </YStack>
       </ScrollView>
     </Screen>
-  );
-}
-
-function AccessView({ currentOccupancy }: { currentOccupancy: number }) {
-  // The current schema doesn't yet model individual access points as
-  // online/offline devices — we show the aggregated headcount here and
-  // invite the owner to drill in once hardware telemetry is wired up.
-  return (
-    <Card variant="outlined" padding="md">
-      <YStack gap="$3">
-        <XStack alignItems="center" gap="$3">
-          <YStack backgroundColor="$success50" padding="$2.5" borderRadius="$md">
-            <Wifi size={20} color="$success600" />
-          </YStack>
-          <YStack flex={1}>
-            <Text variant="body" weight="500">Front door</Text>
-            <Text variant="caption" color="muted">
-              Current occupancy: {currentOccupancy}
-            </Text>
-          </YStack>
-          <Badge label="Online" variant="success" />
-        </XStack>
-        <XStack alignItems="center" gap="$3">
-          <YStack backgroundColor="$success50" padding="$2.5" borderRadius="$md">
-            <Wifi size={20} color="$success600" />
-          </YStack>
-          <YStack flex={1}>
-            <Text variant="body" weight="500">Back door (staff)</Text>
-            <Text variant="caption" color="muted">
-              Hardware telemetry pending — show last snapshot
-            </Text>
-          </YStack>
-          <Badge label="Online" variant="success" />
-        </XStack>
-        <XStack alignItems="center" gap="$3">
-          <YStack backgroundColor="$success50" padding="$2.5" borderRadius="$md">
-            <Wifi size={20} color="$success600" />
-          </YStack>
-          <YStack flex={1}>
-            <Text variant="body" weight="500">Studio gates</Text>
-            <Text variant="caption" color="muted">Connected</Text>
-          </YStack>
-          <Badge label="Online" variant="success" />
-        </XStack>
-      </YStack>
-    </Card>
-  );
-}
-
-function TabChip({
-  active,
-  label,
-  icon,
-  onPress,
-  badge,
-}: {
-  active: boolean;
-  label: string;
-  icon: React.ReactNode;
-  onPress: () => void;
-  badge?: string;
-}) {
-  return (
-    <YStack
-      flex={1}
-      paddingVertical="$2.5"
-      paddingHorizontal="$2"
-      alignItems="center"
-      gap="$1"
-      borderRadius="$lg"
-      backgroundColor={active ? '$brand' : '$surfaceMuted'}
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      pressStyle={{ opacity: 0.85 }}
-    >
-      <XStack alignItems="center" gap="$1.5">
-        {React.cloneElement(icon as React.ReactElement<{ color?: string }>, {
-          color: active ? '$textOnBrand' : '$textSecondary',
-        })}
-        <Text
-          variant="bodySmall"
-          weight="600"
-          color={active ? '$textOnBrand' : '$textSecondary'}
-        >
-          {label}
-        </Text>
-        {badge && (
-          <XStack
-            backgroundColor="$danger500"
-            paddingHorizontal="$1.5"
-            borderRadius="$full"
-            minWidth={16}
-            height={16}
-            alignItems="center"
-            justifyContent="center"
-          >
-            <Text variant="caption" color="white" weight="700" fontSize={9}>
-              {badge}
-            </Text>
-          </XStack>
-        )}
-      </XStack>
-    </YStack>
   );
 }
