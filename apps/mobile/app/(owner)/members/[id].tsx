@@ -18,6 +18,12 @@ import {
 import { useConvexQuery } from '@/lib/convex';
 import { api } from '@queenix/convex';
 import { Section, KeyValue, Stat } from '@/components/member-detail/primitives';
+import { formatCents } from '@/components/member-detail/format';
+import {
+  OverviewTab,
+  ActivityTab,
+  MembershipTab,
+} from '@/components/member-detail/tabs';
 import {
   MoreVertical,
   MessageCircle,
@@ -47,10 +53,6 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'notes', label: 'Notes' },
 ];
 
-function formatCents(cents: number, currency: string = 'AED'): string {
-  return `${currency} ${(cents / 100).toFixed(2)}`;
-}
-
 export default function OwnerMemberDetail() {
   const router = useRouter();
   const toast = useToast();
@@ -69,10 +71,10 @@ export default function OwnerMemberDetail() {
       <Screen padded={false}>
         <Header showBack onBack={() => router.back()} title="Member" />
         <YStack padding="$4" gap="$3">
-          <Skeleton height={140} borderRadius="$lg" />
-          <Skeleton height={48} borderRadius="$md" />
-          <Skeleton height={48} borderRadius="$md" />
-          <Skeleton height={48} borderRadius="$md" />
+          <Skeleton height={140} />
+          <Skeleton height={48} />
+          <Skeleton height={48} />
+          <Skeleton height={48} />
         </YStack>
       </Screen>
     );
@@ -207,59 +209,7 @@ export default function OwnerMemberDetail() {
         </ScrollView>
 
         {tab === 'overview' && (
-          <YStack paddingHorizontal="$4" gap="$3">
-            <Section title="Contact">
-              <KeyValue
-                icon={<Mail size={16} color="$textSecondary" />}
-                label="Email"
-                value={member.email}
-              />
-              {member.phone && (
-                <>
-                  <Divider />
-                  <KeyValue
-                    icon={<Phone size={16} color="$textSecondary" />}
-                    label="Phone"
-                    value={member.phone}
-                  />
-                </>
-              )}
-              <Divider />
-              <KeyValue
-                icon={<Calendar size={16} color="$textSecondary" />}
-                label="Joined"
-                value={new Date(member.createdAt).toLocaleDateString('en-GB')}
-              />
-            </Section>
-
-            {profile?.emergencyContact && (
-              <Section title="Emergency contact">
-                <KeyValue
-                  icon={<AlertCircle size={16} color="$danger500" />}
-                  label={profile.emergencyContact.relationship ?? 'Contact'}
-                  value={`${profile.emergencyContact.name} • ${profile.emergencyContact.phone}`}
-                />
-              </Section>
-            )}
-
-            {profile?.vehicles && profile.vehicles.length > 0 && (
-              <Section title="Registered vehicles">
-                <YStack gap="$1.5">
-                  {profile.vehicles.map((v, i) => (
-                    <XStack key={i} alignItems="center" gap="$2">
-                      <Car size={16} color="$textSecondary" />
-                      <Text variant="bodySmall" color="secondary" flex={1}>
-                        {v.color ? `${v.color} ` : ''}
-                        {v.make ? `${v.make} ` : ''}
-                        {v.model ?? ''}
-                      </Text>
-                      <Badge label={v.plate} variant="neutral" size="sm" />
-                    </XStack>
-                  ))}
-                </YStack>
-              </Section>
-            )}
-          </YStack>
+          <OverviewTab member={member} profile={profile} />
         )}
 
         {tab === 'activity' && (
