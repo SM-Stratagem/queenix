@@ -18,6 +18,13 @@ import {
 } from '@queenix/ui';
 import { useConvexQuery } from '@/lib/convex';
 import { api } from '@queenix/convex';
+import { Section, KeyValue, Stat as ClientStat } from '@/components/trainer-client/primitives';
+import { getRelative } from '@/components/trainer-client/format';
+import {
+  ClientOverviewTab,
+  ClientSessionsTab,
+  ClientNotesTab,
+} from '@/components/trainer-client/tabs';
 import {
   MessageCircle,
   CalendarPlus,
@@ -60,10 +67,10 @@ export default function TrainerClientDetail() {
       <Screen padded={false}>
         <Header showBack onBack={() => router.back()} title="Client" />
         <YStack padding="$4" gap="$3">
-          <Skeleton height={120} borderRadius="$lg" />
-          <Skeleton height={60} borderRadius="$md" />
-          <Skeleton height={60} borderRadius="$md" />
-          <Skeleton height={60} borderRadius="$md" />
+          <Skeleton height={120} />
+          <Skeleton height={60} />
+          <Skeleton height={60} />
+          <Skeleton height={60} />
         </YStack>
       </Screen>
     );
@@ -180,9 +187,9 @@ export default function TrainerClientDetail() {
 
         {/* Quick stats */}
         <XStack paddingHorizontal="$4" marginTop="$4" gap="$2">
-          <Stat label="Total sessions" value={recentSessions.length.toString()} flex={1} />
-          <Stat label="Completed" value={completedCount.toString()} flex={1} />
-          <Stat label="Last seen" value={lastSessionLabel} flex={1} />
+          <ClientStat label="Total sessions" value={recentSessions.length.toString()} flex={1} />
+          <ClientStat label="Completed" value={completedCount.toString()} flex={1} />
+          <ClientStat label="Last seen" value={lastSessionLabel} flex={1} />
         </XStack>
         <YStack paddingHorizontal="$4" marginTop="$2">
           <Card variant="outlined" padding="sm">
@@ -221,258 +228,24 @@ export default function TrainerClientDetail() {
         </ScrollView>
 
         {tab === 'overview' && (
-          <YStack paddingHorizontal="$4" gap="$3">
-            <Section title="About">
-              <Text variant="bodySmall" color="secondary">
-                {memberProfile?.preferences?.language
-                  ? `Preferred language: ${memberProfile.preferences.language.toUpperCase()}. `
-                  : ''}
-                Joined {new Date(member.createdAt).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}.
-              </Text>
-            </Section>
-
-            <Section title="Contact">
-              <KeyValue icon={<Mail size={16} color="$textSecondary" />} label="Email" value={member.email} />
-              {member.phone && (
-                <>
-                  <Divider />
-                  <KeyValue icon={<Phone size={16} color="$textSecondary" />} label="Phone" value={member.phone} />
-                </>
-              )}
-              <Divider />
-              <KeyValue
-                icon={<Calendar size={16} color="$textSecondary" />}
-                label="Member since"
-                value={new Date(member.createdAt).toLocaleDateString('en-GB')}
-              />
-            </Section>
-
-            {memberProfile?.emergencyContact && (
-              <Section title="Emergency contact">
-                <KeyValue
-                  icon={<Heart size={16} color="$danger500" />}
-                  label={memberProfile.emergencyContact.relationship ?? 'Contact'}
-                  value={`${memberProfile.emergencyContact.name} • ${memberProfile.emergencyContact.phone}`}
-                />
-              </Section>
-            )}
-
-            {memberProfile?.vehicles && memberProfile.vehicles.length > 0 && (
-              <Section title="Registered vehicles">
-                <YStack gap="$1.5">
-                  {memberProfile.vehicles.map((v, i) => (
-                    <XStack key={i} alignItems="center" gap="$2">
-                      <Text variant="bodySmall" color="secondary" flex={1}>
-                        {v.color ? `${v.color} ` : ''}
-                        {v.make ? `${v.make} ` : ''}
-                        {v.model ?? ''}
-                      </Text>
-                      <Badge label={v.plate} variant="neutral" size="sm" />
-                    </XStack>
-                  ))}
-                </YStack>
-              </Section>
-            )}
-          </YStack>
+          <ClientOverviewTab
+            member={member}
+            profile={memberProfile}
+            bookingsThisMonth={recentSessions.filter((s: any) => s.status === 'completed').length}
+            totalSpentLabel={`${recentSessions.length} sessions`}
+            lastSessionLabel={lastSessionLabel}
+          />
         )}
 
         {tab === 'sessions' && (
-          <YStack paddingHorizontal="$4" gap="$2">
-            <Text variant="h4">Recent sessions</Text>
-            {recentSessions.length === 0 ? (
-              <EmptyState
-                title="No sessions yet"
-                message="Book a session to get started with this client."
-              />
-            ) : (
-              recentSessions.map((s: any) => {
-                const isUpcoming = s.status === 'scheduled' && s.scheduledAt > Date.now();
-                const isCompleted = s.status === 'completed' || s.scheduledAt < Date.now();
-                return (
-                  <Card key={s._id} variant="outlined" padding="sm">
-                    <XStack alignItems="flex-start" gap="$3">
-                      <YStack
-                        backgroundColor={isUpcoming ? '$brand' : '$surfaceMuted'}
-                        padding="$2"
-                        borderRadius="$md"
-                        width={40}
-                        height={40}
-                        alignItems="center"
-                        justifyContent="center"
-                      >
-                        {isUpcoming ? (
-                          <Clock size={18} color="$textOnBrand" />
-                        ) : (
-                          <CheckCircle2 size={18} color="$success500" />
-                        )}
-                      </YStack>
-                      <YStack flex={1} gap="$1">
-                        <XStack justifyContent="space-between" alignItems="center">
-                          <Text variant="bodySmall" weight="600">
-                            {isUpcoming ? 'Upcoming session' : 'Completed session'}
-                          </Text>
-                          <Badge
-                            label={isUpcoming ? 'Upcoming' : isCompleted ? 'Completed' : s.status}
-                            variant={isUpcoming ? 'brand' : 'success'}
-                            size="sm"
-                          />
-                        </XStack>
-                        <Text variant="caption" color="muted">
-                          {new Date(s.scheduledAt).toLocaleString('en-GB', {
-                            weekday: 'short',
-                            day: '2-digit',
-                            month: 'short',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                          {` • ${s.durationMinutes}m`}
-                        </Text>
-                        {s.notes && (
-                          <Text variant="caption" color="secondary" marginTop="$0.5">
-                            "{s.notes}"
-                          </Text>
-                        )}
-                      </YStack>
-                    </XStack>
-                  </Card>
-                );
-              })
-            )}
-          </YStack>
+          <ClientSessionsTab sessions={recentSessions ?? []} />
         )}
 
         {tab === 'notes' && (
-          <YStack paddingHorizontal="$4" gap="$3">
-            <Card variant="outlined" padding="sm">
-              <YStack gap="$2">
-                <Text variant="label">Quick note</Text>
-                <YStack
-                  backgroundColor="$surfaceMuted"
-                  borderRadius="$md"
-                  padding="$3"
-                  borderWidth={1}
-                  borderColor="$borderColor"
-                  minHeight={64}
-                >
-                  <Text variant="bodySmall" color="secondary" numberOfLines={3}>
-                    {noteDraft || `Type a trainer-only note for ${fullName.split(' ')[0]}…`}
-                  </Text>
-                </YStack>
-                <XStack gap="$2" alignItems="center">
-                  <Button
-                    label="Save"
-                    size="sm"
-                    variant="primary"
-                    icon={<Send size={14} color="$textOnBrand" />}
-                    onPress={handleSendNote}
-                    accessibilityLabel="Save note"
-                  />
-                </XStack>
-                <XStack gap="$2" flexWrap="wrap">
-                  {['Hit PR', 'Skipped', 'Form fix', 'Travel week'].map((tag) => (
-                    <Chip
-                      key={tag}
-                      label={`+ ${tag}`}
-                      selected={false}
-                      onPress={() => setNoteDraft((d) => `${d}${d ? ' • ' : ''}${tag}`)}
-                    />
-                  ))}
-                </XStack>
-              </YStack>
-            </Card>
-
-            <Text variant="h4">Recent notes</Text>
-            {latestNotes.length === 0 ? (
-              <EmptyState
-                icon={<FileText size={32} color="$textMuted" />}
-                title="No notes yet"
-                message="Add the first trainer note for this client."
-              />
-            ) : (
-              latestNotes.map((n: any) => (
-                <Card key={n._id} variant="outlined" padding="sm">
-                  <XStack alignItems="flex-start" gap="$2">
-                    <FileText size={16} color="$textMuted" />
-                    <YStack flex={1} gap="$0.5">
-                      <Text variant="caption" color="muted">
-                        {getRelative(n.createdAt)}
-                      </Text>
-                      <Text variant="bodySmall" color="secondary">
-                        {n.note}
-                      </Text>
-                    </YStack>
-                  </XStack>
-                </Card>
-              ))
-            )}
-          </YStack>
+          <ClientNotesTab notes={latestNotes ?? []} onAdd={() => toast.info("Add note — coming soon")} />
         )}
       </ScrollView>
     </Screen>
   );
 }
 
-function getRelative(ts: number): string {
-  const diff = Date.now() - ts;
-  const abs = Math.abs(diff);
-  const future = diff < 0;
-  const minutes = Math.floor(abs / (60 * 1000));
-  const hours = Math.floor(abs / (60 * 60 * 1000));
-  const days = Math.floor(abs / (24 * 60 * 60 * 1000));
-
-  if (minutes < 1) return future ? 'in a moment' : 'just now';
-  if (minutes < 60) return future ? `in ${minutes}m` : `${minutes}m ago`;
-  if (hours < 24) return future ? `in ${hours}h` : `${hours}h ago`;
-  if (days === 1) return future ? 'tomorrow' : 'yesterday';
-  if (days < 7) return future ? `in ${days} days` : `${days} days ago`;
-  if (days < 14) return future ? 'in 1 week' : '1 week ago';
-  return new Date(ts).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <YStack gap="$2">
-      <Text variant="h4">{title}</Text>
-      <Card variant="outlined" padding="sm">
-        <YStack>{children}</YStack>
-      </Card>
-    </YStack>
-  );
-}
-
-function KeyValue({
-  icon,
-  label,
-  value,
-}: {
-  icon?: React.ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <XStack alignItems="center" gap="$2" paddingVertical="$2.5">
-      {icon}
-      <Text variant="bodySmall" color="secondary" flex={1}>
-        {label}
-      </Text>
-      <Text variant="bodySmall" weight="500" textAlign="right" flex={1.5} numberOfLines={1}>
-        {value}
-      </Text>
-    </XStack>
-  );
-}
-
-function Stat({ label, value, flex }: { label: string; value: string; flex?: number }) {
-  return (
-    <Card variant="outlined" padding="sm" flex={flex}>
-      <YStack gap="$0.5">
-        <Text variant="caption" color="muted">
-          {label}
-        </Text>
-        <Text variant="bodySmall" weight="600">
-          {value}
-        </Text>
-      </YStack>
-    </Card>
-  );
-}
