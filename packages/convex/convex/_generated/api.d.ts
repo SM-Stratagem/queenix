@@ -23,6 +23,15 @@ import type * as queries_memberships from "../queries/memberships.js";
 import type * as queries_operations from "../queries/operations.js";
 import type * as queries_payments from "../queries/payments.js";
 import type * as queries_users from "../queries/users.js";
+import type * as schema_access from "../schema/access.js";
+import type * as schema_classes from "../schema/classes.js";
+import type * as schema_documents from "../schema/documents.js";
+import type * as schema_identity from "../schema/identity.js";
+import type * as schema_member from "../schema/member.js";
+import type * as schema_membership from "../schema/membership.js";
+import type * as schema_operations from "../schema/operations.js";
+import type * as schema_payments from "../schema/payments.js";
+import type * as schema_training from "../schema/training.js";
 import type * as seed from "../seed.js";
 
 import type {
@@ -47,6 +56,15 @@ declare const fullApi: ApiFromModules<{
   "queries/operations": typeof queries_operations;
   "queries/payments": typeof queries_payments;
   "queries/users": typeof queries_users;
+  "schema/access": typeof schema_access;
+  "schema/classes": typeof schema_classes;
+  "schema/documents": typeof schema_documents;
+  "schema/identity": typeof schema_identity;
+  "schema/member": typeof schema_member;
+  "schema/membership": typeof schema_membership;
+  "schema/operations": typeof schema_operations;
+  "schema/payments": typeof schema_payments;
+  "schema/training": typeof schema_training;
   seed: typeof seed;
 }>;
 
