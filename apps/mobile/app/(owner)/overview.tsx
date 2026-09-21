@@ -43,12 +43,12 @@ interface Kpi {
   icon: React.ReactNode;
 }
 
-export default function OwnerOverview() {
+export default function FinanceOverview() {
   const router = useRouter();
   const { session } = useAuth();
   const [range, setRange] = useState<DateRange>('today');
 
-  const ownerName = session?.fullName?.split(' ')[0] ?? 'Owner';
+  const ownerName = session?.fullName?.split(' ')[0] ?? 'Finance';
   const greeting = (() => {
     const h = new Date().getHours();
     if (h < 12) return 'Good morning';

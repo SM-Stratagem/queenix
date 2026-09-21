@@ -87,6 +87,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         case 'trainer':
           router.replace('/(trainer)/today');
           break;
+        case 'finance':
         case 'owner':
           router.replace('/(owner)/overview');
           break;
@@ -159,6 +160,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       case 'trainer':
         router.replace('/(trainer)/today');
         break;
+      case 'finance':
       case 'owner':
         router.replace('/(owner)/overview');
         break;

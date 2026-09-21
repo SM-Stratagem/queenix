@@ -72,7 +72,7 @@ function statusLabel(s: MembershipStatus) {
       : s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-export default function OwnerMembers() {
+export default function FinanceMembers() {
   const router = useRouter();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<MembershipStatus>('all');

@@ -13,6 +13,7 @@ type DemoSeed = {
   activeRole:
     | 'superadmin'
     | 'admin'
+    | 'finance'
     | 'owner'
     | 'operations'
     | 'salon'

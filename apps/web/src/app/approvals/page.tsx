@@ -81,7 +81,7 @@ export default function ApprovalsPage() {
             </Text>
             <Text fontSize={13} opacity={0.6}>
               Membership, payment, document, trainer, access and payout requests awaiting
-              an owner decision (staff only)
+              a finance decision (staff only)
             </Text>
           </YStack>
 

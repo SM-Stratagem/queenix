@@ -19,7 +19,7 @@ import {
   Briefcase,
 } from '@tamagui/lucide-icons';
 
-export default function OwnerProfile() {
+export default function FinanceProfile() {
   const router = useRouter();
   const { session, signOut, switchRole } = useAuth();
   const toast = useToast();
@@ -54,7 +54,7 @@ export default function OwnerProfile() {
           <Avatar name={session?.fullName ?? 'Layla Al-Mansoori'} size="2xl" />
           <Text variant="h2" marginTop="$3">{session?.fullName ?? 'Layla Al-Mansoori'}</Text>
           <Text variant="bodySmall" color="muted">{session?.email ?? 'layla@queenix.ae'}</Text>
-          <Badge label="Owner" variant="brand" />
+          <Badge label="Finance" variant="brand" />
         </YStack>
 
         {/* Role switcher */}

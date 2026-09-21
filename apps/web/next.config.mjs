@@ -21,7 +21,12 @@ const nextConfig = {
     ],
   },
   async redirects() {
-    return [{ source: '/favicon.ico', destination: '/icon.svg', permanent: true }];
+    return [
+      { source: '/favicon.ico', destination: '/icon.svg', permanent: true },
+      // Legacy owner surfaces renamed to finance (backward-compat).
+      { source: '/owner', destination: '/finance', permanent: false },
+      { source: '/owner/:path*', destination: '/finance/:path*', permanent: false },
+    ];
   },
 };
 

@@ -2,8 +2,23 @@ import { NextResponse } from "next/server"
 import Database from "better-sqlite3"
 import path from "node:path"
 
-const VALID_ROLES = ["member", "trainer", "owner", "operations"] as const
+// Canonical roles plus the deprecated 'owner' alias (normalized to 'finance').
+const VALID_ROLES = [
+  "superadmin",
+  "admin",
+  "finance",
+  "operations",
+  "salon",
+  "coffee",
+  "trainer",
+  "member",
+  "owner",
+] as const
 type Role = (typeof VALID_ROLES)[number]
+
+function canonicalRole(r: Role): string {
+  return r === "owner" ? "finance" : r
+}
 
 const DEMO_TOKEN_HEADER = "x-queenix-admin-token"
 
@@ -59,12 +74,21 @@ export async function POST(
          SET "activeRole" = ?, "roles" = ?, "updatedAt" = ?
          WHERE "id" = ?`
       )
-      .run(activeRole, JSON.stringify(roles), Date.now(), userId)
+      .run(
+        canonicalRole(activeRole),
+        JSON.stringify(roles.map(canonicalRole)),
+        Date.now(),
+        userId
+      )
     db.close()
     if (result.changes === 0) {
       return NextResponse.json({ error: "user not found" }, { status: 404 })
     }
-    return NextResponse.json({ ok: true, activeRole, roles })
+    return NextResponse.json({
+      ok: true,
+      activeRole: canonicalRole(activeRole),
+      roles: roles.map(canonicalRole),
+    })
   } catch (e: any) {
     return NextResponse.json({ error: e?.message ?? "unknown" }, { status: 500 })
   }

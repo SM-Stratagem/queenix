@@ -9,7 +9,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { authClient } from '@/lib/auth-client';
 
 const DEMOS = [
-  { role: 'Owner', email: 'owner@queenix.test' },
+  { role: 'Finance', email: 'owner@queenix.test' },
   { role: 'Operations', email: 'ops@queenix.test' },
   { role: 'Trainer', email: 'trainer@queenix.test' },
   { role: 'Member', email: 'member@queenix.test' },

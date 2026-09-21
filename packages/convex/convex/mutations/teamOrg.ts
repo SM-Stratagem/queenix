@@ -11,6 +11,7 @@ import { requireRole, requireUser, audit } from '../_helpers';
 const roleLiteral = v.union(
   v.literal('superadmin'),
   v.literal('admin'),
+  v.literal('finance'),
   v.literal('owner'),
   v.literal('operations'),
   v.literal('salon'),

@@ -22,7 +22,7 @@ import {
 
 type Tab = 'access' | 'classes' | 'staff' | 'incidents';
 
-export default function OwnerOperations() {
+export default function FinanceOperations() {
   const router = useRouter();
   const toast = useToast();
   const [tab, setTab] = useState<Tab>('access');

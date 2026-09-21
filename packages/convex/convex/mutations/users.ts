@@ -11,6 +11,7 @@ export const switchRole = mutation({
     role: v.union(
       v.literal('member'),
       v.literal('trainer'),
+      v.literal('finance'),
       v.literal('owner'),
       v.literal('operations')
     ),
@@ -48,7 +49,7 @@ export const syncFromBetterAuth = mutation({
     if (existing) {
       await ctx.db.patch(existing._id, {
         fullName: args.fullName,
-        roles: args.roles as ('member' | 'trainer' | 'owner' | 'operations')[],
+        roles: args.roles as ('member' | 'trainer' | 'finance' | 'owner' | 'operations')[],
         updatedAt: Date.now(),
       });
       return { ok: true, created: false };
@@ -57,8 +58,8 @@ export const syncFromBetterAuth = mutation({
       betterAuthUserId: args.betterAuthUserId,
       email: args.email,
       fullName: args.fullName,
-      activeRole: (args.roles[0] ?? 'member') as 'member' | 'trainer' | 'owner' | 'operations',
-      roles: args.roles as ('member' | 'trainer' | 'owner' | 'operations')[],
+      activeRole: (args.roles[0] ?? 'member') as 'member' | 'trainer' | 'finance' | 'owner' | 'operations',
+      roles: args.roles as ('member' | 'trainer' | 'finance' | 'owner' | 'operations')[],
       emailVerified: true,
       phoneVerified: false,
       createdAt: Date.now(),

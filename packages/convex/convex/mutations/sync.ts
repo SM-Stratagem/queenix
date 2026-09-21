@@ -16,6 +16,7 @@ export const syncFromBetterAuth = internalMutation({
       v.union(
         v.literal('member'),
         v.literal('trainer'),
+        v.literal('finance'),
         v.literal('owner'),
         v.literal('operations')
       )

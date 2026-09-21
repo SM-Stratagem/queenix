@@ -13,6 +13,7 @@ export const users = defineTable({
     activeRole: v.union(
       v.literal('superadmin'),
       v.literal('admin'),
+      v.literal('finance'),
       v.literal('owner'),
       v.literal('operations'),
       v.literal('salon'),
@@ -24,7 +25,8 @@ export const users = defineTable({
       v.union(
         v.literal('superadmin'),
         v.literal('admin'),
-        v.literal('owner'),
+        v.literal('finance'),
+      v.literal('owner'),
         v.literal('operations'),
         v.literal('salon'),
         v.literal('coffee'),

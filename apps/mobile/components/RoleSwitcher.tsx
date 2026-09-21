@@ -12,16 +12,28 @@ import { User, Dumbbell, BarChart3, Activity } from '@tamagui/lucide-icons';
 const roleIcons = {
   member: User,
   trainer: Dumbbell,
+  finance: BarChart3,
+  /** @deprecated Alias of finance. */
   owner: BarChart3,
   operations: Activity,
-} as const;
+  superadmin: BarChart3,
+  admin: BarChart3,
+  salon: User,
+  coffee: User,
+} as const satisfies Record<import('@queenix/auth').Role, unknown>;
 
 const roleDescriptions = {
   member: 'Your personal member experience',
   trainer: 'Manage clients, sessions and earnings',
+  finance: 'KPIs, operations and approvals',
+  /** @deprecated Alias of finance. */
   owner: 'KPIs, operations and approvals',
   operations: 'Scanner, classes and support',
-} as const;
+  superadmin: 'Full platform oversight',
+  admin: 'Branches, staff and finance',
+  salon: 'Salon queue and services',
+  coffee: 'Coffee queue and menu',
+} as const satisfies Record<import('@queenix/auth').Role, string>;
 
 interface RoleSwitcherProps {
   open: boolean;

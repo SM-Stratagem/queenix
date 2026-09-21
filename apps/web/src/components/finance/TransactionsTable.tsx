@@ -7,6 +7,8 @@ import { formatAed } from './OverviewCards';
 export type StaffRole =
   | 'superadmin'
   | 'admin'
+  | 'finance'
+  /** @deprecated Renamed to 'finance'. */
   | 'owner'
   | 'operations'
   | 'salon'

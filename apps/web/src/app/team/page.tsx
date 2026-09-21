@@ -14,7 +14,7 @@ type Tab = 'chart' | 'timings' | 'permissions';
 const ALL_ROLES = [
   'superadmin',
   'admin',
-  'owner',
+  'finance',
   'operations',
   'salon',
   'coffee',

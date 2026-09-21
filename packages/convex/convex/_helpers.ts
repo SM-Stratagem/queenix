@@ -9,12 +9,19 @@ import { ConvexError } from 'convex/values';
 export type Role =
   | 'superadmin'
   | 'admin'
-  | 'owner'
+  | 'finance'
   | 'operations'
   | 'salon'
   | 'coffee'
   | 'trainer'
-  | 'member';
+  | 'member'
+  /** @deprecated Renamed to 'finance'. Accepted as an alias, normalized away. */
+  | 'owner';
+
+/** Canonicalize roles: 'owner' is the deprecated alias of 'finance'. */
+export function normalizeRole(role: Role): Role {
+  return role === 'owner' ? 'finance' : role;
+}
 
 /**
  * Get the current user from session, or throw if not signed in.
@@ -39,8 +46,8 @@ export async function requireUser(ctx: any) {
  */
 export async function requireRole(ctx: any, roles: Role | Role[]) {
   const user = await requireUser(ctx);
-  const required = Array.isArray(roles) ? roles : [roles];
-  const userRoles = user.roles ?? [];
+  const required = (Array.isArray(roles) ? roles : [roles]).map(normalizeRole);
+  const userRoles = (user.roles ?? []).map(normalizeRole);
   const hasPermission = required.some((r) => userRoles.includes(r));
   if (!hasPermission) {
     throw new ConvexError({

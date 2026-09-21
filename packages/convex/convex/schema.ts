@@ -24,6 +24,7 @@ import * as valet from './schema/valet'
 import * as branches from './schema/branches'
 import * as people from './schema/people'
 import * as events from './schema/events'
+import * as grants from './schema/grants'
 
 export default defineSchema({
   ...identity,
@@ -43,4 +44,5 @@ export default defineSchema({
   ...branches,
   ...people,
   ...events,
+  ...grants,
 })

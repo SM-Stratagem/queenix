@@ -47,12 +47,12 @@ import {
   type RoleMeta,
 } from '@/components/profile/sheets';
 
-type RoleOption = 'member' | 'trainer' | 'owner' | 'operations';
+type RoleOption = 'member' | 'trainer' | 'finance' | 'owner' | 'operations';
 
 const ROLE_META: RoleMeta[] = [
   { key: 'member', label: 'Member', description: 'Personal training, classes, profile', icon: <UserIcon size={16} color="$brand" /> },
   { key: 'trainer', label: 'Trainer', description: 'Today, schedule, clients, earnings', icon: <Dumbbell size={16} color="$brand" /> },
-  { key: 'owner', label: 'Owner', description: 'KPIs, operations, members, approvals', icon: <Building2 size={16} color="$brand" /> },
+  { key: 'finance', label: 'Finance', description: 'KPIs, operations, members, approvals', icon: <Building2 size={16} color="$brand" /> },
   { key: 'operations', label: 'Operations', description: 'Scanner, classes, support, incidents', icon: <ShieldCheck size={16} color="$brand" /> },
 ];
 

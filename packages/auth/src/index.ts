@@ -9,30 +9,34 @@ import { createAuthClient } from 'better-auth/react';
 import { expoClient } from '@better-auth/expo/client';
 import * as SecureStore from 'expo-secure-store';
 
-export type Role = 'member' | 'trainer' | 'owner' | 'operations';
+export type { Role } from './roles';
+export {
+  ROLES,
+  ROLE_RANK as ROLE_HIERARCHY,
+  DEPRECATED_ROLE_ALIASES,
+  normalizeRole,
+  normalizeRoles,
+  hasRole,
+  hasAnyRole,
+  isStaff,
+  canAccessAdmin,
+  canAccessFinance,
+  canManageStaff,
+  MOBILE_HOME,
+  WEB_LANDING,
+  mobileHomeFor,
+  webLandingFor,
+} from './roles';
+import { hasRole as _hasRole } from './roles';
 
-export const ROLE_HIERARCHY: Record<Role, number> = {
-  member: 1,
-  operations: 2,
-  trainer: 3,
-  owner: 4,
-};
-
-export const hasRole = (userRoles: Role[], required: Role): boolean => {
-  return userRoles.includes(required);
-};
-
-export const hasAnyRole = (userRoles: Role[], required: Role[]): boolean => {
-  return required.some((r) => userRoles.includes(r));
-};
-
-export const isOwner = (userRoles: Role[]): boolean => hasRole(userRoles, 'owner');
-export const isTrainer = (userRoles: Role[]): boolean => hasRole(userRoles, 'trainer');
-export const isOperations = (userRoles: Role[]): boolean => hasRole(userRoles, 'operations');
-export const isMember = (userRoles: Role[]): boolean => hasRole(userRoles, 'member');
-
-export const canAccessAdmin = (userRoles: Role[]): boolean =>
-  hasAnyRole(userRoles, ['owner', 'operations']);
+export const isOwner = (userRoles: import('./roles').Role[]): boolean =>
+  _hasRole(userRoles, 'finance');
+export const isTrainer = (userRoles: import('./roles').Role[]): boolean =>
+  _hasRole(userRoles, 'trainer');
+export const isOperations = (userRoles: import('./roles').Role[]): boolean =>
+  _hasRole(userRoles, 'operations');
+export const isMember = (userRoles: import('./roles').Role[]): boolean =>
+  _hasRole(userRoles, 'member');
 
 export const authClient = createAuthClient({
   baseURL:
