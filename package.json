@@ -16,7 +16,7 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "db:migrate": "AUTH_DB_PATH=apps/web/.data/queenix-auth.db npx -y @better-auth/cli@latest migrate --config packages/auth/src/server.ts -y",
+    "db:migrate": "AUTH_DB_PATH=apps/web/.data/queenix-auth-testing.db better-auth migrate --config packages/auth/src/server.ts -y",
     "seed": "node scripts/seed-demo-users.mjs",
     "compose:up": "docker compose up -d",
     "compose:down": "docker compose down",
@@ -25,6 +25,7 @@
     "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules .expo .turbo .data/*.db* *.tsbuildinfo"
   },
   "devDependencies": {
+    "@better-auth/cli": "1.4.21",
     "@types/node": "^22.10.5",
     "@vitest/coverage-v8": "5.0.0",
     "concurrently": "^9.1.0",

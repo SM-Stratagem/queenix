@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { YStack, XStack, Text, View } from 'tamagui';
 import {
   LayoutDashboard,
@@ -15,42 +17,58 @@ import {
   ChevronDown,
   Coffee,
   Scissors,
+  Car,
+  Megaphone,
 } from 'lucide-react';
 
 const navSections = [
   {
     title: 'Operations',
     items: [
-      { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, badge: null },
-      { key: 'members', label: 'Members', icon: Users, badge: '247' },
-      { key: 'classes', label: 'Classes', icon: Calendar, badge: '12' },
-      { key: 'trainers', label: 'Trainers', icon: Dumbbell, badge: null },
+      { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, badge: null, href: '/' },
+      { key: 'members', label: 'Members', icon: Users, badge: '247', href: '/crm' },
+      { key: 'classes', label: 'Classes', icon: Calendar, badge: '12', href: '/classes' },
+      { key: 'trainers', label: 'Trainers', icon: Dumbbell, badge: null, href: '/trainers' },
+      { key: 'team', label: 'Team & roles', icon: Users, badge: null, href: '/team' },
+      { key: 'branches', label: 'Branches', icon: LayoutDashboard, badge: null, href: '/branches' },
+      { key: 'events', label: 'Events', icon: Calendar, badge: null, href: '/events' },
     ],
   },
   {
     title: 'Commerce',
     items: [
-      { key: 'memberships', label: 'Memberships', icon: CreditCard, badge: null },
-      { key: 'payments', label: 'Payments', icon: CreditCard, badge: null },
+      { key: 'memberships', label: 'Memberships', icon: CreditCard, badge: null, href: '/finance' },
+      { key: 'payments', label: 'Payments', icon: CreditCard, badge: null, href: '/finance' },
     ],
   },
   {
     title: 'Partners',
     items: [
-      { key: 'coffee', label: 'Coffee', icon: Coffee, badge: 'NEW' },
-      { key: 'salon', label: 'Salon', icon: Scissors, badge: 'NEW' },
+      { key: 'coffee', label: 'Coffee', icon: Coffee, badge: 'NEW', href: '/coffee' },
+      { key: 'salon', label: 'Salon', icon: Scissors, badge: 'NEW', href: '/salon' },
+      { key: 'valet', label: 'Valet', icon: Car, badge: null, href: '/valet' },
+    ],
+  },
+  {
+    title: 'Engagement',
+    items: [
+      { key: 'notifications', label: 'Notifications', icon: Bell, badge: 'NEW', href: '/notifications' },
+      { key: 'sales-push', label: 'Sales push', icon: Megaphone, badge: 'NEW', href: '/sales-push' },
     ],
   },
   {
     title: 'System',
     items: [
-      { key: 'settings', label: 'Settings', icon: Settings, badge: null },
+      { key: 'settings', label: 'Settings', icon: Settings, badge: null, href: '/team' },
     ],
   },
 ];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
-  const [activeKey, setActiveKey] = useState('dashboard');
+  const pathname = usePathname() ?? '/';
+  const activeKey =
+    navSections.flatMap((s) => s.items).find((i) => i.href !== '/' && pathname.startsWith(i.href))?.key ??
+    (pathname === '/' ? 'dashboard' : 'dashboard');
 
   return (
     <div
@@ -115,9 +133,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               const Icon = item.icon;
               const active = item.key === activeKey;
               return (
-                <div
+                <Link
                   key={item.key}
-                  onClick={() => setActiveKey(item.key)}
+                  href={item.href}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -148,7 +166,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                       {item.badge}
                     </span>
                   )}
-                </div>
+                </Link>
               );
             })}
           </div>

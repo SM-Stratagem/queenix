@@ -31,7 +31,6 @@ import {
   formatDate,
   tierForBalance,
   tierVariant,
-  NEXT_TIER_COST,
   type Tier,
 } from '@/components/rewards/format';
 

@@ -6,7 +6,15 @@
 import { mutation, query } from './_generated/server';
 import { ConvexError } from 'convex/values';
 
-export type Role = 'member' | 'trainer' | 'owner' | 'operations';
+export type Role =
+  | 'superadmin'
+  | 'admin'
+  | 'owner'
+  | 'operations'
+  | 'salon'
+  | 'coffee'
+  | 'trainer'
+  | 'member';
 
 /**
  * Get the current user from session, or throw if not signed in.

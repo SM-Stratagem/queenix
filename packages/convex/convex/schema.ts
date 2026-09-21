@@ -16,6 +16,14 @@ import * as access from './schema/access'
 import * as classes from './schema/classes'
 import * as training from './schema/training'
 import * as operations from './schema/operations'
+import * as commerce from './schema/commerce'
+import * as crm from './schema/crm'
+import * as finance from './schema/finance'
+import * as org from './schema/org'
+import * as valet from './schema/valet'
+import * as branches from './schema/branches'
+import * as people from './schema/people'
+import * as events from './schema/events'
 
 export default defineSchema({
   ...identity,
@@ -27,4 +35,12 @@ export default defineSchema({
   ...classes,
   ...training,
   ...operations,
+  ...commerce,
+  ...crm,
+  ...finance,
+  ...org,
+  ...valet,
+  ...branches,
+  ...people,
+  ...events,
 })

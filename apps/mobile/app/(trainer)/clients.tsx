@@ -9,6 +9,7 @@ import {
   Input,
   Chip,
   Badge,
+  Button,
   Divider,
   Skeleton,
   EmptyState,
@@ -86,15 +87,19 @@ export default function TrainerClients() {
   const clients = clientsQuery ?? [];
 
   const enriched = useMemo(() => {
-    return clients.map((c) => ({
-      id: (c.member?._id as unknown as string) ?? '',
-      name: c.member?.fullName ?? 'Member',
-      goal: '',
-      lastSessionDays: c.lastSessionAt,
-      nextSessionAt: c.nextSessionAt,
-      totalSessions: c.sessionCount,
-      status: deriveStatus(c.lastSessionAt, c.nextSessionAt, c.sessionCount),
-    }));
+    return clients.map((c) => {
+      // ctx.db.get returns a union of all doc types; only user docs carry fullName.
+      const memberDoc = c.member as { fullName?: string } | null | undefined;
+      return {
+        id: (c.member?._id as unknown as string) ?? '',
+        name: memberDoc?.fullName ?? 'Member',
+        goal: '',
+        lastSessionDays: c.lastSessionAt,
+        nextSessionAt: c.nextSessionAt,
+        totalSessions: c.sessionCount,
+        status: deriveStatus(c.lastSessionAt, c.nextSessionAt, c.sessionCount),
+      };
+    });
   }, [clients]);
 
   const counts = useMemo(() => {
@@ -119,10 +124,20 @@ export default function TrainerClients() {
   return (
     <Screen scroll padded={false}>
       <YStack paddingHorizontal="$4" paddingTop="$4" paddingBottom="$3">
-        <Text variant="caption" color="muted">
-          My roster
-        </Text>
-        <Text variant="h2">Clients</Text>
+        <XStack alignItems="center" justifyContent="space-between">
+          <YStack>
+            <Text variant="caption" color="muted">
+              My roster
+            </Text>
+            <Text variant="h2">Clients</Text>
+          </YStack>
+          <Button
+            label="New session"
+            size="sm"
+            variant="primary"
+            onPress={() => router.push('/(trainer)/sessions/new')}
+          />
+        </XStack>
       </YStack>
 
       {/* Search */}

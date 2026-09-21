@@ -6,7 +6,6 @@ export interface SheetProps {
   onOpenChange: (open: boolean) => void;
   children?: React.ReactNode;
   snapPoints?: Array<number | string>;
-  position?: 'bottom' | 'top' | 'right' | 'left';
   dismissOnOverlayPress?: boolean;
 }
 
@@ -15,7 +14,6 @@ export const Sheet: React.FC<SheetProps> = ({
   onOpenChange,
   children,
   snapPoints = [50],
-  position = 'bottom',
   dismissOnOverlayPress = true,
 }) => {
   return (
@@ -23,7 +21,7 @@ export const Sheet: React.FC<SheetProps> = ({
       open={open}
       onOpenChange={onOpenChange}
       snapPoints={snapPoints as any}
-      position={position}
+      position={0}
       dismissOnOverlayPress={dismissOnOverlayPress}
       modal
     >

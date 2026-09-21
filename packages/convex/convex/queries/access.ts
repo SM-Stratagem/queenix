@@ -22,12 +22,14 @@ export const getCurrentOccupancy = query({
   args: { accessPointId: v.optional(v.string()) },
   handler: async (ctx, { accessPointId }) => {
     // Get most recent snapshot
-    let q = ctx.db.query('occupancySnapshots');
     if (accessPointId) {
-      q = q.withIndex('by_accessPoint_timestamp', (q) => q.eq('accessPointId', accessPointId));
+      return await ctx.db
+        .query('occupancySnapshots')
+        .withIndex('by_accessPoint_timestamp', (q) => q.eq('accessPointId', accessPointId))
+        .order('desc')
+        .first();
     }
-    const snapshot = await q.order('desc').first();
-    return snapshot;
+    return await ctx.db.query('occupancySnapshots').order('desc').first();
   },
 });
 

@@ -1,0 +1,28 @@
+# Shared dev image for the Queenix Gym monorepo (Expo + Next.js friendly).
+FROM node:20-bookworm-slim
+
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
+    CI=true \
+    EXPO_NO_TELEMETRY=1 \
+    NEXT_TELEMETRY_DISABLED=1
+
+# System libs commonly needed by native modules (better-sqlite3, sharp, expo).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3 make g++ curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# pnpm via corepack (repo migrates npm workspaces -> pnpm; see DOCKER.md).
+RUN corepack enable && corepack prepare pnpm@9 --activate
+
+WORKDIR /app
+
+# Pre-install workspace deps for better layer caching; safe to re-run on mount.
+COPY package.json pnpm-workspace.yaml* package-lock.json* pnpm-lock.yaml* ./
+COPY apps/web/package.json ./apps/web/package.json
+COPY packages/auth/package.json ./packages/auth/package.json
+COPY packages/convex/package.json ./packages/convex/package.json
+RUN if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile --ignore-scripts; else echo "no pnpm lockfile yet - deps install at compose up"; fi
+
+EXPOSE 3000 3210 3211 8081 19000 19006
+
+CMD ["pnpm", "--filter", "@queenix/web", "dev"]

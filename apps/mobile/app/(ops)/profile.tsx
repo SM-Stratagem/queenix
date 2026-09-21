@@ -39,6 +39,7 @@ import {
 import { ShiftStat } from '@/components/profile/ShiftStat';
 import { SettingsRow } from '@/components/profile/SettingsRow';
 import { ShiftRow } from '@/components/profile/ShiftRow';
+import type { Shift } from '@/components/profile/ContactRow';
 import { ShiftPanel } from '@/components/profile/ShiftPanel';
 import {
   HandoverSheet,
@@ -81,16 +82,16 @@ export default function OpsProfileScreen() {
   const [roleSheetOpen, setRoleSheetOpen] = useState(false);
 
   const shiftActive = useConvexQuery(
-    api.queries.operations.getMyActiveShift as any,
-    session?.userId ? { userId: session.userId } : 'skip',
+    api.queries.operations.getMyActiveShift,
+    session?.userId ? {} : 'skip',
   );
   const shifts = useConvexQuery(
-    api.queries.operations.getMyShifts as any,
-    session?.userId ? { userId: session.userId, limit: 8 } : 'skip',
+    api.queries.operations.getMyShifts,
+    session?.userId ? {} : 'skip',
   );
 
-  const startShift = useConvexMutation('mutations/operations:startShift' as any);
-  const endShift = useConvexMutation('mutations/operations:endShift' as any);
+  const startShift = useConvexMutation(api.mutations.operations.startShift);
+  const endShift = useConvexMutation(api.mutations.operations.endShift);
 
   const identity = useMemo<ProfileIdentity | null>(() => {
     if (!session) return null
@@ -108,19 +109,35 @@ export default function OpsProfileScreen() {
     }
   }, [session])
 
-  const shiftStart: number | null = (shiftActive as any)?.startsAt ?? null
+  const shiftStart: number | null = shiftActive?.startsAt ?? null
   const elapsed = useElapsedSeconds(Boolean(shiftStart), shiftStart)
-  const shiftHistory = useMemo(() => (Array.isArray(shifts) ? shifts : []), [shifts])
+  const shiftDocs = useMemo(() => (Array.isArray(shifts) ? shifts : []), [shifts])
+  const shiftHistory: Shift[] = useMemo(
+    () =>
+      shiftDocs.map((s) => {
+        const startsAt = s.startsAt ?? Date.now()
+        const endsAt = s.endsAt ?? startsAt
+        return {
+          id: String(s._id),
+          date: formatDate(startsAt),
+          start: formatTime(startsAt),
+          end: formatTime(endsAt),
+          hoursLogged: formatDuration(Math.max(0, endsAt - startsAt)),
+          status: s.status === 'completed' ? 'completed' : s.status === 'active' ? 'active' : 'upcoming',
+        } as Shift
+      }),
+    [shiftDocs],
+  )
   const thisWeekMs = useMemo(() => {
     const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000
-    return shiftHistory
-      .filter((s: any) => (s.startsAt ?? 0) >= cutoff)
-      .reduce((acc: number, s: any) => acc + ((s.endsAt ?? 0) - (s.startsAt ?? 0)), 0)
-  }, [shiftHistory])
+    return shiftDocs
+      .filter((s) => (s.startsAt ?? 0) >= cutoff)
+      .reduce((acc: number, s) => acc + ((s.endsAt ?? 0) - (s.startsAt ?? 0)), 0)
+  }, [shiftDocs])
 
   const handleStartShift = async () => {
     try {
-      await startShift({ startedAt: Date.now() })
+      await startShift({})
       toast.success('Shift started')
     } catch (e: any) {
       toast.error(e?.message ?? 'Could not start shift')
@@ -128,7 +145,7 @@ export default function OpsProfileScreen() {
   }
   const handleEndShift = async () => {
     try {
-      await endShift({ endedAt: Date.now() })
+      await endShift({})
       toast.success('Shift ended. Have a great rest!')
     } catch (e: any) {
       toast.error(e?.message ?? 'Could not end shift')

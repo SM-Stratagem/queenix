@@ -1,43 +1,28 @@
-import { NextResponse } from "next/server"
-import crypto from "node:crypto"
-import { auth } from "@queenix/auth/server"
+import { NextResponse } from 'next/server';
+import { auth } from '@queenix/auth/server';
+import { signConvexToken } from '@/lib/jwks';
 
-const TOKEN_TTL_SECONDS = 60 * 5 // 5 minutes
-
-function sign(payload: object): string {
-  const secret = process.env.AUTH_SECRET ?? "change-me-min-32-chars"
-  const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" }))
-    .toString("base64url")
-  const body = Buffer.from(JSON.stringify(payload)).toString("base64url")
-  const sig = crypto
-    .createHmac("sha256", secret)
-    .update(`${header}.${body}`)
-    .digest("base64url")
-  return `${header}.${body}.${sig}`
-}
+export const dynamic = 'force-dynamic';
 
 /**
- * Mint a short-lived HS256 JWT for the currently logged-in BetterAuth user.
+ * Mint a short-lived RS256 JWT for the currently logged-in BetterAuth user.
  *
- * Convex's custom auth provider expects an OIDC-ish JWT; for self-hosted
- * Convex on the same network, we use a symmetric secret signed by this
- * route and verified by Convex's `auth.config.ts` issuer. The token
- * contains only the user id + session id; richer claims can be added.
+ * Convex verifies it via OIDC discovery against this app
+ * (see `/.well-known/openid-configuration` + `/api/jwks`):
+ *   iss = AUTH_BASE_URL, aud = 'queenix-gym', sub = BetterAuth user id.
+ * requireUser() then matches `sub` to users.betterAuthUserId.
  *
- * Used by both mobile (Expo) and web admin clients before they open a
- * `useConvexQuery` stream.
+ * Used by both web admin and mobile (Expo) clients before they open a
+ * Convex query stream (client.setAuth with this endpoint).
  */
 export async function GET(req: Request) {
-  const session = await auth.api.getSession({ headers: req.headers })
+  const session = await auth.api.getSession({ headers: req.headers });
   if (!session?.user?.id || !session?.session?.id) {
-    return NextResponse.json({ error: "unauthenticated" }, { status: 401 })
+    return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
   }
-  const now = Math.floor(Date.now() / 1000)
-  const token = sign({
+  const token = await signConvexToken({
     sub: session.user.id,
     sid: session.session.id,
-    iat: now,
-    exp: now + TOKEN_TTL_SECONDS,
-  })
-  return NextResponse.json({ token })
+  });
+  return NextResponse.json({ token });
 }

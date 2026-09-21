@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useCallback, useState } from 'react';
-import { Toast as TamaguiToast, YStack, useTheme } from 'tamagui';
+import { YStack } from 'tamagui';
 import { Text } from './Text';
 import { CheckCircle2, AlertCircle, Info, XCircle } from '@tamagui/lucide-icons';
 

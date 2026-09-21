@@ -48,6 +48,10 @@ interface SupportTicket {
   timeAgo: string;
 }
 
+const TICKET_CODE_PREFIX = 'QNX';
+const CATEGORIES: Category[] = ['billing', 'access', 'class', 'general'];
+const PRIORITIES: Priority[] = ['low', 'medium', 'high', 'critical'];
+
 
 
 export default function OpsSupportScreen() {

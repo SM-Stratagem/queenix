@@ -15,6 +15,7 @@ import {
 } from '@queenix/ui';
 import { useConvexQuery } from '@/lib/convex';
 import { StatChip, ToggleButton, LegendDot, DayView } from '@/components/trainer-schedule/ScheduleBits';
+import { getWeekRange, getDayNumbers } from '@/components/trainer-schedule/format';
 import { api } from '@queenix/convex';
 import {
   ChevronLeft,

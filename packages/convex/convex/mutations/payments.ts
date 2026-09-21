@@ -10,6 +10,7 @@
 
 import { v } from 'convex/values';
 import { mutation, internalMutation } from '../_generated/server';
+import type { Id } from '../_generated/dataModel';
 import { requireUser, audit } from '../_helpers';
 import { ConvexError } from 'convex/values';
 
@@ -203,7 +204,7 @@ export const recordPaymentSuccess = mutation({
     // If this is a membership payment, create/renew the membership record
     const planId = (payment.metadata as any)?.planId as string | undefined;
     if (payment.type === 'membership' && planId) {
-      const plan = await ctx.db.get(planId as any);
+      const plan = await ctx.db.get(planId as Id<'membershipPlans'>);
       if (plan) {
         const startDate = Date.now();
         const endDate = startDate + plan.durationDays * 24 * 60 * 60 * 1000;

@@ -83,6 +83,7 @@ export function SessionRow({
   memberName,
   dbStatus,
   onStart,
+  onCancel,
   onViewNotes,
 }: {
   scheduledAt: number
@@ -91,6 +92,7 @@ export function SessionRow({
   memberId: string
   dbStatus: string
   onStart: () => void
+  onCancel?: () => void
   onViewNotes: () => void
 }) {
   // Local compatibility shim — original screen used 'in-progress' which is
@@ -143,15 +145,20 @@ export function SessionRow({
             <Badge label={statusLabel} variant={variant} size="sm" />
           </XStack>
         </YStack>
-        <YStack>
+        <YStack gap="$1" alignItems="center">
           {status === "upcoming" ? (
-            <Button
-              label="Start"
-              size="sm"
-              variant="primary"
-              onPress={onStart}
-              icon={<Play size={14} color="$textOnBrand" />}
-            />
+            <>
+              <Button
+                label="Start"
+                size="sm"
+                variant="primary"
+                onPress={onStart}
+                icon={<Play size={14} color="$textOnBrand" />}
+              />
+              {onCancel && (
+                <Button label="Cancel" size="sm" variant="ghost" onPress={onCancel} />
+              )}
+            </>
           ) : status === "active" ? (
             <Button label="Resume" size="sm" variant="primary" onPress={onStart} />
           ) : (

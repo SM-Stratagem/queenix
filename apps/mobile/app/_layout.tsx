@@ -6,6 +6,7 @@ import { Stack } from "expo-router"
 import { StatusBar } from "@queenix/ui"
 import { config } from "@queenix/theme"
 import { ConvexProvider, ConvexReactClient } from "convex/react"
+import { authClient } from "@queenix/auth"
 import { AuthProvider, useAuth } from "@/lib/auth"
 import { ToastProvider } from "@queenix/ui"
 import { initI18n } from "@queenix/i18n"
@@ -67,6 +68,7 @@ export default function RootLayout() {
           <Theme name={FIXED_THEME}>
             <ConvexProvider client={convex}>
               <AuthProvider>
+                <ConvexAuthSync />
                 <ToastProvider>
                   <StatusBar style="dark" />
                   {appReady ? <RootNavigator /> : <AppLoader />}
@@ -78,6 +80,31 @@ export default function RootLayout() {
       </SafeAreaProvider>
     </GestureHandlerRootView>
   )
+}
+
+/**
+ * Keeps the Convex client authorized with a fresh RS256 token minted by
+ * /api/convex/token (BetterAuth session cookie is attached by the expo
+ * client plugin). Re-armed on every session change so login/logout
+ * immediately flips live queries and mutations between authorized and
+ * unauthenticated without an app restart.
+ */
+function ConvexAuthSync() {
+  const { session } = useAuth()
+
+  useEffect(() => {
+    convex.setAuth(async () => {
+      try {
+        const res = await authClient.$fetch("/api/convex/token")
+        const token = (res.data as { token?: unknown } | null | undefined)?.token
+        return typeof token === "string" ? token : null
+      } catch {
+        return null
+      }
+    })
+  }, [session])
+
+  return null
 }
 
 function AppLoader() {

@@ -90,7 +90,7 @@ export const getOwnerKPIs = query({
       .query('accessEvents')
       .withIndex('by_timestamp', (q) => q.gte('timestamp', startOfDay))
       .filter((q) =>
-        q.lt(q.field('timestamp'), endOfDay) &
+        q.lt(q.field('timestamp'), endOfDay) &&
         q.eq(q.field('direction'), 'in')
       )
       .collect();

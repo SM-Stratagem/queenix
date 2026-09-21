@@ -24,6 +24,50 @@ export const switchRole = mutation({
   },
 });
 
+/**
+ * Mirror a BetterAuth user into the Convex `users` table.
+ * Called server-side by BetterAuth `databaseHooks.user.create.after`
+ * (packages/auth/src/server.ts) via the Convex HTTP API at the
+ * `mutations/users:syncFromBetterAuth` path, so this must stay a public
+ * mutation. (The internal `mutations/sync:syncFromBetterAuth` variant is
+ * for use by other Convex functions and is not reachable over HTTP.)
+ * Roles are validated loosely because BetterAuth is the source of truth.
+ */
+export const syncFromBetterAuth = mutation({
+  args: {
+    betterAuthUserId: v.string(),
+    email: v.string(),
+    fullName: v.string(),
+    roles: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query('users')
+      .withIndex('by_betterAuthUserId', (q) => q.eq('betterAuthUserId', args.betterAuthUserId))
+      .first();
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        fullName: args.fullName,
+        roles: args.roles as ('member' | 'trainer' | 'owner' | 'operations')[],
+        updatedAt: Date.now(),
+      });
+      return { ok: true, created: false };
+    }
+    await ctx.db.insert('users', {
+      betterAuthUserId: args.betterAuthUserId,
+      email: args.email,
+      fullName: args.fullName,
+      activeRole: (args.roles[0] ?? 'member') as 'member' | 'trainer' | 'owner' | 'operations',
+      roles: args.roles as ('member' | 'trainer' | 'owner' | 'operations')[],
+      emailVerified: true,
+      phoneVerified: false,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+    return { ok: true, created: true };
+  },
+});
+
 // ============================================================
 // Trainer mutations
 // ============================================================

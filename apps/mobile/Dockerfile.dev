@@ -1,0 +1,24 @@
+FROM node:20-bookworm-slim
+WORKDIR /app
+
+# python3/make/g++: lets node-gyp compile nested native deps (better-sqlite3
+# under @better-auth/cli has no prebuilt binary for this platform).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl ca-certificates python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install the full monorepo (workspaces) so @queenix/* links resolve.
+COPY package.json package-lock.json .npmrc ./
+COPY scripts scripts
+COPY apps apps
+COPY packages packages
+
+RUN npm install && node scripts/patch-tamagui-react19.mjs
+
+ENV EXPO_NO_TELEMETRY=1
+EXPOSE 8081 19002
+
+WORKDIR /app/apps/mobile
+# --lan prints a LAN QR; REACT_NATIVE_PACKAGER_HOSTNAME (compose env) forces
+# the QR to the host's LAN IP so physical phones can connect.
+CMD ["npx", "expo", "start", "--lan", "--non-interactive"]

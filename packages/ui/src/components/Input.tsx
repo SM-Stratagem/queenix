@@ -1,8 +1,10 @@
 import React, { forwardRef } from 'react';
-import { TextInput, TextInputProps, View, XStack, YStack, Label, Text } from 'tamagui';
+import { Input as TamaguiInput, View, XStack, YStack, Label, Text } from 'tamagui';
 import { Eye, EyeOff } from '@tamagui/lucide-icons';
 
-export interface InputProps extends Omit<TextInputProps, 'size'> {
+type TamaguiInputProps = React.ComponentProps<typeof TamaguiInput>;
+
+export interface InputProps extends Omit<TamaguiInputProps, 'size' | 'children'> {
   label?: string;
   error?: string;
   hint?: string;
@@ -11,9 +13,11 @@ export interface InputProps extends Omit<TextInputProps, 'size'> {
   rightIcon?: React.ReactNode;
   isPassword?: boolean;
   size?: 'sm' | 'md' | 'lg';
+  width?: TamaguiInputProps['width'];
+  textAlign?: TamaguiInputProps['textAlign'];
 }
 
-export const Input = forwardRef<TextInput, InputProps>(({
+export const Input = forwardRef<React.ElementRef<typeof TamaguiInput>, InputProps>(({
   label,
   error,
   hint,
@@ -51,8 +55,9 @@ export const Input = forwardRef<TextInput, InputProps>(({
         focusStyle={{ borderColor: error ? '$danger' : '$brand' }}
       >
         {leftIcon && <View marginRight="$2">{leftIcon}</View>}
-        <TextInput
+        <TamaguiInput
           ref={ref}
+          unstyled
           flex={1}
           fontSize={fontSizeMap[size]}
           color="$textPrimary"

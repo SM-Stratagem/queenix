@@ -122,7 +122,9 @@ try {
   // --- 3. Convex link ----------------------------------------------------------
   // Self-hosted Convex: POST to /api/run/<module>/<function> with {args, format}.
   // Cloud Convex:     POST to /api/mutation        with {path, args, format}.
-  const isSelfHosted = CONVEX_URL.includes('localhost') || CONVEX_URL.includes('127.');
+  // Any http:// URL (localhost, LAN IP, or compose service name) is self-hosted;
+  // only https:// cloud deployments use the mutation path.
+  const isSelfHosted = CONVEX_URL.startsWith('http://');
   const convexUrl = isSelfHosted
     ? `${CONVEX_URL}/api/run/seed/seedDemoUsers`
     : `${CONVEX_URL}/api/mutation`;
@@ -133,16 +135,27 @@ try {
         args: { users: linked },
         format: 'json',
       };
+  // Retry: in compose the seed runs as soon as web is healthy, but function
+  // sync (convex dev) can lag ~30s behind. 6 attempts x 10s.
   let convexRes;
-  try {
-    const res = await fetch(convexUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(convexBody),
-    });
-    convexRes = { status: res.status, body: await res.text().catch(() => '') };
-  } catch (e) {
-    console.error(`✗ Convex not reachable at ${CONVEX_URL} (${e.message}).`);
+  for (let attempt = 1; attempt <= 6; attempt++) {
+    try {
+      const res = await fetch(convexUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(convexBody),
+      });
+      const body = await res.text().catch(() => '');
+      convexRes = { status: res.status, body };
+      if (res.ok) break;
+      console.error(`  convex attempt ${attempt}/6 → HTTP ${res.status} ${body.slice(0, 120)}`);
+    } catch (e) {
+      console.error(`  convex attempt ${attempt}/6 → ${CONVEX_URL} not reachable (${e.message}).`);
+    }
+    if (attempt < 6) await new Promise((r) => setTimeout(r, 10000));
+  }
+  if (!convexRes || convexRes.status < 200 || convexRes.status >= 300) {
+    console.error(`✗ Convex seed failed at ${CONVEX_URL}.`);
     process.exit(1);
   }
   console.log('convex seedDemoUsers:', JSON.stringify(convexRes).slice(0, 300));

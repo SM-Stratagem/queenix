@@ -18,6 +18,10 @@ a {
   text-decoration: none;
 }
 
+html {
+  color-scheme: light dark;
+}
+
 :root {
   --brand: #0081cc;
   --brand-hover: #006ba8;
@@ -35,7 +39,7 @@ a {
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --bg: #09090b;
     --bg-muted: #18181b;
     --bg-elevated: #18181b;
@@ -43,5 +47,121 @@ a {
     --text: #fafafa;
     --text-muted: #a1a1aa;
     --text-secondary: #d4d4d8;
+  }
+}
+
+/* Explicit theme override: light is the default (:root above); setting
+   data-theme="dark" on <html> forces dark regardless of OS preference. */
+:root[data-theme='dark'] {
+  --bg: #09090b;
+  --bg-muted: #18181b;
+  --bg-elevated: #18181b;
+  --border: #27272a;
+  --text: #fafafa;
+  --text-muted: #a1a1aa;
+  --text-secondary: #d4d4d8;
+}
+
+/* ---------- Admin shell layout (responsive) ---------- */
+
+.admin-shell {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  grid-template-rows: 60px 1fr;
+  grid-template-areas: 'sidebar header' 'sidebar main';
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* Prominent branded sidebar — deep brand gradient, white type.
+   Deliberately identical in light and dark mode: it is the product's
+   signature surface, matching the login brand panel. */
+.admin-sidebar {
+  grid-area: sidebar;
+  background: linear-gradient(180deg, #0077bb 0%, #005a90 55%, #00466f 100%);
+  color: #fff;
+  padding: 22px 14px;
+  overflow-y: auto;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  box-shadow: 4px 0 24px rgba(0, 70, 111, 0.35);
+}
+
+.admin-header {
+  grid-area: header;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elevated);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 20px;
+  flex-wrap: wrap;
+}
+
+.admin-main {
+  grid-area: main;
+  overflow: auto;
+  padding: 24px;
+  background: var(--bg-muted);
+}
+
+.admin-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.admin-cols-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@keyframes qx-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (max-width: 1024px) {
+  .admin-kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .admin-cols-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .admin-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 1fr;
+    grid-template-areas: 'sidebar' 'header' 'main';
+  }
+  .admin-sidebar {
+    border-right: none;
+    border-bottom: 3px solid #00466f;
+    padding: 12px;
+    height: auto;
+    position: static;
+  }
+  .admin-nav {
+    flex-direction: row !important;
+    overflow-x: auto;
+  }
+  .admin-branch-label {
+    display: none;
+  }
+  .admin-main {
+    padding: 16px;
+  }
+  .admin-kpi-grid {
+    grid-template-columns: 1fr;
   }
 }

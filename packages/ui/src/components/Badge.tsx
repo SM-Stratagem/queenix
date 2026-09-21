@@ -23,7 +23,7 @@ export const Badge: React.FC<BadgeProps> = ({ label, variant = 'neutral', size =
   const styles = variantStyles[variant];
   return (
     <XStack
-      backgroundColor={styles.bg as any}
+      backgroundColor={styles.bg}
       paddingHorizontal={size === 'sm' ? '$2' : '$3'}
       paddingVertical={size === 'sm' ? '$0.5' : '$1'}
       borderRadius="$full"
@@ -32,7 +32,7 @@ export const Badge: React.FC<BadgeProps> = ({ label, variant = 'neutral', size =
       alignSelf="flex-start"
     >
       {icon}
-      <Text color={styles.text as any} fontSize={size === 'sm' ? '$xs' : '$sm'} fontWeight="600">
+      <Text color={styles.text} fontSize={size === 'sm' ? '$xs' : '$sm'} fontWeight="600">
         {label}
       </Text>
     </XStack>

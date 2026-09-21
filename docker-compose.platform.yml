@@ -1,0 +1,79 @@
+name: queenix-platform
+
+networks:
+  queenix-net:
+    driver: bridge
+
+volumes:
+  pgdata:
+
+services:
+  db:
+    image: postgres:16
+    container_name: queenix-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-queenix}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-queenix-dev-only}
+      POSTGRES_DB: ${POSTGRES_DB:-queenix}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - queenix-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-queenix} -d $${POSTGRES_DB:-queenix}"]
+      interval: 5s
+      timeout: 3s
+      start_period: 10s
+      retries: 20
+
+  convex-dev:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    container_name: queenix-convex-dev
+    restart: unless-stopped
+    working_dir: /app
+    command: pnpm --filter @queenix/convex dev
+    ports:
+      - "3210:3210"
+      - "3211:3211"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-queenix}:${POSTGRES_PASSWORD:-queenix-dev-only}@db:5432/${POSTGRES_DB:-queenix}
+      CONVEX_SELF_HOSTED_URL: http://localhost:3210
+      AUTH_SECRET: ${AUTH_SECRET:-testing-secret-replace-before-production-min-32-chars-0123456789ab}
+    networks:
+      - queenix-net
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    container_name: queenix-web-dev
+    restart: unless-stopped
+    working_dir: /app
+    command: pnpm --filter @queenix/web dev
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER:-queenix}:${POSTGRES_PASSWORD:-queenix-dev-only}@db:5432/${POSTGRES_DB:-queenix}
+      AUTH_SECRET: ${AUTH_SECRET:-testing-secret-replace-before-production-min-32-chars-0123456789ab}
+      AUTH_BASE_URL: ${AUTH_BASE_URL:-http://localhost:3000}
+      NEXT_PUBLIC_CONVEX_URL: ${NEXT_PUBLIC_CONVEX_URL:-http://localhost:3210}
+    networks:
+      - queenix-net
+    depends_on:
+      db:
+        condition: service_healthy

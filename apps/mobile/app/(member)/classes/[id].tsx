@@ -40,6 +40,24 @@ import {
 type ClassCategory = 'HIIT' | 'Yoga' | 'Strength' | 'Cardio' | 'Pilates';
 type Level = 'Beginner' | 'Intermediate' | 'Advanced';
 
+type CategoryIcon = React.ComponentType<{ size?: number | string; color?: string }>;
+
+function categoryStyle(category: ClassCategory): { hue: string; iconColor: string; Icon: CategoryIcon } {
+  switch (category) {
+    case 'HIIT':
+      return { hue: '$warning50', iconColor: '$warning', Icon: Flame };
+    case 'Strength':
+      return { hue: '$success50', iconColor: '$success700', Icon: Dumbbell };
+    case 'Cardio':
+      return { hue: '$danger50', iconColor: '$danger', Icon: Zap };
+    case 'Pilates':
+      return { hue: '$info50', iconColor: '$info700', Icon: Sparkles };
+    case 'Yoga':
+    default:
+      return { hue: '$brand50', iconColor: '$brand', Icon: Heart };
+  }
+}
+
 
 export default function ClassDetailScreen() {
   const router = useRouter();

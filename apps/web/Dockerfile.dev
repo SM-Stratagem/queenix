@@ -1,7 +1,9 @@
 FROM node:20-alpine
 WORKDIR /app
 
-RUN apk add --no-cache libc6-compat curl
+# python3/make/g++: lets node-gyp compile nested native deps (better-sqlite3
+# under @better-auth/cli has no musl/arm64 prebuilt binary).
+RUN apk add --no-cache libc6-compat curl python3 make g++
 
 COPY package.json package-lock.json .npmrc ./
 COPY scripts scripts

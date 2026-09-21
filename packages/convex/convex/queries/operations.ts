@@ -1,11 +1,10 @@
 /**
  * Queenix Gym — Operations queries
  * Reads for the operations dashboard: incidents, shifts, support queue.
- * Stub implementations return [] to satisfy the type-checker while real
- * data flow is finalized.
  */
 
 import { query } from "../_generated/server"
+import { requireUser } from "../_helpers"
 
 export const getIncidents = query({
   args: {},
@@ -16,15 +15,25 @@ export const getIncidents = query({
 
 export const getMyActiveShift = query({
   args: {},
-  handler: async () => {
-    return null
+  handler: async (ctx) => {
+    const user = await requireUser(ctx)
+    return await ctx.db
+      .query("shifts")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .filter((q) => q.eq(q.field("status"), "active"))
+      .first()
   },
 })
 
 export const getMyShifts = query({
   args: {},
-  handler: async () => {
-    return []
+  handler: async (ctx) => {
+    const user = await requireUser(ctx)
+    return await ctx.db
+      .query("shifts")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .order("desc")
+      .take(20)
   },
 })
 

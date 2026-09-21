@@ -1,6 +1,6 @@
 import React from "react"
-import { YStack, Text } from "tamagui"
-import { Card } from "@queenix/ui"
+import { YStack } from "tamagui"
+import { Card, Text } from "@queenix/ui"
 import {
   AlertOctagon,
   AlertTriangle,

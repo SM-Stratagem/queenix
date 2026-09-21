@@ -54,13 +54,12 @@ export default function ApprovalsScreen() {
   const toast = useToast();
   const [tab, setTab] = useState<ApprovalTab>('all');
 
-  const approvals = useConvexQuery(
-    (api as any).queries?.memberships?.getApprovals ?? (() => null),
-    { status: 'pending' }
-  ) as Approval[] | undefined;
+  const approvals = useConvexQuery(api.queries.memberships.getApprovals, {
+    status: 'pending',
+  }) as Approval[] | undefined;
   const isLoading = approvals === undefined;
 
-  const decide = useConvexMutation((api as any).mutations?.memberships?.decideApproval ?? (async () => null));
+  const decide = useConvexMutation(api.mutations.users.decideApproval);
 
   const filtered = (approvals ?? []).filter((a) =>
     tab === 'all' ? true : a.type.startsWith(tab + '.')

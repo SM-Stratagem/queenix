@@ -52,22 +52,94 @@ services:
       - .:/app
       - /app/node_modules
       - /app/apps/web/node_modules
-      - auth_data:/app/.data
     environment:
       NODE_ENV: development
       CONVEX_SELF_HOSTED_URL: http://convex-backend:3210
       CONVEX_SITE_URL: http://localhost:3211
-      NEXT_PUBLIC_CONVEX_URL: http://localhost:3210
+      NEXT_PUBLIC_CONVEX_URL: ${NEXT_PUBLIC_CONVEX_URL:-http://localhost:3210}
       AUTH_BASE_URL: ${AUTH_BASE_URL:-http://localhost:3000}
       AUTH_TRUST_HOST: "true"
-      AUTH_DB_PATH: /app/.data/queenix-auth.db
+      # Shared testing DB (same file the host uses) so seed/migrate/host-dev
+      # and the container all see the same users.
+      AUTH_DB_PATH: /app/apps/web/.data/queenix-auth-testing.db
       AUTH_SECRET: ${AUTH_SECRET:-testing-secret-replace-before-production-min-32-chars-0123456789ab}
       QUEENIX_ADMIN_TOKEN: ${QUEENIX_ADMIN_TOKEN:-queenix-dev-admin-token}
       PAYMENTS_PROVIDER: ${PAYMENTS_PROVIDER:-mock}
     depends_on:
       convex-backend:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/scanner/health"]
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 20
+
+  convex-sync:
+    # Pushes Convex functions to the local backend and keeps them synced.
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile.dev
+    container_name: queenix-convex-sync
+    restart: unless-stopped
+    working_dir: /app
+    command: ["npm", "run", "dev", "--workspace", "@queenix/convex"]
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      CONVEX_SELF_HOSTED_URL: http://convex-backend:3210
+    depends_on:
+      convex-backend:
+        condition: service_healthy
+
+  expo:
+    # Mobile dev server (Metro). QR + URLs print in `docker logs queenix-expo`.
+    build:
+      context: .
+      dockerfile: apps/mobile/Dockerfile.dev
+    container_name: queenix-expo
+    restart: unless-stopped
+    ports:
+      - "${EXPO_PORT:-8081}:8081"
+      - "19002:19002"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/apps/mobile/node_modules
+    environment:
+      EXPO_PUBLIC_CONVEX_URL: ${EXPO_PUBLIC_CONVEX_URL:-http://localhost:3210}
+      EXPO_PUBLIC_AUTH_BASE_URL: ${EXPO_PUBLIC_AUTH_BASE_URL:-http://localhost:3000}
+      REACT_NATIVE_PACKAGER_HOSTNAME: ${EXPO_HOST_IP:-localhost}
+    depends_on:
+      convex-backend:
+        condition: service_healthy
+
+  seed:
+    # One-shot: signs up the 4 demo accounts + links them into Convex.
+    # Runs after web is healthy; retries Convex until functions are synced.
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile.dev
+    container_name: queenix-seed
+    restart: "no"
+    working_dir: /app
+    command: ["node", "scripts/seed-demo-users.mjs"]
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      AUTH_BASE_URL: http://web:3000
+      EXPO_PUBLIC_CONVEX_URL: http://convex-backend:3210
+      AUTH_DB_PATH: apps/web/.data/queenix-auth-testing.db
+      QUEENIX_ADMIN_TOKEN: ${QUEENIX_ADMIN_TOKEN:-queenix-dev-admin-token}
+    depends_on:
+      web:
+        condition: service_healthy
+      convex-backend:
+        condition: service_healthy
+      convex-sync:
+        condition: service_started
 
 volumes:
   convex_data:
-  auth_data:

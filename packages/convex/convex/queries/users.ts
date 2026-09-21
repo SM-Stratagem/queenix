@@ -4,7 +4,7 @@
 
 import { v } from 'convex/values';
 import { query } from '../_generated/server';
-import { requireUser } from '../_helpers';
+import { requireRole, requireUser } from '../_helpers';
 
 export const getCurrentUser = query({
   args: {},
@@ -80,7 +80,7 @@ export const getTodaySessions = query({
       .withIndex('by_trainer', (q) => q.eq('trainerId', user._id))
       .filter(
         (q) =>
-          q.gte(q.field('scheduledAt'), startOfDay) &
+          q.gte(q.field('scheduledAt'), startOfDay) &&
           q.lt(q.field('scheduledAt'), endOfDay)
       )
       .collect();
@@ -123,7 +123,7 @@ export const getWeekSchedule = query({
       .withIndex('by_trainer', (q) => q.eq('trainerId', user._id))
       .filter(
         (q) =>
-          q.gte(q.field('scheduledAt'), weekStart) &
+          q.gte(q.field('scheduledAt'), weekStart) &&
           q.lt(q.field('scheduledAt'), weekEnd)
       )
       .collect();
@@ -134,7 +134,7 @@ export const getWeekSchedule = query({
       .withIndex('by_trainer', (q) => q.eq('trainerId', user._id))
       .filter(
         (q) =>
-          q.gte(q.field('startsAt'), weekStart) &
+          q.gte(q.field('startsAt'), weekStart) &&
           q.lt(q.field('startsAt'), weekEnd)
       )
       .collect();
@@ -543,5 +543,68 @@ export const getAvailableTrainers = query({
       })
     );
     return enriched;
+  },
+});
+
+// ============================================================
+// Operations queries (ops screens: incidents, support)
+// ============================================================
+
+/**
+ * All incidents, newest first, joined with the reporter's name.
+ */
+export const getIncidents = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireRole(ctx, ['operations', 'owner']);
+    const incidents = await ctx.db
+      .query('incidents')
+      .withIndex('by_createdAt')
+      .order('desc')
+      .take(100);
+    return Promise.all(
+      incidents.map(async (incident) => {
+        const reporter = await ctx.db.get(incident.reportedBy);
+        return {
+          ...incident,
+          reportedByUser: reporter
+            ? { _id: reporter._id, fullName: reporter.fullName }
+            : null,
+        };
+      })
+    );
+  },
+});
+
+/**
+ * Support tickets filtered by status, newest first, joined with the member.
+ */
+export const getSupportQueue = query({
+  args: {
+    status: v.union(
+      v.literal('open'),
+      v.literal('in_progress'),
+      v.literal('waiting'),
+      v.literal('resolved')
+    ),
+  },
+  handler: async (ctx, { status }) => {
+    await requireRole(ctx, ['operations', 'owner']);
+    const tickets = await ctx.db
+      .query('supportTickets')
+      .withIndex('by_status', (q) => q.eq('status', status))
+      .order('desc')
+      .take(100);
+    return Promise.all(
+      tickets.map(async (ticket) => {
+        const member = ticket.memberId ? await ctx.db.get(ticket.memberId) : null;
+        return {
+          ...ticket,
+          member: member
+            ? { _id: member._id, fullName: member.fullName, email: member.email }
+            : null,
+        };
+      })
+    );
   },
 });

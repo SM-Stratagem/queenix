@@ -96,13 +96,28 @@ export const seedDemoUsers = mutation({
   handler: async (ctx, args) => {
     let created = 0;
     let skipped = 0;
+    let linked = 0;
     for (const u of args.users) {
       const existing = await ctx.db
         .query('users')
         .withIndex('by_email', (q: any) => q.eq('email', u.email))
         .first();
       if (existing) {
-        skipped++;
+        // Re-link: the BetterAuth DB may have been recreated since this row
+        // was seeded, leaving a stale betterAuthUserId that breaks requireUser.
+        // Match is by email (stable); refresh the linkage fields.
+        if (existing.betterAuthUserId !== u.betterAuthUserId) {
+          await ctx.db.patch(existing._id, {
+            betterAuthUserId: u.betterAuthUserId,
+            fullName: u.fullName,
+            roles: u.roles as ('member' | 'trainer' | 'owner' | 'operations')[],
+            activeRole: u.activeRole as 'member' | 'trainer' | 'owner' | 'operations',
+            updatedAt: Date.now(),
+          });
+          linked++;
+        } else {
+          skipped++;
+        }
         continue;
       }
       await ctx.db.insert('users', {
@@ -118,7 +133,7 @@ export const seedDemoUsers = mutation({
       });
       created++;
     }
-    return { ok: true, created, skipped };
+    return { ok: true, created, skipped, linked };
   },
 });
 

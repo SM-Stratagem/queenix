@@ -11,8 +11,10 @@ import Animated, {
 export type SkeletonProps = ViewProps & {
   width?: number | string;
   height?: number | string;
-  borderRadius?: number;
+  borderRadius?: number | string;
   circle?: boolean;
+  flex?: number;
+  marginTop?: number | string;
 }
 
 const AnimatedView = Animated.createAnimatedComponent(View);
@@ -22,6 +24,8 @@ export const Skeleton: React.FC<SkeletonProps> = ({
   height = 16,
   borderRadius = 8,
   circle = false,
+  flex,
+  marginTop,
 }) => {
   const opacity = useSharedValue(0.3);
 
@@ -39,10 +43,12 @@ export const Skeleton: React.FC<SkeletonProps> = ({
 
   return (
     <AnimatedView
-      width={width}
-      height={circle ? width : height}
-      borderRadius={circle ? 9999 : borderRadius}
+      width={width as any}
+      height={(circle ? width : height) as any}
+      borderRadius={(circle ? 9999 : borderRadius) as any}
       backgroundColor="$surfaceMuted"
+      flex={flex}
+      marginTop={marginTop as any}
       style={animatedStyle}
     />
   );

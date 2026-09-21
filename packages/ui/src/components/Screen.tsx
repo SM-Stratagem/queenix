@@ -28,19 +28,20 @@ export const Screen: React.FC<ScreenProps> = ({
 }) => {
   const theme = useTheme();
   const Container = safeArea ? SafeAreaView : View;
+  const backgroundColor = theme[background]?.val ?? 'transparent';
   const containerProps = safeArea
-    ? { edges, style: { flex: 1, backgroundColor: theme[background].val } }
-    : { style: { flex: 1, backgroundColor: theme[background].val } };
+    ? { edges, style: { flex: 1, backgroundColor } }
+    : { style: { flex: 1, backgroundColor } };
 
   if (scroll) {
     return (
       <Container {...(containerProps as any)} testID={testID}>
         <ScrollView
-          contentContainerStyle={[
-            padded ? { padding: 16 } : null,
-            contentContainerStyle,
-          ]}
-          refreshControl={refreshControl}
+          contentContainerStyle={{
+            ...(padded ? { padding: 16 } : null),
+            ...((contentContainerStyle as Record<string, unknown> | undefined) ?? {}),
+          }}
+          refreshControl={refreshControl as any}
           showsVerticalScrollIndicator={false}
         >
           {children}

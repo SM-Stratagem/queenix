@@ -1,13 +1,14 @@
 import React from 'react';
 import { Card as TamaguiCard, YStack, XStack, Text, View, type ViewProps } from 'tamagui';
 
-export type CardProps = ViewProps & {
+export type CardProps = Omit<ViewProps, 'padding'> & {
   children?: React.ReactNode;
   title?: string;
   subtitle?: string;
   onPress?: () => void;
   variant?: 'elevated' | 'outlined' | 'filled';
-  padding?: 'none' | 'sm' | 'md' | 'lg';
+  padding?: 'none' | 'xs' | 'sm' | 'md' | 'lg';
+  padded?: boolean;
   testID?: string;
   accessibilityLabel?: string;
 }
@@ -19,10 +20,12 @@ export const Card: React.FC<CardProps> = ({
   onPress,
   variant = 'elevated',
   padding = 'md',
+  padded,
   testID,
   accessibilityLabel,
 }) => {
-  const paddingMap = { none: 0, sm: '$3', md: '$4', lg: '$5' };
+  const resolvedPadding = padded === false ? 'none' : padding;
+  const paddingMap = { none: 0, xs: '$2', sm: '$3', md: '$4', lg: '$5' } as const;
   const variantStyles = {
     elevated: {
       backgroundColor: '$surfaceElevated',
@@ -51,7 +54,7 @@ export const Card: React.FC<CardProps> = ({
       onPress={onPress}
       pressStyle={onPress ? { opacity: 0.95, scale: 0.99 } : undefined}
       borderRadius="$xl"
-      padding={paddingMap[padding]}
+      padding={paddingMap[resolvedPadding]}
       testID={testID}
       accessibilityLabel={accessibilityLabel}
       accessibilityRole={onPress ? 'button' : undefined}

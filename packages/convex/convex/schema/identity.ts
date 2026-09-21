@@ -11,17 +11,25 @@ export const users = defineTable({
     fullName: v.string(),
     avatarUrl: v.optional(v.string()),
     activeRole: v.union(
-      v.literal('member'),
-      v.literal('trainer'),
+      v.literal('superadmin'),
+      v.literal('admin'),
       v.literal('owner'),
-      v.literal('operations')
+      v.literal('operations'),
+      v.literal('salon'),
+      v.literal('coffee'),
+      v.literal('trainer'),
+      v.literal('member')
     ),
     roles: v.array(
       v.union(
-        v.literal('member'),
-        v.literal('trainer'),
+        v.literal('superadmin'),
+        v.literal('admin'),
         v.literal('owner'),
-        v.literal('operations')
+        v.literal('operations'),
+        v.literal('salon'),
+        v.literal('coffee'),
+        v.literal('trainer'),
+        v.literal('member')
       )
     ),
     emailVerified: v.boolean(),

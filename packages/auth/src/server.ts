@@ -100,6 +100,10 @@ export const auth = betterAuth({
     'http://localhost:19006',
     'http://localhost:19000',
     'exp://localhost:8081',
+    // Compose service name: the one-shot seed container calls the API as
+    // http://web:3000. Without this, seed dies with INVALID_ORIGIN and the
+    // Convex user mapping is never repaired.
+    'http://web:3000',
     process.env.AUTH_BASE_URL || '',
   ].filter(Boolean),
 })

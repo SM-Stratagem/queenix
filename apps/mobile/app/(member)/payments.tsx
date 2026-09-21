@@ -14,7 +14,7 @@ import {
   EmptyState,
   useToast,
 } from '@queenix/ui';
-import { useConvexQuery, useConvexMutation } from '@/lib/convex';
+import { useConvexQuery, useConvexMutation, api } from '@/lib/convex';
 import { useAuth } from '@/lib/auth';
 import {
   formatDate,
@@ -36,23 +36,23 @@ export default function PaymentsScreen() {
   // Queries — guarded so they don't fire when no user is signed in.
   const userId = session?.userId ?? null;
   const paymentMethods = useConvexQuery(
-    'queries/payments:listMyPaymentMethods' as any,
-    userId ? { userId } : 'skip',
+    api.queries.payments.getMyPaymentMethods,
+    userId ? {} : 'skip',
   );
   const invoices = useConvexQuery(
-    'queries/payments:listMyInvoices' as any,
-    userId ? { userId, limit: 30 } : 'skip',
+    api.queries.payments.getMyInvoices,
+    userId ? { limit: 30 } : 'skip',
   );
   const currentMembership = useConvexQuery(
-    'queries/memberships:getMyActiveMembership' as any,
-    userId ? { userId } : 'skip',
+    api.queries.memberships.getCurrentMembership,
+    userId ? {} : 'skip',
   );
 
   // Mutations
-  const setDefaultPm = useConvexMutation('mutations/payments:setDefaultPaymentMethod' as any);
-  const freezeMembershipM = useConvexMutation('mutations/memberships:freezeMembership' as any);
-  const unfreezeMembershipM = useConvexMutation('mutations/memberships:unfreezeMembership' as any);
-  const cancelMembershipM = useConvexMutation('mutations/memberships:cancelMembership' as any);
+  const setDefaultPm = useConvexMutation(api.mutations.payments.setDefaultPaymentMethod);
+  const freezeMembershipM = useConvexMutation(api.mutations.payments.freezeMembership);
+  const unfreezeMembershipM = useConvexMutation(api.mutations.payments.unfreezeMembership);
+  const cancelMembershipM = useConvexMutation(api.mutations.payments.cancelMembership);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

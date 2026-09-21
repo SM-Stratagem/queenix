@@ -1,5 +1,5 @@
 import React from 'react';
-import { useUser } from '@queenix/auth';
+import { useSession } from '@queenix/auth';
 
 export type Role = 'member' | 'trainer' | 'owner' | 'operations';
 
@@ -14,7 +14,8 @@ export interface RoleGateProps {
  * Server-side authorization is still required for data access.
  */
 export const RoleGate: React.FC<RoleGateProps> = ({ children, allow, fallback = null }) => {
-  const user = useUser();
+  const { data } = useSession();
+  const user = (data as { user?: { roles?: unknown } } | null | undefined)?.user ?? null;
   if (!user) return <>{fallback}</>;
 
   const allowed = Array.isArray(allow) ? allow : [allow];

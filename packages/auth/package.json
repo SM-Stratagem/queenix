@@ -10,10 +10,12 @@
     "./server": "./src/server.ts"
   },
   "dependencies": {
+    "@better-auth/expo": "1.7.5",
     "@better-auth/kysely-adapter": "^1.7.4",
     "@queenix/types": "*",
-    "better-auth": "^1.1.10",
+    "better-auth": "1.7.5",
     "better-sqlite3": "^11.5.0",
+    "expo-network": "8.0.8",
     "kysely": "0.29.5",
     "zod": "^3.24.1"
   },

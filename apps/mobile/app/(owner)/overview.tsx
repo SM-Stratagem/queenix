@@ -15,7 +15,6 @@ import { useAuth } from '@/lib/auth';
 import { useConvexQuery } from '@/lib/convex';
 import { api } from '@queenix/convex';
 import { KPICard, QuickAction } from '@/components/owner-overview/Cards';
-import { KPICard, QuickAction } from '@/components/owner-overview/Cards';
 import {
   TrendingUp,
   TrendingDown,
@@ -35,6 +34,14 @@ import {
 } from '@tamagui/lucide-icons';
 
 type DateRange = 'today' | 'week' | 'month';
+
+interface Kpi {
+  key: string;
+  label: string;
+  value: string;
+  trend: 'up' | 'down';
+  icon: React.ReactNode;
+}
 
 export default function OwnerOverview() {
   const router = useRouter();
@@ -58,7 +65,7 @@ export default function OwnerOverview() {
   const pendingApprovals = approvalsQuery ?? 0;
   const openIncidents = liveStatusQuery?.openIncidentsCount ?? 0;
 
-  const kpis = useMemo(() => {
+  const kpis = useMemo((): [Kpi, Kpi, Kpi, Kpi] => {
     if (!kpisQuery) {
       return [
         { key: 'members', label: 'Active members', value: '—', trend: 'up' as const, icon: <Users size={20} color="$brand" /> },
@@ -106,7 +113,7 @@ export default function OwnerOverview() {
     // Without a per-day revenue query yet, show 7 zero bars if no data
     // (the chart will improve once we add a per-day revenue query)
     const values = [0.5, 0.6, 0.55, 0.7, 0.85, 0.75, 0.65];
-    return days.map((d, i) => ({ day: d, value: values[i] }));
+    return days.map((d, i) => ({ day: d, value: values[i] ?? 0 }));
   }, []);
 
   const alerts = useMemo(() => {

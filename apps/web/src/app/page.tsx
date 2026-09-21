@@ -1,10 +1,13 @@
-import { AdminShell } from '@/components/AdminShell';
-import { Dashboard } from '@/components/Dashboard';
+import { RequireAuth } from '@/components/RequireAuth';
+import { AdminShell } from '@/components/admin/AdminShell';
+import { DashboardHome } from '@/components/admin/DashboardHome';
 
 export default function Home() {
   return (
-    <AdminShell>
-      <Dashboard />
-    </AdminShell>
+    <RequireAuth>
+      <AdminShell>
+        <DashboardHome />
+      </AdminShell>
+    </RequireAuth>
   );
 }

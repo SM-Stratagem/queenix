@@ -25,7 +25,7 @@ import {
   useToast,
 } from '@queenix/ui';
 import { useAuth } from '@/lib/auth';
-import { useConvexQuery } from '@/lib/convex';
+import { useConvexQuery, useConvexMutation } from '@/lib/convex';
 import { api } from '@queenix/convex';
 import {
   Clock,
@@ -39,8 +39,6 @@ import {
   CheckCircle2,
 } from '@tamagui/lucide-icons';
 
-type SessionStatus = 'completed' | 'in-progress' | 'upcoming';
-
 export default function TrainerToday() {
   const router = useRouter();
   const { session } = useAuth();
@@ -50,9 +48,23 @@ export default function TrainerToday() {
   const firstName = session?.fullName?.split(' ')[0] ?? 'Trainer';
 
   const sessionsQuery = useConvexQuery(api.queries.users.getTodaySessions, {});
+  // mutations/training is a real deployed module; the committed
+  // api.d.ts snapshot predates it, so resolve through `any` until the
+  // next `npx convex dev` codegen refresh (same pattern as web financeRefs).
+  const trainingMutations = (api.mutations as any).training;
+  const setStatus = useConvexMutation(trainingMutations.updateSessionStatus);
 
   const isLoading = sessionsQuery === undefined;
   const sessions = sessionsQuery ?? [];
+
+  async function changeStatus(sessionId: string, status: 'completed' | 'cancelled' | 'no_show', label: string) {
+    try {
+      await setStatus({ sessionId: sessionId as any, status });
+      toast.success(label);
+    } catch (e: any) {
+      toast.error(e?.data?.message ?? e?.message ?? 'Update failed');
+    }
+  }
 
   const stats = useMemo(() => {
     const totalMinutes = sessions.reduce((acc, s) => acc + s.durationMinutes, 0);
@@ -202,7 +214,10 @@ export default function TrainerToday() {
                   memberId={s.memberId}
                   dbStatus={s.status}
                   onStart={() =>
-                    toast.success(`Started PT with ${s.member?.fullName ?? 'member'}`)
+                    changeStatus(String(s._id), 'completed', `Completed PT with ${s.member?.fullName ?? 'member'}`)
+                  }
+                  onCancel={() =>
+                    changeStatus(String(s._id), 'cancelled', 'Session cancelled')
                   }
                   onViewNotes={() =>
                     router.push(`/(trainer)/clients/${s.memberId}`)

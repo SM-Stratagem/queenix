@@ -20,6 +20,9 @@ const nextConfig = {
       { protocol: 'https', hostname: 'cdn.queenix.com' },
     ],
   },
+  async redirects() {
+    return [{ source: '/favicon.ico', destination: '/icon.svg', permanent: true }];
+  },
 };
 
 export default nextConfig;

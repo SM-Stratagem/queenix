@@ -180,8 +180,8 @@ export default function TrainerProfile() {
           <SettingsItem
             icon={<FileText size={20} color="$textPrimary" />}
             title="Documents"
-            subtitle="Contracts, tax forms, ID"
-            onPress={() => toast.info("Documents — coming soon")}
+            subtitle="Certifications, contracts, ID"
+            onPress={() => router.push('/(trainer)/documents')}
           />
           <SettingsItem
             icon={<Globe size={20} color="$textPrimary" />}

@@ -16,11 +16,9 @@ import {
 import { useConvexQuery, useConvexMutation } from '@/lib/convex';
 import { api } from '@queenix/convex';
 import {
-  formatMoney,
-  formatMoneyShort,
-  getMonthLabel,
-  CURRENCY,
-} from '@/components/trainer-earnings/format';
+  EarningsHero,
+  EarningsSecondaryCards,
+} from '@/components/trainer-earnings/Sections';
 import {
   TrendingUp,
   TrendingDown,
@@ -40,10 +38,6 @@ const CURRENCY = 'AED';
 
 function formatMoney(cents: number, currency: string = CURRENCY): string {
   return `${currency} ${(cents / 100).toFixed(0)}`;
-}
-
-function formatMoneyShort(cents: number): string {
-  return (cents / 100).toLocaleString();
 }
 
 function getMonthLabel(): string {

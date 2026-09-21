@@ -69,7 +69,7 @@ export default function OtpScreen() {
           {code.map((digit, idx) => (
             <Input
               key={idx}
-              ref={(el) => (inputs.current[idx] = el)}
+              ref={(el) => { inputs.current[idx] = el; }}
               value={digit}
               onChangeText={(t: string) => handleChange(t, idx)}
               onKeyPress={(e: any) => handleKeyPress(e, idx)}
