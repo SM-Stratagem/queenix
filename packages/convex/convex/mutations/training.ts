@@ -89,3 +89,35 @@ export const updateSessionStatus = mutation({
     return await ctx.db.get(sessionId);
   },
 });
+
+/**
+ * Save a private coaching note about a member. Trainer-only; trainers
+ * can only file notes under their own id (one less impersonation path).
+ */
+export const addTrainerNote = mutation({
+  args: {
+    memberId: v.id('users'),
+    note: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const trainer = await requireRole(ctx, TRAINER);
+    const text = args.note.trim();
+    if (!text) {
+      throw new ConvexError({ code: 'INVALID', message: 'Note cannot be empty' });
+    }
+    if (text.length > 2000) {
+      throw new ConvexError({ code: 'INVALID', message: 'Note is too long (2000 max)' });
+    }
+    const member = await ctx.db.get(args.memberId);
+    if (!member || (member as any).activeRole !== 'member') {
+      throw new ConvexError({ code: 'NOT_A_MEMBER', message: 'Notes can only target members' });
+    }
+    const id = await ctx.db.insert('trainerNotes', {
+      trainerId: trainer._id,
+      memberId: args.memberId,
+      note: text,
+      createdAt: Date.now(),
+    });
+    return await ctx.db.get(id);
+  },
+});

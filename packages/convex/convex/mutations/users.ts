@@ -328,3 +328,64 @@ export const recordPunchForUser = mutation({
     });
   },
 });
+
+/**
+ * Update the signed-in member's own profile: preferences, emergency
+ * contact, date of birth, gender, vehicles. Creates the profile row
+ * on first save. Powers account settings (toggles actually persist).
+ */
+export const updateMyProfile = mutation({
+  args: {
+    dateOfBirth: v.optional(v.string()),
+    gender: v.optional(v.string()),
+    emergencyContact: v.optional(
+      v.object({
+        name: v.string(),
+        phone: v.string(),
+        relationship: v.optional(v.string()),
+      })
+    ),
+    vehicles: v.optional(
+      v.array(
+        v.object({
+          plate: v.string(),
+          make: v.optional(v.string()),
+          model: v.optional(v.string()),
+          color: v.optional(v.string()),
+        })
+      )
+    ),
+    preferences: v.optional(
+      v.object({
+        notifications: v.boolean(),
+        marketing: v.boolean(),
+        language: v.union(v.literal('en'), v.literal('ar')),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const existing = await ctx.db
+      .query('memberProfiles')
+      .withIndex('by_user', (q) => q.eq('userId', user._id))
+      .first();
+    const patch: any = {};
+    if (args.dateOfBirth !== undefined) patch.dateOfBirth = args.dateOfBirth;
+    if (args.gender !== undefined) patch.gender = args.gender;
+    if (args.emergencyContact !== undefined) patch.emergencyContact = args.emergencyContact;
+    if (args.vehicles !== undefined) patch.vehicles = args.vehicles;
+    if (args.preferences !== undefined) patch.preferences = args.preferences;
+    if (existing) {
+      await ctx.db.patch(existing._id, patch);
+      return await ctx.db.get(existing._id);
+    }
+    return await ctx.db.get(
+      await ctx.db.insert('memberProfiles', {
+        userId: user._id,
+        vehicles: [],
+        preferences: { notifications: true, marketing: false, language: 'en' },
+        ...patch,
+      })
+    );
+  },
+});

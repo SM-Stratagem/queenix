@@ -267,3 +267,36 @@ export const recordScannerHeartbeat = mutation({
     return await ctx.db.get(device._id);
   },
 });
+
+/**
+ * Mark one inbox notification read (own only).
+ */
+export const markNotificationRead = mutation({
+  args: { notificationId: v.id('notifications') },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const note = await ctx.db.get(args.notificationId);
+    if (!note) throw new ConvexError('Notification not found');
+    if (String((note as any).userId) !== String(user._id)) {
+      throw new ConvexError('Not your notification');
+    }
+    await ctx.db.patch(args.notificationId, { read: true });
+    return args.notificationId;
+  },
+});
+
+/**
+ * Mark the whole inbox read.
+ */
+export const markAllNotificationsRead = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireUser(ctx);
+    const unread = await ctx.db
+      .query('notifications')
+      .withIndex('by_user_unread', (q: any) => q.eq('userId', user._id).eq('read', false))
+      .collect();
+    await Promise.all(unread.map((n) => ctx.db.patch(n._id, { read: true })));
+    return unread.length;
+  },
+});

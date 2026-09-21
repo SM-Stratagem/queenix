@@ -8,7 +8,7 @@
 
 import { v } from 'convex/values';
 import { query } from '../_generated/server';
-import { requireRole } from '../_helpers';
+import { requireRole, requireUser } from '../_helpers';
 
 const STAFF_ROLES = ['admin', 'superadmin', 'owner'] as any;
 
@@ -47,5 +47,30 @@ export const listSignatures = query({
         return { ...s, memberName: user?.fullName ?? null, memberEmail: user?.email ?? null };
       })
     );
+  },
+});
+
+/**
+ * Active templates for members, each annotated with the member's own
+ * signature (if any) for that version. Unsigned required docs sort first.
+ */
+export const listActiveTemplates = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireUser(ctx as any);
+    const templates = await ctx.db.query('documentTemplates').collect();
+    const mine = await ctx.db
+      .query('signatures')
+      .withIndex('by_user', (q: any) => q.eq('userId', user._id))
+      .collect();
+    const rows = templates.map((t: any) => ({
+      ...t,
+      mySignature: mine.find((s: any) => String(s.templateId) === String(t._id) && s.documentVersion === t.version) ?? null,
+    }));
+    return rows.sort((a: any, b: any) => {
+      const aOpen = a.required && !a.mySignature ? 0 : 1;
+      const bOpen = b.required && !b.mySignature ? 0 : 1;
+      return aOpen - bOpen || b.effectiveDate - a.effectiveDate;
+    });
   },
 });

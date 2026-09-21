@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { Screen, Text, Card, Avatar, Button, Badge, Divider, Spacer, Switch } from '@queenix/ui';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@queenix/ui';
-import { useConvexMutation } from '@/lib/convex';
+import { useConvexMutation, useConvexQuery } from '@/lib/convex';
 import { api } from '@queenix/convex';
 import {
   CreditCard,
@@ -24,8 +24,28 @@ export default function MemberProfile() {
   const { session, signOut, switchRole } = useAuth();
   const toast = useToast();
   const switchRoleMutation = useConvexMutation(api.mutations.users.switchRole);
+  const memberProfile = useConvexQuery((api.queries as any).users.getMemberProfile, {});
+  const saveProfile = useConvexMutation((api.mutations as any).users.updateMyProfile);
   const [notifications, setNotifications] = React.useState(true);
   const [marketing, setMarketing] = React.useState(false);
+  const [prefsPrimed, setPrefsPrimed] = React.useState(false);
+
+  React.useEffect(() => {
+    const prefs = (memberProfile as any)?.preferences;
+    if (prefs && !prefsPrimed) {
+      setNotifications(prefs.notifications);
+      setMarketing(prefs.marketing);
+      setPrefsPrimed(true);
+    }
+  }, [memberProfile, prefsPrimed]);
+
+  async function persistPrefs(nextNotifications: boolean, nextMarketing: boolean) {
+    try {
+      await saveProfile({ preferences: { notifications: nextNotifications, marketing: nextMarketing, language: 'en' as const } });
+    } catch (err: any) {
+      toast.error(err?.data?.message ?? err?.message ?? 'Could not save preference');
+    }
+  }
 
   const handleSignOut = async () => {
     await signOut();
@@ -89,14 +109,14 @@ export default function MemberProfile() {
           <SettingsItem
             icon={<Heart size={20} color="$textPrimary" />}
             title="Health & preferences"
-            subtitle="Update your health declaration"
-            onPress={() => toast.info('Coming soon')}
+            subtitle="Emergency contact, DOB, gender"
+            onPress={() => router.push('/(member)/health')}
           />
           <SettingsItem
             icon={<Car size={20} color="$textPrimary" />}
             title="Vehicles & parking"
-            subtitle="Manage registered vehicles"
-            onPress={() => toast.info('Coming soon')}
+            subtitle="Plates the valet recognises"
+            onPress={() => router.push('/(member)/vehicles')}
           />
         </YStack>
 
@@ -108,14 +128,20 @@ export default function MemberProfile() {
               label="Push notifications"
               description="Class reminders, booking updates"
               value={notifications}
-              onValueChange={setNotifications}
+              onValueChange={(v) => {
+                setNotifications(v);
+                persistPrefs(v, marketing);
+              }}
             />
             <Divider />
             <Switch
               label="Marketing emails"
               description="Offers, news, events"
               value={marketing}
-              onValueChange={setMarketing}
+              onValueChange={(v) => {
+                setMarketing(v);
+                persistPrefs(notifications, v);
+              }}
             />
             <Divider />
             <XStack justifyContent="space-between" alignItems="center" paddingVertical="$2">
@@ -126,8 +152,8 @@ export default function MemberProfile() {
                   <Text variant="caption" color="muted">English</Text>
                 </YStack>
               </XStack>
-              <Text variant="bodySmall" color="brand" fontWeight="600" onPress={() => toast.info('Language switcher coming soon')}>
-                Change
+              <Text variant="caption" color="muted">
+                English · Arabic soon
               </Text>
             </XStack>
           </Card>
@@ -138,17 +164,20 @@ export default function MemberProfile() {
           <SettingsItem
             icon={<Bell size={20} color="$textPrimary" />}
             title="Notifications"
-            onPress={() => toast.info('Coming soon')}
+            subtitle="Inbox from the club"
+            onPress={() => router.push('/(member)/notifications')}
           />
           <SettingsItem
             icon={<Lock size={20} color="$textPrimary" />}
             title="Privacy & security"
-            onPress={() => toast.info('Coming soon')}
+            subtitle="Change password, sign out devices"
+            onPress={() => router.push('/(member)/security')}
           />
           <SettingsItem
             icon={<HelpCircle size={20} color="$textPrimary" />}
             title="Help & support"
-            onPress={() => toast.info('Coming soon')}
+            subtitle="File a request, track replies"
+            onPress={() => router.push('/(member)/support')}
           />
         </YStack>
 

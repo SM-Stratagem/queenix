@@ -6,7 +6,7 @@
 import { v } from 'convex/values';
 import { ConvexError } from 'convex/values';
 import { mutation } from '../_generated/server';
-import { requireRole, audit } from '../_helpers';
+import { requireRole, requireUser, audit } from '../_helpers';
 
 const roleLiteral = v.union(
   v.literal('superadmin'),
@@ -228,5 +228,33 @@ export const unassignBranchStaff = mutation({
     }
     await ctx.db.delete(existing._id);
     return { ok: true };
+  },
+});
+
+/**
+ * Self-service day-off request: any staff member files for themselves.
+ * Lands as `pending` for owner/operations to decide (decideTimeOff).
+ */
+export const requestTimeOff = mutation({
+  args: {
+    date: v.string(),
+    kind: v.union(v.literal('sick'), v.literal('leave')),
+    note: v.optional(v.string()),
+  },
+  handler: async (ctx, { date, kind, note }) => {
+    const user = await requireUser(ctx);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      throw new ConvexError({ code: 'INVALID', message: 'Date must be YYYY-MM-DD' });
+    }
+    const id = await ctx.db.insert('staffTimeOff', {
+      userId: user._id,
+      date,
+      kind,
+      note,
+      status: 'pending',
+      recordedBy: user._id,
+      createdAt: Date.now(),
+    });
+    return await ctx.db.get(id);
   },
 });

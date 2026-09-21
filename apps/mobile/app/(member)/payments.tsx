@@ -12,6 +12,8 @@ import {
   Skeleton,
   ErrorState,
   EmptyState,
+  Input,
+  Sheet,
   useToast,
 } from '@queenix/ui';
 import { useConvexQuery, useConvexMutation, api } from '@/lib/convex';
@@ -50,6 +52,58 @@ export default function PaymentsScreen() {
 
   // Mutations
   const setDefaultPm = useConvexMutation(api.mutations.payments.setDefaultPaymentMethod);
+  const addPm = useConvexMutation(api.mutations.payments.addPaymentMethod);
+  const removePm = useConvexMutation(api.mutations.payments.removePaymentMethod);
+  const [cardSheet, setCardSheet] = useState(false);
+  const [cardLast4, setCardLast4] = useState('');
+  const [cardBrand, setCardBrand] = useState('visa');
+  const [cardExp, setCardExp] = useState('');
+  const [cardBusy, setCardBusy] = useState(false);
+
+  async function onAddCardSubmit() {
+    const last4 = cardLast4.replace(/\D/g, '');
+    if (last4.length !== 4) {
+      toast.error('Enter the last 4 digits');
+      return;
+    }
+    const m = cardExp.match(/^\s*(\d{1,2})\s*\/\s*(\d{2,4})\s*$/);
+    if (!m) {
+      toast.error('Expiry as MM/YY');
+      return;
+    }
+    let year = Number(m[2]);
+    if (year < 100) year += 2000;
+    setCardBusy(true);
+    try {
+      await addPm({
+        provider: 'tap',
+        type: cardBrand === 'apple_pay' ? 'apple_pay' : 'card',
+        last4,
+        brand: cardBrand === 'apple_pay' ? undefined : cardBrand,
+        expiryMonth: Number(m[1]),
+        expiryYear: year,
+        isDefault: methodsList.length === 0,
+      });
+      toast.success('Card saved on file');
+      setCardSheet(false);
+      setCardLast4('');
+      setCardBrand('visa');
+      setCardExp('');
+    } catch (err: any) {
+      toast.error(err?.data?.message ?? err?.message ?? 'Could not save card');
+    } finally {
+      setCardBusy(false);
+    }
+  }
+
+  async function onRemoveCard(id: string) {
+    try {
+      await removePm({ paymentMethodId: id as any });
+      toast.success('Card removed');
+    } catch (err: any) {
+      toast.error(err?.data?.message ?? err?.message ?? 'Could not remove card');
+    }
+  }
   const freezeMembershipM = useConvexMutation(api.mutations.payments.freezeMembership);
   const unfreezeMembershipM = useConvexMutation(api.mutations.payments.unfreezeMembership);
   const cancelMembershipM = useConvexMutation(api.mutations.payments.cancelMembership);
@@ -170,7 +224,20 @@ export default function PaymentsScreen() {
               toast.error(err?.message ?? 'Could not update default')
             }
           }}
-          onAddCard={() => toast.info('Add card coming in V1.5')}
+          onAddCard={() => setCardSheet(true)}
+          onRemoveCard={onRemoveCard}
+        />
+        <AddCardSheet
+          open={cardSheet}
+          onOpenChange={setCardSheet}
+          last4={cardLast4}
+          setLast4={setCardLast4}
+          brand={cardBrand}
+          setBrand={setCardBrand}
+          exp={cardExp}
+          setExp={setCardExp}
+          busy={cardBusy}
+          onSubmit={onAddCardSubmit}
         />
 
         <TransactionsSection
@@ -223,6 +290,7 @@ function PaymentMethodsSection({
   methods,
   onSetDefault,
   onAddCard,
+  onRemoveCard,
 }: {
   methods: Array<{
     _id: string
@@ -236,6 +304,7 @@ function PaymentMethodsSection({
   }>
   onSetDefault: (id: string) => void
   onAddCard: () => void
+  onRemoveCard: (id: string) => void
 }) {
   return (
     <YStack paddingHorizontal="$4" marginTop="$5" gap="$3">
@@ -252,21 +321,95 @@ function PaymentMethodsSection({
           {methods.map((m) => {
             const brand: Brand = normalizeBrand(m.brand)
             return (
-              <Card
-                key={m._id}
-                variant="outlined"
-                padding="md"
-                onPress={() => onSetDefault(m._id)}
-                accessibilityLabel={`Set ${brand} ending ${m.last4 ?? '****'} as default`}
-              >
-                <PaymentMethodCardContent method={m} brand={brand} />
-              </Card>
+              <YStack key={m._id} gap="$1">
+                <Card
+                  variant="outlined"
+                  padding="md"
+                  onPress={() => onSetDefault(m._id)}
+                  accessibilityLabel={`Set ${brand} ending ${m.last4 ?? '****'} as default`}
+                >
+                  <PaymentMethodCardContent method={m} brand={brand} />
+                </Card>
+                <XStack justifyContent="flex-end">
+                  <Text
+                    variant="bodySmall"
+                    color="danger"
+                    onPress={() => onRemoveCard(m._id)}
+                    accessibilityLabel={`Remove card ending ${m.last4 ?? '****'}`}
+                  >
+                    Remove
+                  </Text>
+                </XStack>
+              </YStack>
             )
           })}
         </YStack>
       )}
       <Button label="Update payment method" variant="outline" size="md" fullWidth onPress={onAddCard} />
+      <Text variant="caption" color="muted" align="center">
+        Cards are saved on file for membership billing. Full PANs never touch our servers.
+      </Text>
     </YStack>
+  )
+}
+
+function AddCardSheet({
+  open,
+  onOpenChange,
+  last4,
+  setLast4,
+  brand,
+  setBrand,
+  exp,
+  setExp,
+  busy,
+  onSubmit,
+}: {
+  open: boolean
+  onOpenChange: (v: boolean) => void
+  last4: string
+  setLast4: (v: string) => void
+  brand: string
+  setBrand: (v: string) => void
+  exp: string
+  setExp: (v: string) => void
+  busy: boolean
+  onSubmit: () => void
+}) {
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange} snapPoints={[70]}>
+      <YStack gap="$3" flex={1}>
+        <Text variant="h3">Add card on file</Text>
+        <Text variant="caption" color="muted">
+          Used for membership billing when a charge is due. Enter only the last 4 digits.
+        </Text>
+        <YStack gap="$1">
+          <Text variant="label">Card brand</Text>
+          <XStack gap="$2" flexWrap="wrap">
+            {['visa', 'mastercard', 'amex', 'apple_pay'].map((b) => (
+              <Button
+                key={b}
+                size="sm"
+                variant={brand === b ? 'primary' : 'secondary'}
+                onPress={() => setBrand(b)}
+              >
+                {b === 'apple_pay' ? ' Apple Pay' : b}
+              </Button>
+            ))}
+          </XStack>
+        </YStack>
+        <YStack gap="$1">
+          <Text variant="label">Last 4 digits</Text>
+          <Input value={last4} onChangeText={setLast4} placeholder="4242" accessibilityLabel="Last 4 digits" />
+        </YStack>
+        <YStack gap="$1">
+          <Text variant="label">Expiry (MM/YY)</Text>
+          <Input value={exp} onChangeText={setExp} placeholder="08/27" accessibilityLabel="Expiry" />
+        </YStack>
+        <Button label={busy ? 'Saving…' : 'Save card'} onPress={onSubmit} variant="primary" size="lg" fullWidth disabled={busy} />
+        <YStack flex={1} />
+      </YStack>
+    </Sheet>
   )
 }
 

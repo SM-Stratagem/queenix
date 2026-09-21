@@ -301,3 +301,18 @@ export const staffPunches = query({
       .take(limit);
   },
 });
+
+/**
+ * Signed-in staff member's own time-off requests, newest first.
+ */
+export const myTimeOff = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireUser(ctx as any);
+    return await ctx.db
+      .query('staffTimeOff')
+      .filter((q) => q.eq(q.field('userId'), user._id))
+      .order('desc')
+      .take(50);
+  },
+});

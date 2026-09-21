@@ -70,31 +70,44 @@ export default function ClassDetailScreen() {
     classId ? ({ id: classId as any } as any) : 'skip'
   );
   const bookClass = useConvexMutation(api.mutations.bookings.bookClass);
+  const cancelBooking = useConvexMutation(api.mutations.bookings.cancelBooking);
+  const bookingsMutations = (api.mutations as any).bookings;
+  const joinWaitlist = useConvexMutation(bookingsMutations.joinWaitlist);
+  const leaveWaitlist = useConvexMutation(bookingsMutations.leaveWaitlist);
+  const myBookings = useConvexQuery((api.queries as any).classes.getMyBookings, {});
 
-  const [isBooked, setIsBooked] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  const mine = (myBookings as any[] | undefined)?.find(
+    (b) => String(b.classInstanceId) === String(classId) && (b.status === 'confirmed' || b.status === 'waitlisted')
+  );
 
   const handleBook = useCallback(async () => {
     if (!cls) return;
-    const isFull = cls.bookedCount >= cls.capacity;
-    if (isFull) {
-      toast.info('Class is full — waitlist is not enabled yet');
-      return;
-    }
     setBusy(true);
     try {
-      await bookClass({
-        classInstanceId: cls._id as any,
-        idempotencyKey: makeIdempotencyKey(),
-      });
-      setIsBooked(true);
-      toast.success(`Booked ${cls.classType?.name ?? 'class'}`);
+      if (mine?.status === 'confirmed') {
+        await cancelBooking({ bookingId: mine._id as any });
+        toast.success('Booking cancelled');
+      } else if (mine?.status === 'waitlisted') {
+        await leaveWaitlist({ bookingId: mine._id as any });
+        toast.success('Left the waitlist');
+      } else if (cls.bookedCount >= cls.capacity) {
+        await joinWaitlist({ classInstanceId: cls._id as any, idempotencyKey: makeIdempotencyKey() });
+        toast.success('On the waitlist — we will notify you of a spot');
+      } else {
+        await bookClass({
+          classInstanceId: cls._id as any,
+          idempotencyKey: makeIdempotencyKey(),
+        });
+        toast.success(`Booked ${cls.classType?.name ?? 'class'}`);
+      }
     } catch (err: any) {
-      toast.error(err?.message ?? 'Could not book this class');
+      toast.error(err?.data?.message ?? err?.message ?? 'Could not update booking');
     } finally {
       setBusy(false);
     }
-  }, [cls, bookClass, toast]);
+  }, [cls, mine, bookClass, cancelBooking, joinWaitlist, leaveWaitlist, toast]);
 
   if (cls === undefined) {
     return (
@@ -289,20 +302,22 @@ export default function ClassDetailScreen() {
         <Button
           label={
             busy
-              ? 'Booking…'
-              : isBooked
-                ? 'Booked — see you there'
-                : isFull
-                  ? 'Join waitlist'
-                  : 'Book this class'
+              ? 'Updating…'
+              : mine?.status === 'confirmed'
+                ? 'Cancel booking'
+                : mine?.status === 'waitlisted'
+                  ? 'Leave waitlist'
+                  : isFull
+                    ? `Join waitlist${cls.waitlistCount ? ` (${cls.waitlistCount} waiting)` : ''}`
+                    : 'Book this class'
           }
-          variant={isBooked ? 'secondary' : isFull ? 'outline' : 'primary'}
+          variant={mine ? 'secondary' : isFull ? 'outline' : 'primary'}
           size="lg"
           fullWidth
           onPress={handleBook}
-          disabled={isBooked || busy}
+          disabled={busy}
           icon={
-            isBooked ? (
+            mine ? (
               <CheckCircle2 size={18} color="$textPrimary" />
             ) : (
               <Icon size={18} color={isFull ? '$brand' : '$textOnBrand'} />

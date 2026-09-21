@@ -124,7 +124,7 @@ export default function RewardsScreen() {
             toNextLabel={`${Math.max(0, NEXT_TIER_COST - pointsBalance)} pts to Platinum`}
             isLoading={loyalty === undefined}
             onHowToEarn={() => toast.info('100 pts per class, 500 for referrals')}
-            onTiers={() => toast.info('Tier breakdown coming soon')}
+            onTiers={() => router.push('/(member)/tiers')}
           />
         </YStack>
 

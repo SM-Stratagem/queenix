@@ -34,7 +34,6 @@ import {
   Play,
   FileText,
   CalendarPlus,
-  Ban,
   Plane,
   CheckCircle2,
 } from '@tamagui/lucide-icons';
@@ -53,6 +52,8 @@ export default function TrainerToday() {
   // next `npx convex dev` codegen refresh (same pattern as web financeRefs).
   const trainingMutations = (api.mutations as any).training;
   const setStatus = useConvexMutation(trainingMutations.updateSessionStatus);
+  const myProfile = useConvexQuery(api.queries.users.getMyTrainerProfile, {});
+  const setAvailability = useConvexMutation(api.mutations.users.updateTrainerProfile);
 
   const isLoading = sessionsQuery === undefined;
   const sessions = sessionsQuery ?? [];
@@ -76,9 +77,16 @@ export default function TrainerToday() {
     };
   }, [sessions]);
 
-  const handleQuickAction = (label: string) => {
-    toast.info(`${label} — coming soon`);
-  };
+  const isAvailable = (myProfile as any)?.isAvailable !== false;
+
+  async function toggleAvailability() {
+    try {
+      await setAvailability({ isAvailable: !isAvailable });
+      toast.success(isAvailable ? 'Marked unavailable' : 'Marked available');
+    } catch (e: any) {
+      toast.error(e?.data?.message ?? e?.message ?? 'Update failed');
+    }
+  }
 
   return (
     <Screen scroll padded={false}>
@@ -160,20 +168,14 @@ export default function TrainerToday() {
           <XStack gap="$3">
             <QuickAction
               icon={<CalendarPlus size={20} color="$textOnBrand" />}
-              label="Add availability"
-              onPress={() => handleQuickAction('Add availability')}
-              flex={1}
-            />
-            <QuickAction
-              icon={<Ban size={20} color="$textOnBrand" />}
-              label="Mark unavailable"
-              onPress={() => handleQuickAction('Mark unavailable')}
+              label={isAvailable ? 'Available' : 'Unavailable'}
+              onPress={toggleAvailability}
               flex={1}
             />
             <QuickAction
               icon={<Plane size={20} color="$textOnBrand" />}
               label="Request day off"
-              onPress={() => handleQuickAction('Request day off')}
+              onPress={() => router.push('/(trainer)/time-off')}
               flex={1}
             />
           </XStack>

@@ -135,6 +135,7 @@ export default function BookScreen() {
   const upcoming = useConvexQuery(api.queries.classes.getUpcomingClasses, { limit: 30 });
   const trainersRaw = useConvexQuery(api.queries.users.getAvailableTrainers, {});
   const bookClass = useConvexMutation(api.mutations.bookings.bookClass);
+  const joinWaitlist = useConvexMutation((api.mutations as any).bookings.joinWaitlist);
 
   const classes: ClassView[] = useMemo(() => {
     if (!upcoming) return [];
@@ -181,23 +182,24 @@ export default function BookScreen() {
   const handleBook = useCallback(
     async (cls: ClassView) => {
       const isFull = cls.bookedCount >= cls.capacity;
-      if (isFull) {
-        toast.info('Class is full — waitlist is not enabled yet');
-        return;
-      }
       const key = makeIdempotencyKey();
       setBookingId(cls.id);
       try {
-        await bookClass({ classInstanceId: cls.id as any, idempotencyKey: key });
-        toast.success(`Booked ${cls.name}`);
+        if (isFull) {
+          await joinWaitlist({ classInstanceId: cls.id as any, idempotencyKey: key });
+          toast.success(`On the waitlist for ${cls.name}`);
+        } else {
+          await bookClass({ classInstanceId: cls.id as any, idempotencyKey: key });
+          toast.success(`Booked ${cls.name}`);
+        }
         router.push(`/(member)/classes/${cls.id}`);
       } catch (err: any) {
-        toast.error(err?.message ?? 'Could not book this class');
+        toast.error(err?.data?.message ?? err?.message ?? 'Could not book this class');
       } finally {
         setBookingId(null);
       }
     },
-    [bookClass, router, toast]
+    [bookClass, joinWaitlist, router, toast]
   );
 
   const isLoadingClasses = upcoming === undefined;

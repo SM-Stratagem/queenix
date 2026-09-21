@@ -13,9 +13,11 @@ import {
   Divider,
   Skeleton,
   EmptyState,
+  Input,
+  Sheet,
   useToast,
 } from '@queenix/ui';
-import { useConvexQuery } from '@/lib/convex';
+import { useConvexQuery, useConvexMutation } from '@/lib/convex';
 import { api } from '@queenix/convex';
 import { Section, KeyValue, Stat } from '@/components/member-detail/primitives';
 import { formatCents } from '@/components/member-detail/format';
@@ -25,7 +27,6 @@ import {
   MembershipTab,
 } from '@/components/member-detail/tabs';
 import {
-  MoreVertical,
   MessageCircle,
   Snowflake,
   CreditCard,
@@ -39,9 +40,8 @@ import {
   CalendarCheck,
   Dumbbell,
   FileText,
-  Edit3,
 } from '@tamagui/lucide-icons';
-import { Pressable } from 'react-native';
+import { Linking } from 'react-native';
 
 type Tab = 'overview' | 'activity' | 'membership' | 'payments' | 'notes';
 
@@ -58,6 +58,12 @@ export default function OwnerMemberDetail() {
   const toast = useToast();
   const params = useLocalSearchParams<{ id?: string }>();
   const [tab, setTab] = useState<Tab>('overview');
+  const [freezeOpen, setFreezeOpen] = useState(false);
+  const [freezeDays, setFreezeDays] = useState('30');
+  const [freezeReason, setFreezeReason] = useState('');
+  const [freezeBusy, setFreezeBusy] = useState(false);
+  const freezeMembership = useConvexMutation(api.mutations.membershipAdmin.freezeAnyMembership);
+  const unfreezeMembership = useConvexMutation(api.mutations.membershipAdmin.unfreezeAnyMembership);
 
   const memberId = (params.id as string) || '';
   const detailQuery = useConvexQuery(
@@ -124,16 +130,6 @@ export default function OwnerMemberDetail() {
         showBack
         onBack={() => router.back()}
         title="Member"
-        right={
-          <Pressable
-            onPress={() => toast.info('More actions — coming soon')}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel="More actions"
-          >
-            <MoreVertical size={20} color="$textPrimary" />
-          </Pressable>
-        }
       />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
@@ -164,23 +160,50 @@ export default function OwnerMemberDetail() {
             </XStack>
             <XStack gap="$2" marginTop="$3">
               <Button
-                label="Message"
+                label="WhatsApp"
                 variant="primary"
                 size="sm"
                 icon={<MessageCircle size={16} color="$textOnBrand" />}
-                onPress={() => toast.info('Opening chat…')}
-                accessibilityLabel="Message member"
+                onPress={() => {
+                  const digits = (member.phone ?? '').replace(/\D/g, '');
+                  if (!digits) {
+                    toast.show('No phone number on file', 'warning');
+                    return;
+                  }
+                  Linking.openURL(`https://wa.me/${digits}?text=${encodeURIComponent(`Hi ${fullName}! This is Queenix Gym — how can we help?`)}`);
+                }}
+                accessibilityLabel="Message member on WhatsApp"
                 flex={1}
               />
-              <Button
-                label="Freeze"
-                variant="outline"
-                size="sm"
-                icon={<Snowflake size={16} color="$brand" />}
-                onPress={() => toast.info('Freeze flow — coming soon')}
-                accessibilityLabel="Freeze membership"
-                flex={1}
-              />
+              {activeMembership?.status === 'frozen' ? (
+                <Button
+                  label="Unfreeze"
+                  variant="outline"
+                  size="sm"
+                  icon={<Snowflake size={16} color="$brand" />}
+                  onPress={async () => {
+                    try {
+                      await unfreezeMembership({ membershipId: activeMembership._id as any });
+                      toast.show('Membership reactivated', 'success');
+                    } catch (err: any) {
+                      toast.show(err?.data?.message ?? err?.message ?? 'Could not unfreeze', 'error');
+                    }
+                  }}
+                  accessibilityLabel="Unfreeze membership"
+                  flex={1}
+                />
+              ) : (
+                <Button
+                  label="Freeze"
+                  variant="outline"
+                  size="sm"
+                  icon={<Snowflake size={16} color="$brand" />}
+                  onPress={() => setFreezeOpen(true)}
+                  accessibilityLabel="Freeze membership"
+                  disabled={!activeMembership}
+                  flex={1}
+                />
+              )}
             </XStack>
           </Card>
         </YStack>
@@ -328,16 +351,58 @@ export default function OwnerMemberDetail() {
                 </Card>
               ))
             )}
-            <Button
-              label="Add note"
-              variant="outline"
-              size="md"
-              icon={<Edit3 size={16} color="$brand" />}
-              onPress={() => toast.info('Add note — coming soon')}
-            />
+            <Text variant="caption" color="muted" align="center">
+              Notes are written by trainers and shown here read-only.
+            </Text>
           </YStack>
         )}
       </ScrollView>
+
+      <Sheet open={freezeOpen} onOpenChange={setFreezeOpen} snapPoints={[60]}>
+        <YStack gap="$3" flex={1}>
+          <Text variant="h3">Freeze membership</Text>
+          <Text variant="caption" color="muted">
+            {activeMembership ? `Freezing the ${activeMembership.status} membership.` : 'No active membership.'}
+          </Text>
+          <YStack gap="$1">
+            <Text variant="label">Days</Text>
+            <Input value={freezeDays} onChangeText={setFreezeDays} placeholder="30" accessibilityLabel="Freeze days" />
+          </YStack>
+          <YStack gap="$1">
+            <Text variant="label">Reason (optional)</Text>
+            <Input value={freezeReason} onChangeText={setFreezeReason} placeholder="e.g. travel" accessibilityLabel="Freeze reason" />
+          </YStack>
+          <Button
+            label={freezeBusy ? 'Freezing…' : 'Confirm freeze'}
+            onPress={async () => {
+              const days = Math.round(Number(freezeDays));
+              if (!activeMembership || !Number.isFinite(days) || days <= 0) {
+                toast.show('Enter a positive number of days', 'warning');
+                return;
+              }
+              setFreezeBusy(true);
+              try {
+                await freezeMembership({
+                  membershipId: activeMembership._id as any,
+                  days,
+                  reason: freezeReason.trim() || undefined,
+                });
+                toast.show(`Frozen for ${days} days`, 'success');
+                setFreezeOpen(false);
+              } catch (err: any) {
+                toast.show(err?.data?.message ?? err?.message ?? 'Could not freeze', 'error');
+              } finally {
+                setFreezeBusy(false);
+              }
+            }}
+            variant="primary"
+            size="lg"
+            fullWidth
+            disabled={freezeBusy}
+          />
+          <YStack flex={1} />
+        </YStack>
+      </Sheet>
     </Screen>
   );
 }

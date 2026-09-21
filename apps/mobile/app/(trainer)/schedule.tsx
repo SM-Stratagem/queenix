@@ -13,7 +13,8 @@ import {
   ErrorState,
   useToast,
 } from '@queenix/ui';
-import { useConvexQuery } from '@/lib/convex';
+import { Share } from 'react-native';
+import { useConvexQuery, useConvexMutation } from '@/lib/convex';
 import { StatChip, ToggleButton, LegendDot, DayView } from '@/components/trainer-schedule/ScheduleBits';
 import { getWeekRange, getDayNumbers } from '@/components/trainer-schedule/format';
 import { api } from '@queenix/convex';
@@ -68,6 +69,40 @@ export default function TrainerSchedule() {
   // (The weekOffset selector is shown but data is from getWeekSchedule
   // which returns the current week. Future: parameterize the query.)
   const scheduleQuery = useConvexQuery(api.queries.users.getWeekSchedule, {});
+  const myProfile = useConvexQuery(api.queries.users.getMyTrainerProfile, {});
+  const setAvailability = useConvexMutation(api.mutations.users.updateTrainerProfile);
+  const isAvailable = (myProfile as any)?.isAvailable !== false;
+
+  function fmtTime(ts: number): string {
+    const d = new Date(ts);
+    return d.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' }) +
+      ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  async function onShareWeek() {
+    const lines = (items as any[]).map((it) =>
+      it.kind === 'pt'
+        ? `• ${fmtTime(it.startsAt)} — PT with ${it.member?.fullName ?? 'member'} (${it.status})`
+        : `• ${fmtTime(it.startsAt)} — ${it.classType?.name ?? 'Class'} (${it.bookedCount}/${it.capacity})`
+    );
+    try {
+      await Share.share({
+        title: `My schedule — ${weekLabel}`,
+        message: `My schedule — ${weekLabel}\n${lines.length > 0 ? lines.join('\n') : 'No sessions this week.'}`,
+      });
+    } catch {
+      // Dismissed — nothing to do.
+    }
+  }
+
+  async function onToggleAvailability() {
+    try {
+      await setAvailability({ isAvailable: !isAvailable });
+      toast.success(isAvailable ? 'Marked unavailable' : 'Marked available');
+    } catch (e: any) {
+      toast.error(e?.data?.message ?? e?.message ?? 'Update failed');
+    }
+  }
   const isLoading = scheduleQuery === undefined;
   const items = scheduleQuery?.items ?? [];
 
@@ -151,9 +186,9 @@ export default function TrainerSchedule() {
               <Text variant="h2">Schedule</Text>
             </YStack>
             <XStack
-              onPress={() => toast.info('Calendar export — coming soon')}
+              onPress={onShareWeek}
               accessibilityRole="button"
-              accessibilityLabel="Export calendar"
+              accessibilityLabel="Share week"
               padding="$2"
             >
               <Calendar size={22} color="$brand" />
@@ -312,20 +347,20 @@ export default function TrainerSchedule() {
         {/* Actions */}
         <YStack paddingHorizontal="$4" marginTop="$4" gap="$3">
           <Button
-            label="Manage availability"
+            label={isAvailable ? 'Available — tap to go unavailable' : 'Unavailable — tap to go available'}
             variant="primary"
             size="lg"
             fullWidth
             icon={<Settings size={18} color="$textOnBrand" />}
-            onPress={() => toast.info('Availability manager — coming soon')}
+            onPress={onToggleAvailability}
           />
           <Button
-            label="Block time"
+            label="Request day off"
             variant="outline"
             size="lg"
             fullWidth
             icon={<Lock size={18} color="$brand" />}
-            onPress={() => toast.info('Block-time sheet — coming soon')}
+            onPress={() => router.push('/(trainer)/time-off')}
           />
         </YStack>
       </ScrollView>

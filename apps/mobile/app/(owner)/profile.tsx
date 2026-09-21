@@ -1,22 +1,19 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { YStack, XStack, ScrollView } from 'tamagui';
 import { useRouter } from 'expo-router';
-import { Screen, Text, Card, Avatar, Badge, Button, Divider, Switch } from '@queenix/ui';
+import { Screen, Text, Card, Avatar, Badge, Button } from '@queenix/ui';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@queenix/ui';
+import { useConvexQuery } from '@/lib/convex';
+import { api } from '@queenix/convex';
 import {
   Building2,
-  Clock,
   DollarSign,
   Users,
-  Plug,
   FileBarChart,
   LogOut,
   ChevronRight,
-  Bell,
-  Lock,
   HelpCircle,
-  Shield,
   Megaphone,
   Repeat,
   Briefcase,
@@ -27,9 +24,18 @@ export default function OwnerProfile() {
   const { session, signOut, switchRole } = useAuth();
   const toast = useToast();
 
-  const [pushEnabled, setPushEnabled] = useState(true);
-  const [quietHours, setQuietHours] = useState(false);
-  const [biometric, setBiometric] = useState(true);
+  const branches = useConvexQuery(api.queries.branches.branchesList, {});
+  const plans = useConvexQuery(api.queries.membershipAdmin.listAllPlans, {});
+  const staff = useConvexQuery((api.queries as any).org.staffDirectory, { limit: 500 });
+  const coffeePay = useConvexQuery((api.queries as any).commerce.getVenuePaymentSettings, { venue: 'coffee' });
+  const salonPay = useConvexQuery((api.queries as any).commerce.getVenuePaymentSettings, { venue: 'salon' });
+
+  const branchList: any[] = branches ?? [];
+  const branch = branchList.find((b) => b.isActive) ?? branchList[0];
+  const planList: any[] = plans ?? [];
+  const staffList: any[] = staff ?? [];
+  const trainerCount = staffList.filter((s) => s.user.activeRole === 'trainer').length;
+  const deskCount = staffList.filter((s) => ['operations', 'coffee', 'salon'].includes(s.user.activeRole)).length;
 
   const handleSignOut = async () => {
     await signOut();
@@ -74,7 +80,7 @@ export default function OwnerProfile() {
           </YStack>
         )}
 
-        {/* Gym business info */}
+        {/* Gym business info — live data */}
         <YStack paddingHorizontal="$4" marginTop="$4">
           <Text variant="caption" color="muted" marginBottom="$2" textTransform="uppercase">
             Business
@@ -83,26 +89,20 @@ export default function OwnerProfile() {
             <SettingsItem
               icon={<Building2 size={20} color="$textPrimary" />}
               title="Gym info"
-              subtitle="Queenix Gym — Jumeirah, Dubai"
-              onPress={() => toast.info('Edit gym details coming soon')}
-            />
-            <SettingsItem
-              icon={<Clock size={20} color="$textPrimary" />}
-              title="Business hours"
-              subtitle="Mon–Fri 6 AM – 10 PM • Sat–Sun 8 AM – 8 PM"
-              onPress={() => toast.info('Edit hours coming soon')}
+              subtitle={branch ? `${branch.name} — ${branch.city}` : 'Loading…'}
+              onPress={() => router.push('/(owner)/branch')}
             />
             <SettingsItem
               icon={<DollarSign size={20} color="$textPrimary" />}
               title="Pricing & plans"
-              subtitle="4 plans, 3 add-ons"
-              onPress={() => toast.info('Pricing editor coming soon')}
+              subtitle={plans === undefined ? 'Loading…' : `${planList.filter((p: any) => p.isActive).length} active plans`}
+              onPress={() => router.push('/(owner)/overview')}
             />
             <SettingsItem
               icon={<Users size={20} color="$textPrimary" />}
               title="Staff management"
-              subtitle="6 active trainers, 3 front desk"
-              onPress={() => toast.info('Staff manager coming soon')}
+              subtitle={staff === undefined ? 'Loading…' : `${trainerCount} trainers · ${deskCount} front desk/venues`}
+              onPress={() => router.push('/(owner)/staff')}
             />
           </YStack>
         </YStack>
@@ -117,7 +117,7 @@ export default function OwnerProfile() {
               icon={<Megaphone size={20} color="$textPrimary" />}
               title="Announcements"
               subtitle="Send push to all members"
-              onPress={() => toast.info('Composer coming soon')}
+              onPress={() => router.push('/(owner)/announce')}
             />
             <SettingsItem
               icon={<FileBarChart size={20} color="$textPrimary" />}
@@ -127,83 +127,43 @@ export default function OwnerProfile() {
             />
             <SettingsItem
               icon={<Briefcase size={20} color="$textPrimary" />}
-              title="Approvals policy"
-              subtitle="Auto-approve under AED 100"
-              onPress={() => toast.info('Policy editor coming soon')}
-            />
-            <SettingsItem
-              icon={<Plug size={20} color="$textPrimary" />}
-              title="Integrations"
-              subtitle="Stripe, Zoho, WhatsApp connected"
-              onPress={() => toast.info('Integrations manager coming soon')}
+              title="Approvals inbox"
+              subtitle="Decide requests"
+              onPress={() => router.push('/(owner)/approvals')}
             />
           </YStack>
         </YStack>
 
-        {/* Preferences */}
+        {/* Venue gateways — live status */}
         <YStack paddingHorizontal="$4" marginTop="$4">
-          <Card variant="outlined">
-            <Text variant="label" marginBottom="$3">Preferences</Text>
-            <Switch
-              label="Push notifications"
-              description="Approvals, incidents, low occupancy"
-              value={pushEnabled}
-              onValueChange={setPushEnabled}
-            />
-            <Divider />
-            <Switch
-              label="Quiet hours"
-              description="10 PM – 7 AM Dubai time"
-              value={quietHours}
-              onValueChange={setQuietHours}
-            />
-            <Divider />
-            <Switch
-              label="Biometric sign-in"
-              description="Face ID for app access"
-              value={biometric}
-              onValueChange={setBiometric}
-            />
-            <Divider />
-            <XStack justifyContent="space-between" alignItems="center" paddingVertical="$2">
-              <XStack alignItems="center" gap="$3">
-                <Bell size={20} color="$textPrimary" />
-                <YStack>
-                  <Text variant="body" weight="500">Alerts & sounds</Text>
-                  <Text variant="caption" color="muted">Default Queenix chime</Text>
-                </YStack>
+          <Text variant="caption" color="muted" marginBottom="$2" textTransform="uppercase">
+            Venue payments
+          </Text>
+          <Card variant="outlined" padding="sm">
+            <YStack gap="$1">
+              <XStack justifyContent="space-between">
+                <Text variant="body" weight="500">Coffee shop</Text>
+                <Text variant="caption" color="muted">
+                  {coffeePay === undefined ? '…' : `${coffeePay.provider} · ${coffeePay.currency}${coffeePay.enabled ? '' : ' · off'}`}
+                </Text>
               </XStack>
-              <Text
-                variant="bodySmall"
-                color="brand"
-                fontWeight="600"
-                onPress={() => toast.info('Sound picker coming soon')}
-              >
-                Change
-              </Text>
-            </XStack>
+              <XStack justifyContent="space-between">
+                <Text variant="body" weight="500">Salon</Text>
+                <Text variant="caption" color="muted">
+                  {salonPay === undefined ? '…' : `${salonPay.provider} · ${salonPay.currency}${salonPay.enabled ? '' : ' · off'}`}
+                </Text>
+              </XStack>
+            </YStack>
           </Card>
         </YStack>
 
         {/* Security & support */}
         <YStack paddingHorizontal="$4" marginTop="$4" gap="$2">
           <SettingsItem
-            icon={<Shield size={20} color="$textPrimary" />}
-            title="Roles & permissions"
-            subtitle="Manager, trainer, front desk scopes"
-            onPress={() => toast.info('RBAC manager coming soon')}
-          />
-          <SettingsItem
-            icon={<Lock size={20} color="$textPrimary" />}
-            title="Privacy & security"
-            subtitle="Audit log, data export, sessions"
-            onPress={() => toast.info('Security center coming soon')}
-          />
-          <SettingsItem
             icon={<HelpCircle size={20} color="$textPrimary" />}
             title="Help & support"
-            subtitle="Owner help center, contact Concierge"
-            onPress={() => toast.info('Support coming soon')}
+            subtitle="Contact Concierge"
+            onPress={() => router.push('/(owner)/support')}
           />
         </YStack>
 

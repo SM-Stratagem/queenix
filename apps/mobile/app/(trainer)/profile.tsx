@@ -186,8 +186,8 @@ export default function TrainerProfile() {
           <SettingsItem
             icon={<Globe size={20} color="$textPrimary" />}
             title="Language & region"
-            subtitle="English • UAE"
-            onPress={() => toast.info("Language settings — coming soon")}
+            subtitle="English · Arabic soon"
+            onPress={() => toast.info("Arabic is coming soon — the app is English for now")}
           />
         </YStack>
 

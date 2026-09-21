@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { YStack, XStack, ScrollView, Progress as TProgress } from 'tamagui';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import {
@@ -11,12 +11,13 @@ import {
   Badge,
   Chip,
   Divider,
+  Input,
   Skeleton,
   EmptyState,
   ErrorState,
   useToast,
 } from '@queenix/ui';
-import { useConvexQuery } from '@/lib/convex';
+import { useConvexQuery, useConvexMutation } from '@/lib/convex';
 import { api } from '@queenix/convex';
 import { Section, KeyValue, Stat as ClientStat } from '@/components/trainer-client/primitives';
 import { getRelative } from '@/components/trainer-client/format';
@@ -55,6 +56,8 @@ export default function TrainerClientDetail() {
   const memberId = (params.id as string) || '';
   const [tab, setTab] = useState<Tab>('overview');
   const [noteDraft, setNoteDraft] = useState('');
+  const noteInputRef = useRef<any>(null);
+  const addNote = useConvexMutation((api.mutations as any).training.addTrainerNote);
 
   const clientQuery = useConvexQuery(
     api.queries.users.getClientDetail,
@@ -114,13 +117,18 @@ export default function TrainerClientDetail() {
     ? getRelative(upcoming.scheduledAt)
     : '—';
 
-  const handleSendNote = () => {
+  const handleSendNote = async () => {
     if (noteDraft.trim().length === 0) {
       toast.show('Type a note first', 'warning');
       return;
     }
-    toast.show('Note saved (locally — backend persistence coming soon)', 'success');
-    setNoteDraft('');
+    try {
+      await addNote({ memberId: memberId as any, note: noteDraft.trim() });
+      toast.show('Note saved', 'success');
+      setNoteDraft('');
+    } catch (err: any) {
+      toast.show(err?.data?.message ?? err?.message ?? 'Could not save note', 'error');
+    }
   };
 
   return (
@@ -242,7 +250,19 @@ export default function TrainerClientDetail() {
         )}
 
         {tab === 'notes' && (
-          <ClientNotesTab notes={latestNotes ?? []} onAdd={() => toast.info("Add note — coming soon")} />
+          <YStack paddingHorizontal="$4" gap="$2" marginTop="$2">
+            <Input
+              ref={noteInputRef}
+              value={noteDraft}
+              onChangeText={setNoteDraft}
+              placeholder="New coaching note…"
+              multiline
+              numberOfLines={3}
+              accessibilityLabel="New coaching note"
+            />
+            <Button label="Save note" variant="primary" onPress={handleSendNote} />
+            <ClientNotesTab notes={latestNotes ?? []} onAdd={() => noteInputRef.current?.focus?.()} />
+          </YStack>
         )}
       </ScrollView>
     </Screen>

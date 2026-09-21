@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { YStack, XStack, ScrollView } from 'tamagui';
+import { Share } from 'react-native';
 import {
   Screen,
   Text,
@@ -182,12 +183,25 @@ export default function TrainerEarnings() {
             disabled={pendingCents <= 0}
           />
           <Button
-            label="Download monthly statement"
+            label="Share monthly statement"
             variant="outline"
             size="md"
             fullWidth
             icon={<Download size={18} color="$brand" />}
-            onPress={() => toast.show('Statement generation — coming soon', 'info')}
+            onPress={async () => {
+              const lines = thisMonthRecords.map(
+                (r: any) =>
+                  `• ${new Date(r.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} — ${formatMoney(r.amountCents, r.currency)} (${r.status})`
+              );
+              try {
+                await Share.share({
+                  title: `Earnings — ${getMonthLabel()}`,
+                  message: `Queenix earnings — ${getMonthLabel()}\nTotal: ${formatMoney(monthEarningsCents, CURRENCY)}\n${lines.length > 0 ? lines.join('\n') : 'No entries this month.'}`,
+                });
+              } catch {
+                // Dismissed — nothing to do.
+              }
+            }}
           />
         </YStack>
 

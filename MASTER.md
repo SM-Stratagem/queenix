@@ -117,7 +117,16 @@ Env: `.env.testing` (local), `.env.docker`, `.env.platform.example`
 (production keys). After `npx convex dev`, generated `api.d.ts` refreshes and
 the temporary `as any` shims (finance refs, training calls, commerceOps) can go.
 
-## 8. Current gaps (known, not built)
+## 8. Member app (2026-09-21 pass)
+
+Account screens all live: health/emergency (updateMyProfile), vehicles,
+ persisted notification/marketing toggles, notifications inbox (read/all-read),
+ support tickets (file + track), security (change password), tier breakdown,
+ card on file add/remove, class waitlist (join/leave/auto-promote + notify),
+ my-bookings cancel, real document signing (typed-name signatures).
+ Language stays English (AR dictionary exists, app not localized).
+
+## 9. Current gaps (known, not built)
 
 - Payroll-rate math (no pay fields on staff profiles).
 - Raw staff punch log has no UI (timings + time-off cover attendance).

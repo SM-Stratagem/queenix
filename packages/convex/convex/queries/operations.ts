@@ -43,3 +43,33 @@ export const getSupportQueue = query({
     return []
   },
 })
+
+/**
+ * Signed-in member's own support tickets (uses by_member index).
+ */
+export const getMyTickets = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireUser(ctx)
+    return await ctx.db
+      .query('supportTickets')
+      .withIndex('by_member', (q: any) => q.eq('memberId', user._id))
+      .order('desc')
+      .take(50)
+  },
+})
+
+/**
+ * Signed-in member's notification inbox, newest first.
+ */
+export const getMyNotifications = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireUser(ctx)
+    return await ctx.db
+      .query('notifications')
+      .withIndex('by_user', (q: any) => q.eq('userId', user._id))
+      .order('desc')
+      .take(50)
+  },
+})
