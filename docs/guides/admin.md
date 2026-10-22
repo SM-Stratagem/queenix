@@ -5,7 +5,9 @@
 **What this role is for:** full access to every page and every action in the
 staff console: members, staff and roles, front desk, money, venues, growth,
 outreach, the website and reports. Admin and [superadmin](superadmin.md) see
-the same screens today. You are also the person who works with the developer
+the same pages. Two differences: you can't make anyone an **admin** or
+**superadmin**, and you can't change the roles of another admin or a
+superadmin (ask a superadmin). You are also the person who works with the developer
 to get the system ready for real use (see
 [Going-live checklist](#going-live-checklist)).
 
@@ -53,13 +55,15 @@ The full page-by-page table (with every page title) is in
 | **Live occupancy** | Who is in the gym now |
 | **Classes happening now** | Live classes (**LIVE**), "Up next today", open incidents and staff on shift |
 | **Recent check-ins** | The last entries and exits (denied ones are marked) |
-| **Scanner health** | Each door scanner online/offline; **Refresh** |
+| **Scanner health** | Each door scanner online/offline (updates by itself; a scanner counts as online if it reported in the last 2 minutes) |
 
 ### 2. Clear the queues
 
 - **Approvals**: anything **Pending** (see
-  [finance.md](finance.md#2-handle-a-trainers-early-payout-request)).
-- **Team & roles** → **Timings & time off**: pending day-off requests.
+  [finance.md](finance.md#2-handle-a-trainers-early-payout-request)). You
+  can't decide a request you made yourself.
+- **Team & roles** → **Timings & time off**: pending day-off requests (also in
+  the app: **Approvals** → **Time off**).
 - **CRM**: new website trial requests in the **new** column.
 
 ### 3. Weekly
@@ -74,6 +78,10 @@ The full page-by-page table (with every page title) is in
 See [Giving someone a role](README.md#giving-someone-a-role) and
 [superadmin.md](superadmin.md#2-set-up-a-new-staff-member-from-start-to-finish).
 
+As admin you can give **finance**, **operations**, **salon**, **coffee**,
+**trainer** and **member**, to people ranked below you. You can't change your
+own roles.
+
 ---
 
 ## Going-live checklist
@@ -86,11 +94,11 @@ what to ask for. The details are in `DEPLOY.md` and `docs/` in the project.
 | 1 | Production servers and secret keys generated and stored safely | The system won't start without them | `DEPLOY.md` sections 2, 4 or 5 |
 | 2 | Email sending set up (SMTP), with your domain verified | Sign-up and password-reset codes. Without domain checks, codes land in spam | `DEPLOY.md` section 3 |
 | 3 | SMS sending set up (Twilio, with a registered UAE sender ID) | Phone sign-in codes | `DEPLOY.md` section 3 |
-| 4 | Card payments: real Stripe and/or Tap keys | Today everything runs in test mode; no real card money moves | `DEPLOY.md` section 2, `docs/PAYMENTS.md` |
+| 4 | Card payments: real Stripe and/or Tap keys Until they are added, members can't pay by card in the app (they see "Online payment isn't available yet … pay at the front desk") and coffee/salon payment links don't work | `DEPLOY.md` section 2, `docs/PAYMENTS.md` |
 | 5 | The first superadmin account | Someone must be able to hand out roles. The developer sets this with the protected role-assignment tool | `DEPLOY.md` section 2 (`QUEENIX_ADMIN_TOKEN`) |
 | 6 | Mobile app built and published (EAS build, App Store, Google Play) | Members need the app. Phone push only works in this build | `DEPLOY.md` section 6 |
 | 7 | Real App Store / Google Play links | The website buttons are placeholders until then. Put the links in **Website** → **Content** → **App promo** | [website-editor.md](website-editor.md) |
-| 8 | Door QR scanner and fingerprint reader installed and connected | Automatic check-in and staff punch-in | `docs/SCANNER_SETUP.md`, `DEPLOY.md` section 7 |
+| 8 | Door QR scanner and fingerprint reader installed and connected. Each device must send the scanner key (`SCANNER_API_KEY`) in the `X-Scanner-Key` header | Automatic check-in and staff punch-in | `DEPLOY.md` sections 2 and 7, `docs/SCANNER_SETUP.md` |
 | 9 | Daily backups switched on | Recovery after a failure | `DEPLOY.md` section 7 |
 | 10 | Demo accounts and demo data **not** loaded on the live system | Demo logins use a shared password | `DEPLOY.md` section 7 |
 | 11 | Website text, photos and blog replaced with your own | The site ships with placeholder copy and stock photos | [website-editor.md](website-editor.md) |
@@ -104,11 +112,12 @@ what to ask for. The details are in `DEPLOY.md` and `docs/` in the project.
 
 | You want to… | What to do |
 |---|---|
-| Give one person a single extra permission | No screen yet; ask your developer |
+| Give one person a single extra permission | No screen yet; ask your developer ([README](README.md#giving-one-extra-permission-without-a-new-role)) |
+| Make someone admin or superadmin, or change another admin's roles | Ask a superadmin |
 | Delete a user | Not possible; remove their staff roles |
 | Create classes on the timetable | No screen yet; ask your developer |
-| Refund a successful card payment | In Stripe or Tap (test mode for now) |
-| Filter the Dashboard by branch | The **Branch** selector only labels the view today |
+| Refund a successful card payment | In Stripe or Tap |
+| Filter the Dashboard by branch | Not yet. The **Branch** selector filters **Events** only; Dashboard figures are gym-wide |
 
 ---
 
@@ -118,7 +127,9 @@ what to ask for. The details are in `DEPLOY.md` and `docs/` in the project.
 |---|---|---|
 | **Scanner health** shows a scanner offline | The door scanner hasn't reported in | Power-cycle it; staff can use the app camera |
 | **Scanner health** says "No scanners registered…" | No door scanner connected yet | See item 8 of the checklist |
-| A card checkout fails in the app | No real payment keys yet, or a provider error | Take payment at the counter; see checklist item 4 |
+| A door scanner is rejected or never shows online | It isn't sending the right scanner key | Ask your developer to check the device sends `X-Scanner-Key` (checklist item 8) |
+| *"This person is at or above your level — ask a superadmin."* | You tried to change an admin's or superadmin's roles | Ask a superadmin |
+| A card checkout fails in the app, or members see "Online payment isn't available yet" | No real payment keys yet, or a provider error | Take payment at the counter; see checklist item 4 |
 | Members say codes don't arrive | Email/SMS not set up or landing in spam | Checklist items 2 and 3 |
-| Staff say a page shows *"Live data unavailable…"* | Their role can't load that page's data | Check their role (some menu items load only for certain roles; see each role's guide) |
+| Staff say a page shows *"Live data unavailable…"* | Their role can't load that page's data | Check their role (see each role's guide) |
 | Sign-in problems | See [README](README.md#common-problems-all-roles) | |

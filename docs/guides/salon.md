@@ -30,8 +30,7 @@ Your left menu shows:
 |---|---|
 | **Salon — payment gateway** | How the salon takes online payments ("Now: …"). See [Change the payment gateway](#4-change-the-payment-gateway) |
 | Cards | **Revenue (non-cancelled)**, **Billable bookings**, **Open queue**, **Inflow by status** |
-| **Add service** | Name, price and duration for a new service (managers only, see below) |
-| **Services** | The service list with **Deactivate** / **Activate** and **Remove** (managers only) |
+| **Services** | The service list. You can see it but not change it (no **Add service**, **Deactivate** or **Remove** for you; see [What you can't do](#what-you-cant-do)) |
 | **Walk-in booking (counter, cash)** | Book a customer who walks in and pays cash |
 | **Booking queue** | All pending and confirmed bookings |
 
@@ -44,9 +43,15 @@ Your left menu shows:
 Each line in **Booking queue** shows: customer name · service · date and time ·
 status · payment mode.
 
+Bookings only move forward: pending → confirmed → completed. You can cancel
+a booking while it is pending or confirmed.
+
 1. A new booking is **pending**. Click **Confirm** once you accept it.
 2. When the service is done, click **Complete**. The booking leaves the queue.
 3. If the customer cancels or doesn't come, click **Cancel**.
+
+If a step isn't allowed, the reason appears in red above the queue, for
+example *"Cannot move a cancelled booking to completed"* (someone else cancelled it first).
 
 When the queue is empty it says *"Queue is empty — no pending or confirmed
 bookings."*
@@ -70,8 +75,10 @@ Card payment link (when the gateway is Tap or Stripe and
 3. When they pay, the booking shows **Paid**. Click **Refresh link** if the
    customer needs a fresh one.
 
-> Card payments run in **test mode** for now: no real money moves through a
-> payment link. Take cash or card at the till for real payments.
+> Payment links only work with **Tap** once your developer has added the real
+> keys. Until then you'll see *"Payment gateway not configured"*. With
+> **Stripe** you'll see *"Stripe payment links are not available yet — use Tap
+> or cash"*. Take cash or card at the till instead.
 
 ### 3. Book a walk-in customer
 
@@ -82,8 +89,8 @@ Card payment link (when the gateway is Tap or Stripe and
 4. Take the cash. The booking is already marked **Paid · cash** and appears in
    the queue as **pending**: **Confirm** and **Complete** it as usual.
 
-Walk-in bookings show **your** name as the customer name, because the
-customer has no account. Write the customer's name down if you need it.
+Walk-in bookings show **Walk-in** as the customer name, because the customer
+has no account. Write the customer's name down if you need it.
 
 ### 4. Change the payment gateway
 
@@ -127,7 +134,8 @@ yet. Use the staff console for the salon queue.
 
 | You want to… | Who can help |
 |---|---|
-| Add, deactivate or remove a service (**Create service**, **Deactivate**, **Remove**) | Operations, finance or admin. The buttons show for you, but saving fails |
+| Add, deactivate or remove a service | Operations, finance or admin. These buttons don't show for salon staff |
+| Move a booking back a step (for example completed → confirmed) | Not possible; bookings only move forward |
 | See the coffee shop or other console pages | Not part of the salon role |
 | Refund a card payment | Finance or admin |
 | Change your role | Superadmin, admin or finance |
@@ -138,8 +146,10 @@ yet. Use the staff console for the salon queue.
 
 | Problem | What it means | What to do |
 |---|---|---|
-| An error mentioning "Requires one of", or nothing happens, after **Create service**, **Deactivate** or **Remove** | Only managers can change the service list | Ask operations or finance |
+| *"Cannot move a … booking to …"* | Bookings only move forward | Use the button shown for the booking's current status |
 | *"salon is set to cash — switch its gateway to Tap or Stripe first"* | Payment links need an online gateway | Take cash, or ask a manager to change the gateway |
+| *"Payment gateway not configured"* | No real card keys are set up yet | Take cash; tell your manager |
+| *"Stripe payment links are not available yet — use Tap or cash"* | Links work only with Tap | Take cash, or ask a manager to switch the gateway to Tap |
 | *"Online payments are disabled for salon"* | **Online payments on** is unticked | Take cash, or ask a manager |
 | *"Order is already paid"* / *"Already paid"* | Someone already marked it paid | Nothing to do |
 | *"Pick a service, date and time."* | Walk-in form incomplete | Fill all three |

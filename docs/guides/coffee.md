@@ -30,8 +30,7 @@ Your left menu shows:
 |---|---|
 | **Coffee shop — payment gateway** | How the coffee shop takes online payments ("Now: …"). See [Change the payment gateway](#4-change-the-payment-gateway) |
 | Cards | **Revenue (non-cancelled)**, **Billable orders**, **Open queue**, **Inflow by status** |
-| **Add menu item** | Name and price of a new item (managers only, see below) |
-| **Menu** | The menu with **Deactivate** / **Activate** and **Remove** (managers only) |
+| **Menu** | The menu list. You can see it but not change it (no **Add menu item**, **Deactivate** or **Remove** for you; see [What you can't do](#what-you-cant-do)) |
 | **Counter sale (walk-up, cash)** | Ring up a customer who pays cash at the counter |
 | **Order queue** | All open orders |
 
@@ -44,7 +43,8 @@ Your left menu shows:
 Each line in **Order queue** shows: customer name · items · total · status ·
 payment mode.
 
-Move each order along with the button next to it:
+Move each order along with the button next to it. Orders only move forward:
+queued → preparing → ready → served. You can't move an order back a step.
 
 | Status | Button | Next status |
 |---|---|---|
@@ -52,8 +52,10 @@ Move each order along with the button next to it:
 | **preparing** | **Mark ready** | ready |
 | **ready** | **Mark served** | served (leaves the queue) |
 
-Click **Cancel** to cancel an order that is queued or preparing. (Ready orders
-can't be cancelled; serve them.)
+Click **Cancel** to cancel an order that is queued or preparing. (A ready
+order has no **Cancel** button; serve it.) If two people click at once, the
+second click does nothing. If a step isn't allowed, the reason appears in red
+above the queue, for example *"Cannot move a cancelled order to ready"* (someone else cancelled it first).
 
 When the queue is empty it says *"Queue is empty — no open orders."*
 
@@ -74,8 +76,10 @@ Card payment link (when the gateway is Tap or Stripe and
 2. Click **Copy** and send it to the customer.
 3. When they pay, the order shows **Paid**. **Refresh link** makes a new one.
 
-> Card payments run in **test mode** for now: no real money moves through a
-> payment link. Take cash or card at the counter for real payments.
+> Payment links only work with **Tap** once your developer has added the real
+> keys. Until then you'll see *"Payment gateway not configured"*. With
+> **Stripe** you'll see *"Stripe payment links are not available yet — use Tap
+> or cash"*. Take cash or card at the counter instead.
 
 ### 3. Ring up a walk-up customer
 
@@ -85,7 +89,7 @@ Card payment link (when the gateway is Tap or Stripe and
 4. Take the cash. The order is already **Paid · cash** and appears in the queue
    as **queued**: prepare and serve it as usual.
 
-Walk-up orders show **your** name as the customer name, because the customer
+Walk-up orders show **Walk-in** as the customer name, because the customer
 has no account.
 
 ### 4. Change the payment gateway
@@ -127,7 +131,8 @@ yet. Use the staff console for the queue.
 
 | You want to… | Who can help |
 |---|---|
-| Add, deactivate or remove a menu item (**Create item**, **Deactivate**, **Remove**) | Operations, finance or admin. The buttons show for you, but saving fails |
+| Add, deactivate or remove a menu item | Operations, finance or admin. These buttons don't show for coffee staff |
+| Move an order back a step (for example served → ready) | Not possible; orders only move forward |
 | See the salon or other console pages | Not part of the coffee role |
 | Refund a card payment | Finance or admin |
 | Change your role | Superadmin, admin or finance |
@@ -138,8 +143,10 @@ yet. Use the staff console for the queue.
 
 | Problem | What it means | What to do |
 |---|---|---|
-| An error mentioning "Requires one of", or nothing happens, after **Create item**, **Deactivate** or **Remove** | Only managers can change the menu | Ask operations or finance |
+| *"Cannot move a … order to …"* | Orders only move forward | Use the button shown for the order's current status |
 | *"coffee is set to cash — switch its gateway to Tap or Stripe first"* | Payment links need an online gateway | Take cash, or ask a manager |
+| *"Payment gateway not configured"* | No real card keys are set up yet | Take cash; tell your manager |
+| *"Stripe payment links are not available yet — use Tap or cash"* | Links work only with Tap | Take cash, or ask a manager to switch the gateway to Tap |
 | *"Online payments are disabled for coffee"* | **Online payments on** is unticked | Take cash, or ask a manager |
 | *"Already paid"* | Someone already marked it paid | Nothing to do |
 | *"Pick an item and a positive quantity."* | Counter sale form incomplete | Pick an item and type a quantity |

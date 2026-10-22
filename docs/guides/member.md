@@ -44,10 +44,19 @@ for staff only.
    - **Confirm password**
 4. Tap **Create account**.
 
-You are signed in straight away and land on the **Home** tab. The app may first
-show a short 3-step setup ("A bit about you", "Health declaration",
-"Your goals"). Those answers are **not saved yet**, so please also fill in
-[Health & preferences](#health-details-vehicles-and-id) afterwards.
+You are signed in straight away and the app opens a short 3-step setup:
+
+1. **A bit about you**: **Date of birth** (as YYYY-MM-DD) and your
+   **Emergency contact name** and **Emergency contact phone**. Fill in both
+   contact boxes or leave both empty. Tap **Continue**.
+2. **Health declaration**: tap any health conditions that apply. Tap
+   **Continue**.
+3. **Your goals**: tap your goals, then tap **Finish setup**.
+
+Your answers are saved to your profile (your trainer can see your goals and
+health conditions). You then land on the **Home** tab. You can change your
+date of birth and emergency contact later in
+[Health & preferences](#health-details-vehicles-and-id).
 
 **Sign-up messages**
 
@@ -57,6 +66,9 @@ show a short 3-step setup ("A bit about you", "Health declaration",
 | *Password must be at least 8 characters* | Choose a longer password |
 | *Passwords do not match* | The two password boxes are different |
 | *User already exists* (or similar) | That email already has an account. Tap **Sign in** and use **Forgot password?** if needed |
+| *Date of birth must be YYYY-MM-DD* | Type the date like `1995-04-23` |
+| *Add both the emergency contact name and phone* | Fill in both boxes, or leave both empty |
+| *Could not save your details* | Check your internet and tap **Finish setup** again |
 
 ---
 
@@ -101,7 +113,8 @@ The sign-in screen has two buttons at the top: **Email** and **Phone**.
 1. On the sign-in screen, tap **Forgot password?**
 2. Type your **Email** and tap **Email me a code**.
 3. Type the **Code** from the email and a **New password** (8+ characters).
-4. Tap **Set new password**, then **Back to sign in**.
+4. Tap **Set new password**, then **Back to sign in**. Resetting your
+   password signs you out on your other devices.
 
 ---
 
@@ -115,11 +128,13 @@ The bar at the bottom has five tabs.
 | **Book** | Classes to book, and personal trainers |
 | **Gym** | Your QR entry code and recent visits |
 | **Rewards** | Points, rewards to redeem, referrals |
-| **Profile** | Payments, documents, health details, vehicles, ID, notifications, security, help, sign out |
+| **Profile** | Your plan badge (for example "Premium member", or "No active plan"), payments, documents, health details, vehicles, ID, notifications, security, help, sign out |
 
 ### Home
 
-- The membership card at the top: your plan, days remaining and status. If you
+- The greeting at the top changes with the time of day (for example
+  "Good evening").
+- The membership card: your plan, days remaining and status. If you
   have no plan it says **No active membership**. Buttons: **View membership**
   (opens **Profile**) and **Renew** (opens **Payments**).
 - **Quick actions**: **My QR** (Gym tab), **Book class** (Book tab),
@@ -156,13 +171,17 @@ The bar at the bottom has five tabs.
 5. Finish the payment:
    - If the club uses **Tap**, your browser opens the payment page. The app
      says *"Complete payment in your browser"*.
-   - If the club uses **Stripe**, the app shows a test-card message and opens
-     your receipt page.
+   - If the club uses **Stripe**, the app says *"Payment pending — we'll
+     confirm your membership when it completes."*
+   - If online payment isn't set up yet, the app says *"Online payment isn't
+     available yet (payment gateway not configured). Please pay at the front
+     desk."* Pay at the front desk; they activate your plan.
 
-> **Test mode:** card payments currently run in test mode. No real money is
-> taken. Your plan becomes active when the payment provider confirms the
-> payment. If it doesn't, ask the front desk; they can take payment at the
-> counter.
+Your plan becomes active only when the payment provider confirms the full
+payment. Tapping **Choose** twice does not charge you twice.
+
+**Prices include VAT.** The price shown on each plan is what you pay; it
+already includes 5% UAE VAT. Your receipt shows the VAT part of that total.
 
 Questions about plans: **hello@queenixgym.com** (shown at the bottom of the
 plans screen).
@@ -170,6 +189,10 @@ plans screen).
 ---
 
 ## Book a class
+
+You need an **active** (or trial) membership to book a class or join a
+waitlist. Without one, booking shows *"An active membership is required to
+book classes"*.
 
 1. Tap the **Book** tab. The **Classes** button at the top is selected.
 2. Optional: filter by **All**, **HIIT**, **Yoga**, **Strength**, **Cardio** or
@@ -194,7 +217,8 @@ changes:
 | **Leave waitlist** | You are on the waitlist | Removes you from the waitlist |
 
 Your booked classes show **Booked ✓** on the Book tab, and waitlisted ones show
-**On waitlist**.
+**On waitlist**. If someone cancels, the first person on the waitlist gets the
+spot automatically and a notification: *"You are off the waitlist"*.
 
 ---
 
@@ -215,13 +239,21 @@ schedule.
 
 ## Enter the gym with your QR code
 
+You need an **active** (or trial) membership to enter. Your entry pass is
+created automatically the first time you open the **Gym** tab after your
+membership starts; there's nothing to request.
+
 1. Tap the **Gym** tab (or **My QR** on Home). The screen is called
    **Gym access**.
 2. Show the QR code to the scanner or the front desk.
 
-- The code changes every 60 seconds for security. The label shows
+- **Each code works once.** As soon as you're let in, the app shows a new
+  code. Screenshots of a code won't work.
+- The code also changes every 60 seconds. The label shows
   "Refreshes in …s". Tap **Refresh** for a new code at any time.
-- If you see **QR unavailable**, tap **Try again**. Check you have internet.
+- If you see **QR unavailable** (badge **Unavailable**), tap **Try again** and
+  check your internet. If it says *"No active access credential"*, you don't
+  have an active membership: buy or renew a plan, or ask the front desk.
 - **Recent visits** lists your last entries (**Entered** / **Exited**), each
   marked **OK** or **Denied** with the reason.
 
@@ -234,10 +266,10 @@ Go to **Profile** → **Payments & membership**. The screen is called
 
 | Section | What you can do |
 |---|---|
-| Current plan card | **Change plan**; **Pause** (freezes your plan for 30 days); **Resume** (ends a pause) |
+| Current plan card | **Change plan**; **Pause** (freezes your plan for 30 days); **Resume** (ends a pause early; your end date only moves by the days you were actually paused) |
 | **This month** / **Member since** | What you paid this month and how long you've been a member |
 | **Payment methods** | **Add card**, choose a default card, remove a card |
-| **Transaction history** | Every payment. Tap one to open its receipt in your browser |
+| **Transaction history** | Every payment. Tap a completed payment to open its receipt in your browser. Pending or failed payments have no receipt ("Receipt not available yet") |
 | **Plan management** | **Cancel membership** |
 
 **Add a card on file**
@@ -250,9 +282,15 @@ Go to **Profile** → **Payments & membership**. The screen is called
 
 **Cancel your membership**
 
-> Tapping **Cancel membership** cancels straight away; there is no "are you
-> sure?" step. You keep access until the end date shown on the card
-> ("You will keep access until …").
+1. Under **Plan management**, tap **Cancel membership**. The card warns:
+   "Cancelling ends your plan and gym access right away".
+2. The app asks: "Cancel your membership now? Gym access stops immediately
+   and this can't be undone in the app."
+3. Tap **Yes, cancel** to confirm, or **Keep plan** to go back.
+4. You'll see *"Membership cancelled."*
+
+> Your gym access and class booking stop **immediately**, not at the end of
+> the paid period.
 
 Questions about billing: **hello@queenixgym.com**.
 
@@ -266,9 +304,9 @@ Tap the **Rewards** tab.
   earn points ("100 pts per class, 500 for referrals"). **Tiers** opens
   **Tier breakdown**, which lists each tier and its perks.
 - **Refer a friend** card ("Earn 500 points when they join. They get 200."):
-  tap it to create your referral code. A message shows your code.
-  Write the code down or take a screenshot: the app says the link was
-  copied, but it is **not** copied to your clipboard yet.
+  tap it to create your referral code. Your phone's share sheet opens with a
+  message containing your link (`queenix.gym/r/…`); send it to a friend, or
+  choose **Copy**.
 - Three buttons switch the list below:
   - **Redeem**: rewards and their cost in points. Tap **Redeem**, then show
     the confirmation at the front desk.
@@ -341,9 +379,9 @@ notifications. Say **Allow** to get club announcements on your lock screen.
 Tapping an alert opens the Notifications screen.
 
 - Push only works in the published app, not in test versions.
-- The **Push notifications** switch in **Profile** → **Preferences** saves your
-  preference, but to stop phone alerts completely, also turn off notifications
-  for Queenix in your phone's settings.
+- Turn **Push notifications** off in **Profile** → **Preferences** and the
+  club stops sending announcements to your phone. Messages still arrive in the
+  in-app **Notifications** inbox.
 - **Marketing emails** controls offers and news by email.
 
 ---
@@ -407,7 +445,11 @@ in progress, waiting, resolved).
 | *"Invalid OTP"*, *"OTP expired"* or *"Too many attempts"* | The code is wrong, older than 10 minutes, or used 5 times | Request a new code |
 | Verification code didn't arrive | Email delay or spam filter | Wait a minute, check spam/junk, then tap **Resend code** |
 | **QR unavailable** on the Gym tab | No connection or a temporary error | Tap **Try again**; check your internet |
-| Scanner says **Denied** ("Token expired" or "Invalid token") | The code was old or mistyped | Tap **Refresh** and show the new code |
+| Scanner says **Denied** ("Token expired" or "Invalid or already used token") | The code was old, already used, or a screenshot | Tap **Refresh** and show the new code |
+| Scanner says **Denied** ("Membership expired", "Membership frozen", "Membership cancelled" or "No membership") | Entry needs an active membership | Renew, or ask the front desk |
+| **QR unavailable**: *"No active access credential"* | You have no active membership | Buy or renew a plan, or ask the front desk |
+| *"Online payment isn't available yet…"* | The club hasn't switched on card payments | Pay at the front desk |
+| *"An active membership is required to book classes"* | No active plan | Buy or renew a plan first |
 | *"Could not book this class"* | The class may be full, cancelled or already started | Pull the list again or try another class |
-| Plan still shows **No active membership** after paying | Test-mode payment not confirmed | Ask the front desk |
+| Plan still shows **No active membership** after paying | The payment hasn't been confirmed by the provider | Ask the front desk |
 | Tried to sign in on the website and got sent back | Member accounts work only in the app | Use the Queenix app |

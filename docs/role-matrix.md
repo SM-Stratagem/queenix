@@ -28,16 +28,22 @@ Multi-role users land on the highest-ranked role's home
 
 | Role | WEB_LANDING |
 |---|---|
-| superadmin | `/admin/platform` |
-| admin | `/admin` |
-| finance | `/owner` |
-| operations | `/ops` |
+| superadmin | `/dashboard` |
+| admin | `/dashboard` |
+| finance | `/finance` |
+| operations | `/dashboard` |
 | salon | `/salon` |
 | coffee | `/coffee` |
 | trainer | `/trainer` |
-| member | `/app` |
+| member | `/login` (members are signed out of the console; they use the app) |
 
-`/owner` is a legacy path name kept for compat.
+(`WEB_LANDING` / `webLandingFor` in `packages/auth/src/roles.ts`; the sign-in
+redirect is `landingFor` in `apps/web/src/lib/access.ts`, which honours a
+same-origin `?next` the user can open.) Page access per route is
+`ROUTE_ROLES` in `apps/web/src/lib/access.ts`; superadmin/admin open every
+page. `/notifications` and `/sales-push` are finance + operations only (not
+trainer). `/website` is operations, plus anyone with a live global
+`content.manage` grant (`ROUTE_CAPABILITY`).
 
 ## Capabilities (`packages/convex/convex/permissions.ts`)
 
@@ -54,6 +60,8 @@ Multi-role users land on the highest-ranked role's home
 | coffee.serve | yes | yes | - | - | - | yes | - | - |
 | training.coach | yes | yes | - | - | - | - | yes | - |
 | member.self | yes | yes | yes | yes | yes | yes | yes | yes |
+| content.manage | yes | yes | - | yes | - | - | - | - |
+| notifications.push | yes | yes | - | yes | - | - | - | - |
 
 Helpers: `canAccessAdmin` = superadmin/admin/finance.
 `canAccessFinance` = superadmin/admin/finance.
@@ -64,9 +72,17 @@ Helpers: `canAccessAdmin` = superadmin/admin/finance.
 Individual users can hold extra capabilities without a role change via the
 `capabilityGrants` table (`packages/convex/convex/schema/grants.ts`),
 managed through `mutations/grants.ts`
-(`grantCapability` / `revokeCapability` / `listGrantsForUser`,
-all gated on `staff.manage` / `staff.read`).
+(`grantCapability` / `revokeCapability` / `listGrantsForUser`). There is no
+console screen for grants yet; they are created by a developer.
 
+- Granting or revoking needs `staff.manage` AND passes `grantChangeError`
+  (`permissions.ts`): the actor must hold the capability **through their own
+  roles** (grants don't chain), must strictly **outrank** the target, and can
+  never grant to themselves (dropping your own grant is allowed). So
+  `platform.manage` is superadmin-only, and `content.manage` /
+  `notifications.push` can only be granted by superadmin/admin (finance does
+  not hold them). Every grant, update and revoke is audited
+  (`capabilityGrant.created` / `.updated` / `.revoked`).
 - Grants are ADDITIVE ONLY: they never remove role-implied capabilities.
 - A grant with no `branchId` is global; a grant with a `branchId` applies
   only when the check targets that branch
@@ -74,19 +90,37 @@ all gated on `staff.manage` / `staff.read`).
 - Expired grants (`expiresAt <= now`) are ignored.
 - `requireCapability` checks role capabilities first, then grants, and
   throws `FORBIDDEN` when neither covers the capability.
+- Web: `queries/capabilities:mine` returns the caller's live global grants;
+  a `content.manage` grant opens the **Website** section (menu + `/website`
+  pages) for that user (`AdminNav`, `AdminFrame` RouteGate).
 
-## Demo accounts (seeded by `scripts/seed-demo-users.mjs`; password `QueenixDemo123!`)
+## Role changes and approvals (rank rules)
+
+- `mutations/teamOrg:setStaffRoles` (finance+) passes `roleChangeError`:
+  nobody edits their own roles; superadmin may assign anything; everyone else
+  may only edit people ranked strictly below them and only assign roles
+  strictly below their own rank (so only superadmin hands out admin or
+  superadmin). Operations sees **Roles & permissions** read-only.
+  `/api/team/roles` re-checks the same ceiling (`canSyncRoles`).
+- `mutations/users:decideApproval` requires finance or operations
+  (superadmin/admin pass every role gate); `payment.*` / `payout.*` need
+  `finance.write`; nobody decides their own request (`approvalDecisionError`).
+- `mutations/teamOrg:decideTimeOff`: finance/operations (+ superadmin/admin),
+  never your own time off. Pending time off also shows in the mobile
+  Approvals screen (**Time off** tab).
+
+## Demo accounts (seeded by `scripts/seed-demo-users.mjs` and `convex/demoDataset.ts`; password `QueenixDemo123!`)
 
 | Email | Roles | Active |
 |---|---|---|
-| superadmin.demo@queenix.fit | superadmin, admin | superadmin |
-| salon.demo@queenix.fit | salon | salon |
-| trainer.demo@queenix.fit | trainer, coffee | trainer |
-| member.demo@queenix.fit | member, owner | member |
-| ops.demo@queenix.fit | operations | operations |
+| superadmin@queenix.test | superadmin | superadmin |
+| owner@queenix.test | owner (alias of finance) | owner |
+| ops@queenix.test | operations | operations |
+| trainer@queenix.test | trainer | trainer |
+| salon@queenix.test | salon | salon |
+| coffee@queenix.test | coffee | coffee |
+| member@queenix.test | member | member |
 
-All 8 contract roles are covered across the 5 rows.
-(`member.demo` still holds the deprecated `owner` alias, normalized to
-`finance` at check time.)
-Idempotent upsert by `by_email` index; pass `betterAuthUserId`
-to link the superadmin row to a BetterAuth identity.
+Each account holds a single role; there is no demo `admin` account (create
+one by giving a user `admin` as superadmin). Emails can be overridden with
+`DEMO_*_EMAIL` env vars. Idempotent upsert by the `by_email` index.

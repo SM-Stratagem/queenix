@@ -38,7 +38,7 @@ and the Queenix app.
 | **Overview** | **Dashboard** | **Dashboard** | Today's KPIs, member growth, live occupancy, classes now, recent check-ins, **Scanner health** |
 | **People** | **Members** | **Members & plans** | Member directory and member records |
 | **People** | **Trainers** | **Trainers** | Trainers with clients, PT sessions, upcoming classes, certifications |
-| **People** | **Team & roles** | **Team** | **Org chart**, **Timings & time off**, **Roles & permissions** (view only for you) |
+| **People** | **Team & roles** | **Team** | **Org chart**, **Timings & time off**, **Roles & permissions** (read-only for you) |
 | **People** | **Approvals** | **Approvals** | Requests from members and staff |
 | **Front desk** | **Classes** | **Classes overview** | **Today's roster** and **Upcoming classes** |
 | **Front desk** | **Branches** | **Branches** | Branch list and staff assignments |
@@ -52,9 +52,12 @@ and the Queenix app.
 | **Website** | **Content**, **Media**, **Blog** | **Website content**, **Media library**, **Blog** | Edit the public website (see [website-editor.md](website-editor.md)) |
 | **Control** | **Settings** | **Settings** | Coffee and salon payment gateways, branch list |
 
-At the top of every page: the **Branch** selector (**All branches**,
-**Main Branch — Queenix Gym**, and one entry per department). It only labels the
-Dashboard; figures are not filtered by branch yet.
+At the top of every page: the **Branch** selector (**All branches** plus one
+entry per active branch). Picking a branch filters the **Events** page (its
+branch drop-down follows the selector). Dashboard figures stay gym-wide.
+
+On a phone, the left menu becomes a bar across the top: tap the menu button
+(three lines) to open it.
 
 ## Tour of the app
 
@@ -63,7 +66,7 @@ Dashboard; figures are not filtered by branch yet.
 | **Scanner** | **Check-in scanner** | Scan member QR codes at the entrance |
 | **Classes** | **Class rosters** | Today's classes and who is booked |
 | **Members** | **Member support** | Support tickets from members; log a new ticket |
-| **Issues** | **Incident reports** | Equipment, safety and other incidents |
+| **Issues** | **Incident reports** | Report and resolve equipment, safety and other incidents |
 | **Profile** | **Profile** | Your shift, **Punch clock**, **Switch role**, sign out |
 
 ---
@@ -86,18 +89,36 @@ With the app (front desk phone or tablet):
    inside the frame. The first time, allow camera access.
 5. The result appears at once:
    - Granted: "Welcome" and the member's first name.
-   - Denied: the reason, such as "Token expired" (ask the member to tap
-     **Refresh** in their app) or "Invalid token".
+   - Denied: the reason. See the table below.
 6. The **Last result** card shows the last scan. **Reset** clears it.
 7. **Recent check-ins** lists the latest scans, and the **Live occupancy** bar
    shows how full the gym is.
 
-> Not working yet: the "Manual token entry" box can't be typed into, and
-> **Open main door** only shows a message; it does not open a door.
+**Each QR code works once.** After a member is let in, their code is used up
+and their app shows a new one straight away. A screenshot of an old code
+won't work.
+
+**Typing a code by hand:** if the camera can't read the code, type the pass
+code into the **Manual token entry** box and tap **Submit** (or press Go on
+the keyboard).
+
+**Denied reasons:**
+
+| Reason shown | What it means | What to do |
+|---|---|---|
+| "Token expired" | The code is older than 60 seconds | Ask the member to tap **Refresh** in their app |
+| "Invalid or already used token" | The code was already used, mistyped, or a screenshot | Ask the member to show the live code from their app |
+| "Membership expired", "Membership frozen", "Membership cancelled" or "No membership" | Entry needs an active (or trial) membership | Send the member to finance or the desk to renew or unfreeze |
+| "Credential blocked" (or another status) | The member's pass was blocked | Ask finance or admin |
+
+> **Open main door (not available yet)** is greyed out: there is no door
+> connection yet.
 
 In the console, the **Dashboard** shows **Live occupancy**,
-**Recent check-ins** (Member, Direction, Access point, Time) and
-**Scanner health** (each door scanner, online or offline, with **Refresh**).
+**Recent check-ins** (Member, Direction, Access point, Time; denied scans are
+marked in red with the reason, and an unknown code shows as "Unknown pass")
+and **Scanner health** (each door scanner, online or offline; it updates by
+itself).
 
 ### 2. Run the classes
 
@@ -140,6 +161,7 @@ To work the queue:
   **cancelled** to filter.
 - Click **Check in** on a reserved car when you take the keys.
 - Click **Complete** on a checked-in car when you hand the car back.
+- If an action fails, the reason appears in red above the list.
 
 Members can save their plates in the app (**Profile** →
 **Vehicles & parking**), which makes plate matching work.
@@ -186,7 +208,11 @@ See [Phone notifications](#phone-notifications) below.
 
 Promos appear as promotion messages in every member's in-app
 **Notifications**. They are not sent to phones as push. **Recent promos**
-lists what was sent.
+lists what was sent. If **Price (optional)** isn't a number you'll see
+*"Price must be a number (AED), or leave it empty."*
+
+For a large audience the message says "Delivering to the rest of the
+audience in the background." Nothing else to do: every member gets it.
 
 ### 7. Look up a member
 
@@ -210,22 +236,28 @@ To attach a paper form the member signed: on the member record under
 **Documents**, use **Upload signed form**: **Pick the document**, click
 **Scan signed form**, check the text, then **Confirm & attach**.
 
-> The **Freeze** and **Cancel** buttons on a membership are visible to you but
-> only finance and admin can use them. Ask finance.
+> Freezing, unfreezing and cancelling a membership are finance and admin
+> jobs, so those buttons don't show for you. Ask finance.
+
+**Recent visits** on the member record also shows denied entries with the
+reason (for example "denied: Membership expired").
 
 ### 8. Staff time off and sick days
 
 Open **Team & roles** → **Timings & time off**.
 
 - "Pending requests" lists day-off requests from trainers and staff. Click
-  **Approve** or **Deny**.
+  **Approve** or **Deny**. You can't decide your own request (*"You cannot
+  decide your own time off"*); another manager must.
 - **Record sick day / leave**: choose **Select staff…**, a date, **Sick** or
   **Leave**, an optional **Note (optional)**, then click **Record**.
 - The table shows each person's **Status** (**On shift** / **Off shift**),
   **Recent shifts** and **Sick / leave**. **Export CSV** downloads it.
 
 The **Org chart** tab shows who reports to whom (**Search staff…**). The
-**Roles & permissions** tab is view-only for operations.
+**Roles & permissions** tab is read-only for operations: you can see each
+person's roles ("role changes need finance or above"), but there is no
+**Add by email**, **Save roles** or **Save profile** for you.
 
 ### 9. Events
 
@@ -237,7 +269,8 @@ The **Org chart** tab shows who reports to whom (**Search staff…**). The
 
 Filter with the branch drop-down (**All branches + gym-wide** or one branch)
 and **Upcoming only**. On a scheduled event, click **Edit** to change it or
-**Cancel** to cancel it.
+**Cancel** to cancel it (you are asked to confirm; you'll see
+*"Event cancelled."*).
 
 ### 10. Branches and staff assignments
 
@@ -249,20 +282,26 @@ Open **Branches** and click a branch.
 - **Events at this branch** lists its upcoming events.
 
 Creating a branch (**+ New branch**), **Edit** and **Deactivate** are finance
-and admin jobs; the buttons show for you but saving will fail.
+and admin jobs, so those buttons don't show for you.
 
 ### 11. Approvals
 
 **Approvals** lists requests (freeze, refund, document, trainer, access,
 payout). You can **Approve** or **Deny** with an optional
-**Decision note (optional)**. Leave **Payment** and **Payout** requests to
-finance.
+**Decision note (optional)**.
+
+- **Payment** (refund) and **Payout** requests are finance only: instead of
+  the buttons you see *"Payment and payout requests are decided by finance."*
+- You can't decide a request you made yourself (*"Your own request — someone
+  else must decide it."*).
 
 ### 12. Coffee and salon queues
 
-You can run both queues and manage both menus. See [coffee.md](coffee.md) and
-[salon.md](salon.md). On **Settings**, you can change both venues' payment
-gateway.
+You can run both queues and manage both menus (**Add menu item**,
+**Add service**, **Deactivate** / **Activate**, **Remove**: coffee and salon
+staff can't). See [coffee.md](coffee.md) and [salon.md](salon.md). On
+**Settings**, you can change both venues' payment gateway; the form opens
+with the saved settings filled in.
 
 ### 13. Member support tickets (app)
 
@@ -288,9 +327,14 @@ gateway.
 - Tap an incident to see **Description**, **Location**, **Reported by** and
   **Reported**, then tap **Mark resolved** when it's fixed.
 
-> Not working yet: **Report incident** does not open a form, and **Escalate**
-> does nothing. Until it's fixed, log a ticket on the **Members** tab with the
-> details, or tell your manager.
+To report a new incident:
+
+1. Tap **Report incident**.
+2. Choose the **Type** and the **Severity** (Low, Medium, High, Critical).
+3. Type a **Title** (for example "Treadmill 4 belt slipping"), an optional
+   **Location (optional)**, and the **Description**.
+4. Tap **Submit report**. You'll see *"Incident reported"*. Title and
+   description are required (*"Title and description are required"*).
 
 ### 15. Your shift and punch clock (app)
 
@@ -305,9 +349,10 @@ gateway.
 - **Switch role**: if you hold several roles, pick which area to open. If you
   land on a blank or "not found" screen afterwards, close and reopen the app.
 
-Not working yet: **Handover notes** says "saved" but isn't stored, and the
-**Documents** row does nothing. Your name and email on this screen are real,
-but the phone number and "Employee since" shown are placeholders.
+Not working yet: **Handover notes** isn't stored. When you tap save it says
+*"Handover notes are not saved yet. Please brief the next shift directly."*
+The **Documents** row does nothing. Your name, email, phone and
+"Employee since" on this screen come from your account.
 
 ---
 
@@ -328,8 +373,11 @@ in-app messages but doesn't see the phone option.
 4. Choose a type: **system**, **class_reminder**, **membership**, **booking**
    or **reward**.
 5. To also alert phones, tick **Also send to phones**.
-6. Click **Send to members**.
+6. Click **Send to members** once. It reaches every member automatically,
+   however many there are.
 7. You'll see "Sent to N members. Phone push queued for N members. Batch …".
+   For a large audience it adds "Delivering to the rest of the audience in
+   the background." You don't need to send it again.
 
 **Recent sends** lists past broadcasts.
 
@@ -338,11 +386,11 @@ in-app messages but doesn't see the phone option.
 - Every member gets the in-app message, whether or not they have the app open.
 - Phone push reaches only members who:
   - use the **production** build of the app (not the test app or a simulator),
-  - allowed notifications when the app asked, and
-  - have signed in on that phone.
+  - allowed notifications when the app asked,
+  - have signed in on that phone, and
+  - haven't switched **Push notifications** off in **Profile** →
+    **Preferences**.
 - Tapping the alert opens the member's **Notifications** screen.
-- A message goes to at most 500 members per send. If the result mentions
-  "audience larger than one batch", tell your developer.
 - Members can't reply. For two-way contact, use CRM (**WhatsApp** / **Email**)
   or support tickets.
 
@@ -360,6 +408,8 @@ in-app messages but doesn't see the phone option.
 |---|---|
 | Freeze, cancel or refund a membership | Finance or admin |
 | Give or change staff roles | Superadmin, admin or finance ([README](README.md#giving-someone-a-role)) |
+| Decide refund or payout requests | Finance |
+| Decide your own request or time off | Another manager |
 | Create, edit or deactivate a branch | Finance or admin |
 | See revenue charts, the Finance page, Reports or the Audit log | Finance or admin |
 | Create classes on the timetable | Your developer (no screen yet) |
@@ -374,9 +424,11 @@ in-app messages but doesn't see the phone option.
 | "Hardware scanner: Offline" | The door scanner hasn't reported in for 2 minutes | Power-cycle it; use the camera meanwhile |
 | Camera shows "Grant camera permission to enable scanning" | The app can't use the camera | Allow camera access in the phone's settings |
 | Scan says "Token expired" | The member's code is older than 60 seconds | Ask them to tap **Refresh** in their app |
-| An error mentioning "Requires one of" after clicking a button | Your role can't do that action (for example **Freeze** or **Save roles**) | Ask finance or admin |
+| Scan says "Invalid or already used token" | The code was used already or is a screenshot | Ask them to show the live code in their app |
+| Scan says "Membership expired" (or frozen, cancelled, "No membership") | Entry needs an active or trial membership | Send them to the desk or finance |
+| An error mentioning "Requires one of" after clicking a button | Your role can't do that action | Ask finance or admin |
 | *"No account for … — they need to sign up first."* | That email has no account | Ask the person to sign up in the app |
 | **Staff only** page | Not part of the operations role (for example **Finance**) | Click **Go to my home** |
 | New ticket fails after picking a member | The member search uses sample names | Leave the member blank |
-| Push sent but a member didn't get it on their phone | They are on a test build, refused notifications, or haven't signed in on that phone | The message is still in their in-app **Notifications** |
+| Push sent but a member didn't get it on their phone | They are on a test build, refused notifications, switched **Push notifications** off in the app, or haven't signed in on that phone | The message is still in their in-app **Notifications** |
 | Sign-in problems, codes not arriving | See [README](README.md#common-problems-all-roles) | |

@@ -32,7 +32,7 @@ role you have.
 | Salon | Staff console (the app is limited) | Console: **Salon management**. App: **Scanner** tab | [salon.md](salon.md) |
 | Coffee | Staff console (the app is limited) | Console: **Coffee management**. App: **Scanner** tab | [coffee.md](coffee.md) |
 | Member | The app only | App: **Home** tab | [member.md](member.md) |
-| Website editor (operations, admin, superadmin) | Staff console, **Website** section | **Website content** page | [website-editor.md](website-editor.md) |
+| Website editor (operations, admin, superadmin, or anyone given the "edit website" permission) | Staff console, **Website** section | **Website content** page | [website-editor.md](website-editor.md) |
 
 "Owner" is the old name for the Finance role. Anyone who still shows as
 "owner" has exactly the same access as Finance.
@@ -58,6 +58,11 @@ that any of your roles allows.
 To sign out, click the **Sign out** button (the small arrow icon next to your
 name, top right).
 
+**Using the console on a phone:** on a narrow screen the left menu becomes a
+bar across the top. Tap the menu button (three lines, top right of the bar)
+to open the menu, and tap it again (it shows an **X**) to close it. The menu
+also closes by itself when you open a page.
+
 **Forgot your password?**
 
 1. On the sign-in page, click **Forgot password?**
@@ -67,6 +72,8 @@ name, top right).
 5. Click **Set new password**, then sign in with the new password.
 
 Codes expire after 10 minutes. After 5 wrong tries you need a new code.
+Resetting your password signs you out everywhere else (other browsers and
+phones).
 
 ### Queenix app (phone)
 
@@ -107,7 +114,22 @@ system.
 ## Giving someone a role
 
 Who can do this: **superadmin**, **admin** and **finance**. Operations can see
-the screen but cannot save changes.
+the screen (read-only: each person's roles are listed with the note "role
+changes need finance or above") but cannot change anything.
+
+The rules (the system enforces them):
+
+| You are… | You can give | You can change the roles of |
+|---|---|---|
+| **Superadmin** | Any role, including **admin** and **superadmin** | Anyone except yourself |
+| **Admin** | **finance**, **operations**, **salon**, **coffee**, **trainer**, **member** | People ranked below admin |
+| **Finance** | **operations**, **salon**, **coffee**, **trainer**, **member** | People ranked below finance |
+
+- Only a superadmin can make someone an **admin** or a **superadmin**.
+- Nobody can change their **own** roles, not even a superadmin. Ask another
+  superadmin.
+- Ranking, highest first: superadmin, admin, finance, operations, then salon,
+  coffee and trainer (equal), then member.
 
 The person must already have an account. If they don't, ask them to sign up in
 the Queenix app first.
@@ -118,16 +140,21 @@ the Queenix app first.
 3. In the **Staff** box, type their email in **Add by email** and click
    **Find**. (People who already have a staff role are listed below the box;
    you can click their name instead.)
-4. Under **Granted roles**, tick every role they should have.
-5. Under **Active role**, choose the role they should start in. It must be one
-   of the ticked roles.
+4. Under **Granted roles**, tick every role they should have. Roles you are
+   not allowed to give are greyed out.
+5. Under **Active role**, choose the role they should start in. The list only
+   shows the roles you ticked.
 6. Click **Save roles**. You should see *"Roles saved."*
 7. Optional: fill in **Title**, **Department** and the manager drop-down (it
    starts as **No manager**), then click **Save profile**. This places them in
    the **Org chart** tab.
 
+If you click someone you are not allowed to change, you see their roles and a
+note instead of the tick boxes: *"You cannot change your own roles."* or
+*"This person is at or above your level — ask a superadmin."*
+
 The person gets an in-app notification: *"Your roles were updated"*. Their web
-access can take up to 5 minutes to change. If a page still says
+access can take up to a minute to change. If a page still says
 **Staff only**, ask them to sign out and sign in again.
 
 To **remove** a role, untick it and click **Save roles**. Every person needs at
@@ -138,13 +165,24 @@ account.
 
 The system can give a single person one extra permission, for example letting
 a finance user edit the website (`content.manage`) or send phone push
-(`notifications.push`). **There is no screen for this yet.** Ask your
-developer to add the permission.
+(`notifications.push`). **There is no screen for this yet.** Ask a superadmin
+to have your developer add it.
 
-Be aware: an extra permission lets the person *save* that kind of change, but
-the staff console still shows pages by role. For example, a finance user given
-`content.manage` will still see **Staff only** on the **Website** pages. Today
-the reliable way to give someone website access is the **operations** role.
+The rules are strict:
+
+- Whoever gives the permission must already have it through their own role,
+  and must rank above the person receiving it. In practice only a superadmin
+  or admin can give `content.manage` or `notifications.push` (finance doesn't
+  have them).
+- Nobody can give a permission to themselves.
+- Every permission given or removed is written to the audit log.
+
+What the person sees: a `content.manage` permission opens the **Website**
+section (**Content**, **Media**, **Blog**) in their console menu, even if
+their role normally doesn't show it. If it doesn't appear, ask them to reload
+the page. A `notifications.push` permission does not change any screen yet:
+the **Also send to phones** box on **Notifications** still shows only for
+operations, admin and superadmin.
 
 ---
 
@@ -152,8 +190,8 @@ the reliable way to give someone website access is the **operations** role.
 
 | Area | What that means for you |
 |---|---|
-| Card payments | Stripe and Tap run in **test mode**. No real money moves when a member pays by card in the app. Cash at the counter is real. |
-| Phone push notifications | Only reach phones running the **production** build of the app. The test app (Expo Go) and simulators do not receive push. In-app notifications always work. |
+| Card payments | Until your developer adds real Stripe or Tap keys, members who try to pay in the app see *"Online payment isn't available yet (payment gateway not configured). Please pay at the front desk."*, and coffee/salon **Payment link** says *"Payment gateway not configured"*. Cash at the counter always works. |
+| Phone push notifications | Only reach phones running the **production** build of the app. The test app (Expo Go) and simulators do not receive push. Members who switched **Push notifications** off in the app don't get them either. In-app notifications always work. |
 | App Store / Google Play | The **App Store** and **Google Play** buttons on the website are placeholders until the app is published. |
 | Arabic | The app shows "English · Arabic soon". Everything is in English for now. |
 

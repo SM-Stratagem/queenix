@@ -295,8 +295,10 @@ For denied scans:
      }'
    ```
 
-   Response includes `apiKey` and the webhook URL to configure into
-   the firmware.
+   Response includes the webhook URL to configure into the firmware.
+   Every webhook call must carry the shared `SCANNER_API_KEY`: as the
+   `X-Scanner-Key` header, or as `?key=<SCANNER_API_KEY>` on the URL
+   for firmware that can't set headers. Calls without it get `401`.
 
 3. Power-cycle the scanner. Within 60 seconds the operations
    dashboard should flip from "Offline" to "Online".
@@ -390,15 +392,16 @@ so this should never happen. If you ever self-host, configure
 
 ## Security notes
 
-- The bridge endpoints do **not** require the scanner to send an
-  auth token — they validate the **device ID** against the
-  allow-list. This is intentional: most QR scanner firmware cannot
-  store or sign secrets, and the device ID is rotated every time
-  you reinstall a unit.
-- The `apiKey` returned by `/api/scanner/register` is **stored in
-  Convex for audit only**. If a future firmware supports per-device
-  auth headers, the bridge will accept `X-Device-Key: <apiKey>` and
-  reject mismatches.
+- Every bridge endpoint (`/api/scanner/qr`, `/fingerprint`, `/health`,
+  `/register`) requires the shared `SCANNER_API_KEY` (`X-Scanner-Key`
+  header or `?key=` query) **and** a device ID on the allow-list
+  (`ALLOWED_SCANNER_DEVICES` for QR, `FINGERPRINT_DEVICE_IDS` for
+  fingerprint). Prefer the header: query strings can end up in proxy logs.
+- `/api/scanner/register` also generates a per-device key, stored in
+  Convex for audit only; it is not checked yet. Use `SCANNER_API_KEY`.
+- QR passes are single-use: a granted scan burns the token, and the
+  member app fetches a fresh one. Entry also requires an active or
+  trial membership; denied scans are logged with the reason.
 - All scan events are logged to `accessEvents` regardless of
   outcome. The bridge never silently fails.
 - The hardware scanner never sees member PII — it only sees the

@@ -4,10 +4,10 @@
 photos and blog. That is the **operations** role, plus **admin** and
 **superadmin**.
 
-(The system can also give one person an extra "edit website" permission,
-called `content.manage`. Today that alone does **not** open the Website pages
-in the console; the person also needs the operations, admin or superadmin
-role. See [README](README.md#giving-one-extra-permission-without-a-new-role).)
+Anyone else (for example a finance user) can be given the extra
+"edit website" permission, called `content.manage`, by a superadmin or admin.
+That opens the **Website** section in their console menu too. See
+[README](README.md#giving-one-extra-permission-without-a-new-role).
 
 ---
 
@@ -66,7 +66,7 @@ Every save goes live immediately.
 | **Testimonials** | Member quotes on the home page | **Items** (each: **Quote**, **Name**, **Detail**) |
 | **Contact & hours** | Contact page, "Visit the club" on the home page, footer | **Address**, **Phone**, **WhatsApp**, **Email**, **Map URL**, **Hours** (each row: **Days**, **Time**) |
 | **Social links** | Footer **Follow** | **Instagram**, **TikTok**, **Facebook** (full web addresses) |
-| **App promo** | Dark band with **App Store** / **Google Play** buttons | **Heading**, **Body**, **IOS URL**, **Android URL** |
+| **App promo** | Dark band with **App Store** / **Google Play** buttons | **Heading**, **Body**, **iOS app URL**, **Android app URL** |
 | **SEO** | Browser tab title and the text search engines show | **Title**, **Description** |
 
 To change a section:
@@ -76,7 +76,7 @@ To change a section:
    to add one, or **Remove** on an item to delete it.
 3. Click the card's save button (**Save hero**, **Save about**,
    **Save testimonials**, **Save contact & hours**, **Save social links**,
-   **Save app promo**, **Save seo**). The button is greyed out until you change
+   **Save app promo**, **Save SEO**). The button is greyed out until you change
    something.
 4. A message confirms the section is "saved — live on the website."
 5. Changed your mind before saving? Click **Discard changes**.
@@ -89,9 +89,12 @@ Tips:
 - Keep the **Headline** short (a few words).
 - **Href** for pages on this site starts with `/` (`/contact`, `/schedule`,
   `/blog`). For other sites use the full address starting with `https://`.
+  Link boxes (every **Href**, **URL** and social link) only accept a `/path`,
+  a `#anchor`, `https://` (or `http://`), `mailto:` or `tel:` link; anything
+  else is refused when you save.
 - The **App Store** and **Google Play** links are placeholders (`#`) until the
-  app is published. Put the real store links in **IOS URL** and
-  **Android URL** when you have them.
+  app is published. Put the real store links in **iOS app URL** and
+  **Android app URL** when you have them.
 
 ---
 
@@ -102,7 +105,8 @@ site.
 
 ### Upload a photo
 
-1. Under **Upload image**, choose the **Image file (max 8 MB)**.
+1. Under **Upload image**, choose the **Image file (max 8 MB)**. Only JPEG,
+   PNG, WebP, GIF and AVIF pictures are accepted (no SVG or other files).
 2. Type the **Alt text (required)**: one sentence describing the photo
    (for example "Members in a reformer class"). It helps blind visitors and
    search engines.
@@ -200,13 +204,15 @@ HTML code typed into the body is shown as plain text, not run.
 | Problem | What it means | What to do |
 |---|---|---|
 | Save button is greyed out | Nothing has changed in that card | Edit something first |
-| "Only image files can be uploaded." | The file isn't a picture | Choose a JPG, PNG or similar |
+| "Only image files can be uploaded." | The file isn't a picture | Choose a JPEG, PNG, WebP, GIF or AVIF file |
+| "JPEG, PNG, WebP, GIF or AVIF images only, up to 8 MB." | The file is another image type (for example SVG) or too large | Save it as JPEG or PNG under 8 MB and upload again |
+| "… must be a /path, #anchor, https://, mailto: or tel: link" | A link box has an address the site won't accept | Start it with `/`, `#`, `https://`, `mailto:` or `tel:` |
 | "That image is over 8 MB — please resize it first." | File too large | Make it smaller and try again |
 | "Alt text is required…" | The alt text box is empty | Describe the photo |
 | Photo doesn't appear on the site | It is **Hidden**, or in the wrong album | Tick **Published**; check the **Album** |
 | Hero photo didn't change | **Hero image** is set to **Auto** | Pick the photo in the **Hero** card and click **Save hero** |
 | Post not on the blog | It's still a **draft** | Open it and click **Publish** |
-| **Staff only** on the Website pages | Your role isn't operations, admin or superadmin | Ask a superadmin |
+| **Staff only** on the Website pages | Your role isn't operations, admin or superadmin, and you haven't been given the "edit website" permission | Ask a superadmin |
 | "Slug "…" is already used by another post" | Two posts can't share a web address | Change the slug and save again |
 | "Slug may only use lowercase letters, numbers and dashes" | The slug has spaces or other characters | Use only `a-z`, `0-9` and `-` |
 | "Title is required" (or another field "is required") | A required box is empty | Fill it in |

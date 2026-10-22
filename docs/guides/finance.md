@@ -6,8 +6,8 @@ anyone shown as "owner" has exactly the same access.
 **What this role is for:** the money side of the gym: payments, the books
 (profit & loss and journal), payouts to trainers and partners, voiding bad
 payments, reports, the audit log, membership plans, and approving requests.
-You also look after the coffee shop and salon money, and can manage staff
-roles.
+You also look after the coffee shop and salon money, and can give staff
+roles below your own (operations, salon, coffee, trainer, member).
 
 ---
 
@@ -46,16 +46,18 @@ Finance page, or type the address after the gym's web address (for example
 |---|---|---|
 | `/reports` | **Reports** (link **Reports center →** on Finance) | Revenue analytics, profit & loss, retention |
 | `/audit` | **Audit log** (link **Audit log →** on Finance) | Every payment, payout, invoice and finance action |
-| `/approvals` | **Approvals** | Requests waiting for a finance decision, including trainers' early payouts |
+| `/approvals` | **Approvals** | Requests waiting for a decision, including trainers' early payouts. Refund and payout requests can only be decided by finance (or admin/superadmin) |
 | `/members` | **Members & plans** | Member directory and the **Plans** catalogue |
 | `/dashboard` | **Dashboard** | Today's KPIs, revenue chart, occupancy, classes, check-ins |
-| `/team` | **Team** | Org chart, time off, roles (see [README](README.md#giving-someone-a-role)) |
+| `/team` | **Team** | Org chart, time off, roles (see [README](README.md#giving-someone-a-role)). You can give operations, salon, coffee, trainer and member, only to people ranked below you, and never change your own roles |
 | `/trainers` | **Trainers** | Trainer list with clients, classes and inflows |
 | `/branches`, `/events`, `/valet`, `/classes` | | Front-desk pages; see [operations.md](operations.md) |
 | `/notifications`, `/sales-push` | | Send in-app messages to members; see [operations.md](operations.md#phone-notifications). Finance cannot send phone push |
 | `/settings` | **Settings** | Coffee and salon payment gateways |
 
-You cannot open the **Website** pages or the **Trainer home** page.
+You cannot open the **Website** pages (unless a superadmin or admin has given
+you the extra "edit website" permission; then **Website** appears in your
+menu) or the **Trainer home** page.
 
 ---
 
@@ -64,8 +66,8 @@ You cannot open the **Website** pages or the **Trainer home** page.
 | Section | What you see and can do |
 |---|---|
 | Links | **Reports center →**, **Audit log →** |
-| Overview cards | **Gross collected**, **Refunded**, **Net revenue**, **Successful payments**, **Refunds issued**, **Payouts issued** |
-| **Books — profit & loss** | Pick a **Month:**. Shows **Income** and **Expenses**, then rows: Membership & system revenue, Manual income, Refunds, Payouts, Manual expenses, and **Net profit** |
+| Overview cards | **Gross collected**, **Refunded**, **Net revenue**, **Successful payments**, **Refunds issued**, **Payouts issued** (all-time totals; the **Filters** below don't change them) |
+| **Books — profit & loss** | Pick a **Month:**. Shows **Income** and **Expenses**, then rows: Membership & system revenue, Manual income, Refunds, Payouts, Manual expenses, and **Net profit**. Cancelled payouts are not counted |
 | **Record a book entry** | Add off-system income or expenses (cash sales, bills, petty cash). **Scan receipt** fills the form from a photo |
 | **Import books from CSV** | Upload many entries at once |
 | **Journal** | All manual entries: Date, Type, Category, Note, Receipt, Amount. **Export CSV** |
@@ -109,6 +111,16 @@ The other filters are **All**, **Membership**, **Payment**, **Document**,
 **Trainer** and **Access**. **Approved**, **Denied** and **Cancelled** show
 past decisions.
 
+Who decides what:
+
+- Only **finance** and **operations** (plus admin and superadmin) can decide
+  requests.
+- **Payment** (refund) and **Payout** requests need finance. Operations see
+  *"Payment and payout requests are decided by finance."* instead of the
+  buttons.
+- Nobody decides their own request. On your own request you see *"Your own
+  request — someone else must decide it."*
+
 ### 3. Record an expense or extra income (journal)
 
 1. On **Finance**, go to **Record a book entry**.
@@ -137,7 +149,10 @@ past decisions.
 
 - Monthly: on **Finance**, **Books — profit & loss** → pick the **Month:**.
 - Rolling: on **Reports**, **Profit & loss** → **Last 30 days**,
-  **Last 90 days** or **Last 12 months**. **Export CSV** downloads it.
+  **Last 90 days** or **Last 12 months**. It now includes your journal entries
+  (**Manual income** and **Manual expenses** lines, plus the number of journal
+  entries). **Export CSV** downloads it.
+- Cancelled payouts are left out of both.
 
 ### 6. Void a payment
 
@@ -154,7 +169,8 @@ voided; they must be refunded.
 
 **Refunds:** there is no refund button in the console. Refunds are made in the
 payment provider (Stripe or Tap) and then appear under **Refunds**
-automatically. While payments run in test mode, no real refunds happen.
+automatically. Until real payment keys are added there are no card payments
+to refund.
 
 ### 7. Close the day
 
@@ -204,13 +220,25 @@ button.
 2. Under **Memberships**, for an active plan: type the number of days and an
    optional reason, then click **Freeze**. Click **Cancel** to cancel the plan
    (you are asked to confirm).
-3. For a frozen plan, click **Unfreeze**.
+3. For a frozen plan, click **Unfreeze**. If you unfreeze early, the member
+   only gets back the days the plan was actually frozen (the end date moves
+   back accordingly).
 
 The member page also shows **Lifetime value**, **Open CRM tasks**,
 **Recent payments**, **Recent visits**, **ID document** (with **Scan ID**),
 **Documents** and **Profile**.
 
-### 12. Coffee and salon money
+### 12. Prices, VAT and receipts
+
+- All prices include 5% UAE VAT. A member is charged the plan price, and the
+  receipt splits the VAT out of that total (it is never added on top).
+- The app always charges the price stored on the plan, whatever the phone
+  sends. If the payment provider confirms a different amount or currency, the
+  payment fails and the membership is not activated.
+- Receipts exist only for completed (or refunded) payments. Opening the
+  receipt for a pending or failed payment shows *"Receipt not available yet"*.
+
+### 13. Coffee and salon money
 
 On **Coffee management** and **Salon management**:
 
@@ -219,7 +247,11 @@ On **Coffee management** and **Salon management**:
 - The payment gateway card (**Coffee shop — payment gateway** /
   **Salon — payment gateway**): choose **Cash only**, **Tap (UAE cards)** or
   **Stripe (international)**, the currency, and **Online payments on**, then
-  **Save gateway**. Card secrets are never typed here.
+  **Save gateway**. Card secrets are never typed here. The form now opens
+  with the saved settings filled in.
+- **Add menu item** / **Add service** and the **Deactivate** / **Activate** /
+  **Remove** buttons are yours to use (also operations and admin); coffee and
+  salon staff don't see them.
 - In the queue, an unpaid order shows "Unpaid" with the amount, plus
   **Payment link** and **Cash paid**. See [coffee.md](coffee.md) and
   [salon.md](salon.md) for the full queue steps.
@@ -227,7 +259,7 @@ On **Coffee management** and **Salon management**:
 The same gateway choices are on **Settings** under
 **Venue payment gateways**.
 
-### 13. Signed forms and documents
+### 14. Signed forms and documents
 
 **Documents** → **Legal documents** lists each template with its version,
 whether it's required, and how many people signed. Click **Signatures** to see
@@ -247,23 +279,27 @@ To attach a paper form a member signed at the desk:
 
 | Tab | What it shows |
 |---|---|
-| **Overview** | **Today** / **Week** / **Month** buttons, KPI cards (**Active members**, **Today's revenue**, **Today's check-ins**, **Current occupancy**), **Revenue this week** chart, **Quick actions** (**Approvals**, **Announce**, **Reports**), **Alerts**, **View full operations** |
+| **Overview** | **Today** / **Week** / **Month** buttons, KPI cards (**Active members**, **Today's revenue**, **Today's check-ins**, **Current occupancy**), **Net revenue, last 6 months** chart, **Quick actions** (**Approvals**, **Announce**, **Reports**), **Alerts**, **View full operations** |
 | **Ops** | Live headcount, staff on shift, and **Access**, **Classes**, **Staff**, **Incidents** views |
 | **Members** | Member directory with search (**Search by name, email or phone**) and filters (**All**, **Active**, **Trial**, **Frozen**, **Cancelled**, **Expired**). Tap a member to open their record |
-| **Approvals** | Pending requests with **Approve** / **Decline**, filters **All**, **Membership**, **Payments**, **Documents**, **Trainers**, **Access**, **Payouts** |
+| **Approvals** | Pending requests with **Approve** / **Decline**, filters **All**, **Membership**, **Payments**, **Documents**, **Trainers**, **Access**, **Payouts**, **Time off** |
 | **Profile** | **Switch role** (if you have several), **Gym info**, **Pricing & plans**, **Staff management**, **Announcements**, **Reports & exports**, **Approvals inbox**, venue payment status, **Help & support**, **Sign out** |
 
 Things to know about the app area:
 
-- The **Today** / **Week** / **Month** buttons and the **Revenue this week**
-  chart are placeholders; use the console for real figures.
+- The **Today** / **Week** / **Month** buttons are placeholders. The
+  **Net revenue, last 6 months** chart shows real monthly net revenue.
+- **Approvals** → **Time off** lists staff day-off requests (shown as
+  "Sick day" or "Leave" with the date and note). **Approve** or **Decline**
+  them here or in the console (**Team & roles** → **Timings & time off**).
+  You can't decide your own.
 - The **Announce** and **Reports** quick actions open **Profile**.
   **Pricing & plans** and **Reports & exports** open **Overview**. Use the
   console for plans and reports.
-- **Open door remotely** on the **Ops** tab and the door list under **Access**
-  are not connected to real doors yet.
-- **Gym info** may show blank branch details and can fail to save; edit
-  branches in the console (**Branches**).
+- **Open door remotely (not available yet)** on the **Ops** tab is greyed
+  out, and the door list under **Access** is not connected to real doors yet.
+- **Gym info** shows and edits your main (first active) branch. For other
+  branches, use the console (**Branches**).
 
 **Freeze a member's plan in the app:** **Members** → tap the member →
 **Freeze** → set **Days** and **Reason (optional)** → **Confirm freeze**.
@@ -284,10 +320,12 @@ access, staff) → **Send request**.
 
 | You want to… | Who can help |
 |---|---|
-| Refund a successful payment | Done in Stripe/Tap by someone with provider access (test mode for now) |
+| Refund a successful payment | Done in Stripe/Tap by someone with provider access |
 | Send phone push notifications | Operations, admin or superadmin |
 | Edit the public website | Operations, admin or superadmin (see [website-editor.md](website-editor.md)) |
-| Give someone a single extra permission | Ask your developer (no screen yet) |
+| Give someone a single extra permission | Ask a superadmin or admin (no screen yet; finance can't give these) |
+| Make someone admin or superadmin, or change the roles of another finance user or anyone above you | A superadmin (or admin, for finance users) |
+| Decide your own request or time off | Someone else with approval rights |
 
 ---
 
@@ -302,5 +340,7 @@ access, staff) → **Send request**.
 | *"Pick a category for the journal entry."* / *"Enter a positive amount for the journal entry."* | Book entry incomplete | Fill the category and amount |
 | CSV import shows red rows | Those rows have a problem (shown in the Status column) | Fix them in the file and upload again |
 | "Receipt is in … — convert the amount to AED before recording." | The scanned receipt isn't in AED | Convert, then record |
-| **Staff only** on the Website pages | Not part of the finance role | Ask operations |
+| **Staff only** on the Website pages | Not part of the finance role | Ask operations, or ask a superadmin for the "edit website" permission |
+| *"Receipt not available yet"* | The payment isn't completed | Wait until it succeeds; failed or pending payments have no receipt |
+| *"This person is at or above your level — ask a superadmin."* | You opened a finance user, admin or superadmin in **Roles & permissions** | Ask a superadmin |
 | Sign-in problems, codes not arriving | See [README](README.md#common-problems-all-roles) | |

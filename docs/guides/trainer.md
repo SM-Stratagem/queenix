@@ -49,7 +49,9 @@ Your left menu shows:
 |---|---|---|
 | **People** → **Trainer home** | **Trainer** | My clients, Today's sessions, Earnings, My certifications, Week schedule |
 | **Front desk** → **Classes** | **Classes overview** | **Today's roster** (who is booked into each class) and **Upcoming classes** |
-| **Outreach** → **Notifications**, **Sales push** | | Shown in your menu, but these pages do not load for trainers yet (see [What you can't do](#what-you-cant-do)) |
+
+**Notifications** and **Sales push** are not part of the trainer role, so they
+are not in your menu. Ask operations to send messages to members.
 
 ---
 
@@ -61,23 +63,35 @@ The top card ("Your training day") shows **Sessions**, **Hours booked** and
 **Unique members** for today.
 
 Under **Today's schedule**, each PT session shows the time, member, and a
-status badge: **Upcoming**, **In progress** or **Completed**. Tap **View week**
-to open the Schedule tab.
+status badge:
 
-### 2. Mark a session as done
+| Badge | Meaning |
+|---|---|
+| **Upcoming** | Not started yet |
+| **In progress** | You tapped **Start**, or the start time has arrived |
+| **Needs closing** | The session time is over but you haven't marked it **Complete** or **No-show** |
+| **Completed** | You marked it complete |
+| **No-show** | You marked that the member didn't come |
+| **Cancelled** | The session was cancelled (name crossed out) |
 
-> **Important:** the **Start** button on an upcoming session marks the session
-> **completed** straight away. Tapping the session card itself does the same.
-> Only tap **Start** when the session has actually happened.
+Tap **View week** to open the Schedule tab. Tapping a session card opens that
+client.
 
-1. On **Today**, find the session.
-2. When it's finished, tap **Start** (or **Resume** if it is in progress).
-   A message confirms "Completed PT with" the member's name.
-3. To cancel instead, tap **Cancel**. You'll see *"Session cancelled"*.
+### 2. Run a session: Start, then Complete or No-show
 
-Note: a session whose time has passed shows **Completed** even if you didn't
-tap anything, and a cancelled session also shows as **Completed** (greyed).
-Check the client's **Sessions** tab if you need the real status.
+1. On **Today**, find the session. While it is **Upcoming** you see
+   **Start** and **Cancel**.
+2. When the member arrives, tap **Start**. The badge changes to
+   **In progress**. (This is only remembered on your phone.)
+3. When the session is over, tap **Complete**. A message confirms
+   "Completed PT with" the member's name.
+4. If the member didn't come, tap **No-show** instead. You'll see
+   *"Marked as no-show"*.
+5. To cancel an upcoming session, tap **Cancel**. You'll see
+   *"Session cancelled"*.
+
+A session whose time has passed shows **Needs closing** until you tap
+**Complete** or **No-show**. It is never marked completed automatically.
 
 ### 3. Schedule a new PT session
 
@@ -106,7 +120,8 @@ Tap a client to open **Client**:
 
 - Stats: **Total sessions**, **Completed**, **Last seen**, and an
   **Engagement** bar.
-- Three buttons: **Overview** (contact details, profile, goals),
+- Three buttons: **Overview** (contact details, plus the member's **Goals**
+  and **Health conditions** from their app sign-up, shown as tags),
   **Sessions** (session history) and **Notes**.
 - To add a coaching note: tap **Notes**, type in **New coaching note…**, tap
   **Save note**. You'll see *"Note saved"*. Finance and admin can read these
@@ -117,8 +132,9 @@ yet (they only show "Opening…"). Use **New session** on the Clients tab to boo
 
 ### 5. Your week (Schedule tab)
 
-- The header shows **This week**. The arrows move between weeks, but the
-  sessions shown are always **this week's** for now.
+- The header shows **This week**. The arrows move to the previous or next
+  week (shown as "1w ago", "In 1w" and so on) and load that week's sessions
+  and classes.
 - **PT**, **Classes** and **Hours** count your week.
 - **Week** / **Day** switches the view. Colours: **PT**, **Class**, **Free**,
   **Blocked**.
@@ -145,8 +161,9 @@ Members see only available trainers.
 5. Tap **File request**. You'll see *"Day-off request filed"*.
 
 Your requests appear under **My requests** with the status **pending**,
-**approved** or **denied**. Operations or finance decide them in the staff
-console (**Team & roles** → **Timings & time off**).
+**approved** or **denied**. Operations or finance decide them, either in the
+staff console (**Team & roles** → **Timings & time off**) or in their app
+(**Approvals** → **Time off**).
 
 ### 8. Check your earnings and ask for an early payout
 
@@ -230,7 +247,7 @@ you can't jump to your member view from there. Ask a superadmin to set your
 | Approve your own time off | Operations or finance (**Team & roles** → **Timings & time off**) |
 | Freeze, cancel or refund a member's plan | Finance or admin |
 | Open the member directory in the console | Operations, finance or admin |
-| Send notifications or promos (**Notifications**, **Sales push**) | Operations (they can also send phone push) |
+| Send notifications or promos to members | Operations (they can also send phone push) |
 | Change your payout or commission rate | Finance |
 
 ---
@@ -239,9 +256,9 @@ you can't jump to your member view from there. Ask a superadmin to set your
 
 | Problem | What it means | What to do |
 |---|---|---|
-| **Notifications** or **Sales push** says *"Live data unavailable — you may not have access…"* | These pages are in your menu but don't load for the trainer role yet | Ask operations to send the message |
 | **Staff only** on a page | That page isn't part of the trainer role | Click **Go to my home** |
-| A session shows **Completed** that didn't happen | Past sessions are shown as completed automatically | Tell finance so the earning isn't paid |
+| A session shows **Needs closing** | Its time is over and it wasn't closed | Tap **Complete** or **No-show** |
+| You marked a session **Completed** by mistake | There is no undo in the app | Tell finance so the earning isn't paid |
 | *"Pick a member first."* on New session | No member chosen | Search and tap a member |
 | *"Use YYYY-MM-DD and HH:MM (24h)."* | Date or time typed in the wrong format | Type like `2026-11-03` and `18:00` |
 | *"Date must be YYYY-MM-DD"* on Time off | Wrong date format | Type like `2026-11-03` |
