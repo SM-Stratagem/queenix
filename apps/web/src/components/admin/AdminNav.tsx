@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { canOpen, useSessionRoles } from '@/lib/access';
 import {
   LayoutDashboard,
   Users,
@@ -20,6 +21,10 @@ import {
   Send,
   BarChart3,
   ShieldCheck,
+  Settings,
+  Globe,
+  Image,
+  Newspaper,
 } from 'lucide-react';
 
 const SECTIONS: Array<{
@@ -28,13 +33,14 @@ const SECTIONS: Array<{
 }> = [
   {
     title: 'Overview',
-    links: [{ href: '/', label: 'Dashboard', icon: LayoutDashboard }],
+    links: [{ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }],
   },
   {
     title: 'People',
     links: [
       { href: '/members', label: 'Members', icon: Users },
       { href: '/trainers', label: 'Trainers', icon: Dumbbell },
+      { href: '/trainer', label: 'Trainer home', icon: Dumbbell },
       { href: '/team', label: 'Team & roles', icon: Users },
       { href: '/approvals', label: 'Approvals', icon: ClipboardCheck },
     ],
@@ -76,20 +82,42 @@ const SECTIONS: Array<{
     ],
   },
   {
+    title: 'Website',
+    links: [
+      { href: '/website', label: 'Content', icon: Globe },
+      { href: '/website/media', label: 'Media', icon: Image },
+      { href: '/website/blog', label: 'Blog', icon: Newspaper },
+    ],
+  },
+  {
     title: 'Control',
     links: [
       { href: '/reports', label: 'Reports', icon: BarChart3 },
       { href: '/audit', label: 'Audit log', icon: ShieldCheck },
+      { href: '/settings', label: 'Settings', icon: Settings },
     ],
   },
 ];
 
+/**
+ * Finance allowlist: the finance role's nav shows ONLY Money, Venues and
+ * Growth (Reports/Audit stay reachable from the Finance page). Every other
+ * role sees the links lib/access lets it open.
+ */
+const FINANCE_SECTIONS = new Set(['Money', 'Venues', 'Growth']);
+
 /** Admin primary nav. Every link targets a verified route in apps/web/src/app. */
 export function AdminNav() {
   const pathname = usePathname();
+  const roles = useSessionRoles();
+  const elevated = roles.some((r) => r === 'superadmin' || r === 'admin');
+  const financeOnly = !elevated && roles.length > 0 && roles.every((r) => r === 'finance' || r === 'member');
+  const visible = SECTIONS.filter((s) => !financeOnly || FINANCE_SECTIONS.has(s.title))
+    .map((s) => ({ ...s, links: s.links.filter((l) => canOpen(roles, l.href)) }))
+    .filter((s) => s.links.length > 0);
   return (
     <nav aria-label="Admin" style={{ display: 'flex', flexDirection: 'column', gap: 16 }} className="admin-nav">
-      {SECTIONS.map((s) => (
+      {visible.map((s) => (
         <div key={s.title}>
           <div
             style={{
@@ -106,8 +134,10 @@ export function AdminNav() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {s.links.map((l) => {
               const Icon = l.icon;
+              // Longest matching link wins ('/website/media' must not light up '/website').
+              const matches = (h: string) => pathname === h || pathname.startsWith(`${h}/`);
               const active =
-                l.href === '/' ? pathname === '/' : pathname === l.href || pathname.startsWith(`${l.href}/`);
+                matches(l.href) && !s.links.some((o) => o.href.length > l.href.length && matches(o.href));
               return (
                 <Link
                   key={l.href}

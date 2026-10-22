@@ -1,7 +1,7 @@
 import React from "react"
-import { YStack, XStack } from "tamagui"
-import { Text, Card } from "@queenix/ui"
-import { Brand as BrandType } from "./CardBrandLogo"
+import { YStack } from "tamagui"
+import { Text } from "@queenix/ui"
+import { CardBrandLogo, type Brand as BrandType } from "./CardBrandLogo"
 
 export type PaymentMethod = {
   _id: string
@@ -37,7 +37,7 @@ export function PaymentMethodCardContent({
         padding="$2.5"
         borderRadius="$md"
       >
-        <CardBrandLogoText brand={brand} />
+        <CardBrandLogo brand={brand} />
       </YStack>
       <YStack flex={1}>
         <Text variant="label">
@@ -48,23 +48,5 @@ export function PaymentMethodCardContent({
         </Text>
       </YStack>
     </>
-  )
-}
-
-function CardBrandLogoText({ brand }: { brand: BrandType }) {
-  const labels: Record<BrandType, string> = {
-    visa: "VISA",
-    mastercard: "MC",
-    amex: "AMEX",
-  }
-  const colors: Record<BrandType, string> = {
-    visa: "$brand",
-    mastercard: "$warning",
-    amex: "$info700",
-  }
-  return (
-    <Text variant="caption" color={colors[brand] as any} weight="800">
-      {labels[brand]}
-    </Text>
   )
 }

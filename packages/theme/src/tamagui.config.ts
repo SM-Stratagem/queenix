@@ -1,43 +1,43 @@
 /**
  * Queenix Gym — Tamagui theme configuration
  *
- * Light-mode only by design. We pin to light so screenshots and brand
- * contrast are consistent across devices — the app should feel calm,
- * fast, and predictable, not chase the OS preference.
- *
- * If a future theme is needed, add it next to `lightTheme` and to the
- * `themes` object below — but do NOT re-introduce `dark: darkTheme`
- * without also wiring it through `_layout.tsx`.
+ * Dark-mode only by design. The product demos and brand run dark
+ * everywhere; the OS preference is intentionally ignored so contrast
+ * stays consistent across devices. `light` is kept as an alias of the
+ * dark theme so legacy `Theme name="light"` call sites keep rendering
+ * dark instead of crashing on a missing theme.
  */
 
-import { createTamagui, createTheme } from 'tamagui';
+import { createTamagui } from 'tamagui';
 import { palette, spacing, radii, fontSizes, fontWeights, lineHeights, shadows } from './tokens';
+import { animations } from './animations';
 
-const lightTheme = createTheme({
-  background: palette.gray0,
-  backgroundHover: palette.gray50,
-  backgroundPress: palette.gray100,
-  backgroundFocus: palette.gray100,
-  backgroundStrong: palette.gray100,
-  backgroundTransparent: 'rgba(255,255,255,0)',
 
-  color: palette.gray900,
-  colorHover: palette.gray950,
-  colorPress: palette.gray800,
-  colorFocus: palette.gray800,
-  colorTransparent: 'rgba(24,24,27,0)',
+const darkTheme = {
+  background: palette.gray950,
+  backgroundHover: palette.gray900,
+  backgroundPress: palette.gray800,
+  backgroundFocus: palette.gray800,
+  backgroundStrong: palette.gray800,
+  backgroundTransparent: 'rgba(9,9,11,0)',
 
-  borderColor: palette.gray200,
-  borderColorHover: palette.gray300,
-  borderColorPress: palette.gray400,
+  color: palette.gray0,
+  colorHover: palette.gray0,
+  colorPress: palette.gray200,
+  colorFocus: palette.gray200,
+  colorTransparent: 'rgba(255,255,255,0)',
+
+  borderColor: palette.gray800,
+  borderColorHover: palette.gray700,
+  borderColorPress: palette.gray600,
   borderColorFocus: palette.brand500,
 
-  placeholderColor: palette.gray400,
+  placeholderColor: palette.gray500,
 
   // Brand
   brand: palette.brand500,
-  brandHover: palette.brand600,
-  brandPress: palette.brand700,
+  brandHover: palette.brand400,
+  brandPress: palette.brand600,
 
   // Status
   success: palette.success500,
@@ -46,30 +46,32 @@ const lightTheme = createTheme({
   info: palette.info500,
 
   // Surfaces
-  surface: palette.gray0,
-  surfaceElevated: palette.gray0,
-  surfaceMuted: palette.gray50,
-  surfaceInverse: palette.gray900,
+  surface: palette.gray950,
+  surfaceElevated: palette.gray900,
+  surfaceMuted: palette.gray900,
+  surfaceInverse: palette.gray0,
 
   // Text variants
-  textPrimary: palette.gray900,
-  textSecondary: palette.gray600,
-  textMuted: palette.gray500,
-  textInverse: palette.gray0,
-  textBrand: palette.brand500,
+  textPrimary: palette.gray0,
+  textSecondary: palette.gray300,
+  textMuted: palette.gray400,
+  textInverse: palette.gray950,
+  textBrand: palette.brand400,
   textOnBrand: palette.gray0,
-  textSuccess: palette.success700,
-  textWarning: palette.warning700,
-  textDanger: palette.danger700,
-  textInfo: palette.info700,
-});
+  textSuccess: palette.success500,
+  textWarning: palette.warning500,
+  textDanger: palette.danger500,
+  textInfo: palette.info500,
+};
 
 export const themes = {
-  light: lightTheme,
-  // Dark intentionally removed — see file header.
+  dark: darkTheme,
+  // Legacy alias: every remaining `light` reference renders dark.
+  light: darkTheme,
 } as const
 
 export const config: any = createTamagui({
+  animations,
   themes,
   media: {
     xs: { maxWidth: 660 },
@@ -179,6 +181,9 @@ export const config: any = createTamagui({
   settings: {
     allowedStyleValues: 'somewhat-strict',
     autocompleteSpecificTokens: 'except-special',
+    // Tamagui 2: keep v1/React Native flex semantics (flex={1} = flex-basis auto).
+    // Without it, flex+justifyContent=center screens overflow above the viewport.
+    styleCompat: 'legacy',
   },
 });
 

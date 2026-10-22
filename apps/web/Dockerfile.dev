@@ -1,9 +1,11 @@
-FROM node:20-alpine
+# Node 24 = Active LTS (Node 20 EOL'd 2026-04-30). Debian, not Alpine: native
+# deps (better-sqlite3) ship glibc prebuilds; python3/make/g++ cover the rest.
+FROM node:24-bookworm-slim
 WORKDIR /app
 
-# python3/make/g++: lets node-gyp compile nested native deps (better-sqlite3
-# under @better-auth/cli has no musl/arm64 prebuilt binary).
-RUN apk add --no-cache libc6-compat curl python3 make g++
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl ca-certificates python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json .npmrc ./
 COPY scripts scripts
@@ -11,7 +13,7 @@ COPY apps/web/package.json apps/web/
 COPY packages packages
 COPY apps apps
 
-RUN npm install && node scripts/patch-tamagui-react19.mjs
+RUN npm install
 
 ENV NODE_ENV=development
 ENV PORT=3000

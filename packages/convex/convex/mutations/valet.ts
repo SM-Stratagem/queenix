@@ -132,6 +132,57 @@ export const checkIn = mutation({
   },
 });
 
+/**
+ * Desk check-in for a car that arrives (typically after "Scan plate"):
+ * checks in the member's open reservation, or creates one already checked in.
+ */
+export const staffCheckIn = mutation({
+  args: { userId: v.id('users'), plate: v.string() },
+  handler: async (ctx, args) => {
+    const staff = await requireRole(ctx, ['operations', 'owner', 'admin', 'superadmin'] as any);
+    const plate = args.plate.trim().toUpperCase();
+    if (plate.length < 2 || plate.length > 12) {
+      throw new ConvexError({ code: 'INVALID_PLATE', message: 'Plate must be 2–12 characters' });
+    }
+    if (!(await ctx.db.get(args.userId))) throw new ConvexError({ code: 'NOT_FOUND', message: 'Member not found' });
+    const mine = await ctx.db
+      .query('valetReservations')
+      .withIndex('by_user', (q: any) => q.eq('userId', args.userId))
+      .collect();
+    if (mine.some((r: any) => r.status === 'checked_in')) {
+      throw new ConvexError({ code: 'ALREADY_ACTIVE', message: 'This member already has a car checked in' });
+    }
+    const now = Date.now();
+    const reserved = mine.find((r: any) => r.status === 'reserved');
+    let id = reserved?._id;
+    if (id) {
+      await ctx.db.patch(id, { plate, status: 'checked_in', checkedInAt: now, checkedInBy: staff._id, updatedAt: now });
+    } else {
+      if ((await activeCount(ctx)) >= VALET_CAPACITY) {
+        throw new ConvexError({ code: 'VALET_FULL', message: 'Valet is full right now' });
+      }
+      id = await ctx.db.insert('valetReservations', {
+        userId: args.userId,
+        plate,
+        status: 'checked_in',
+        etaMin: 0,
+        checkedInAt: now,
+        checkedInBy: staff._id,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+    await audit(ctx, {
+      actorId: staff._id,
+      action: 'valet.checkedIn',
+      entityType: 'valetReservation',
+      entityId: id,
+      after: { status: 'checked_in', plate, walkIn: !reserved },
+    });
+    return await ctx.db.get(id);
+  },
+});
+
 async function completeHandler(ctx: any, reservationId: any, actorId: string) {
   const r = await ctx.db.get(reservationId);
   if (!r) throw new ConvexError({ code: 'NOT_FOUND', message: 'Reservation not found' });

@@ -1,7 +1,7 @@
 import React from "react"
 import { YStack, XStack } from "tamagui"
 import { Card, Text } from "@queenix/ui"
-import { TrendingUp, TrendingDown } from "@tamagui/lucide-icons"
+import { TrendingUp, TrendingDown } from "@tamagui/lucide-icons-2"
 
 export function KPICard({
   label,
@@ -64,8 +64,8 @@ export function QuickAction({
       gap="$2"
       onPress={onPress}
       pressStyle={{ opacity: 0.7, scale: 0.97 }}
-      accessibilityRole="button"
-      accessibilityLabel={label}
+      role="button"
+      aria-label={label}
     >
       <YStack position="relative">
         <YStack

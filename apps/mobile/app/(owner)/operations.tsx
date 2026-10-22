@@ -18,7 +18,7 @@ import {
   AlertTriangle,
   Clock,
   Calendar,
-} from '@tamagui/lucide-icons';
+} from '@tamagui/lucide-icons-2';
 
 type Tab = 'access' | 'classes' | 'staff' | 'incidents';
 

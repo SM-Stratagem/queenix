@@ -11,34 +11,24 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { ConvexHttpClient } from 'convex/browser';
-import { getConvexApiUrl } from '@/lib/convex-env';
+import { convexAdmin } from '@queenix/auth/convex-admin';
+import { scannerKeyOk } from '@/lib/scanner-auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-function getConvexClient(): ConvexHttpClient | null {
-  const url = getConvexApiUrl();
-  if (!url) return null;
-  return new ConvexHttpClient(url);
-}
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const deviceId = url.searchParams.get('deviceId') ?? 'unknown';
   const now = Date.now();
 
-  // Fire-and-forget heartbeat to Convex (don't block the response).
-  const client = getConvexClient();
-  const adminKey = process.env.CONVEX_DEPLOY_KEY;
-  if (client && adminKey) {
-    client.setAuth(adminKey);
-    client
-      .mutation('mutations/operations:recordScannerHeartbeat' as any, { deviceId })
-      .catch(() => {
-        // Silent — health endpoint should always return 200 so the
-        // scanner firmware doesn't enter a fail-loop.
-      });
+  // Fire-and-forget heartbeat to Convex (don't block the response). Only
+  // devices with the scanner key count as "seen"; the ping itself stays open.
+  if (scannerKeyOk(req)) {
+    convexAdmin('mutation', 'mutations/operations:recordScannerHeartbeat', { deviceId }).catch(() => {
+      // Silent — health endpoint should always return 200 so the
+      // scanner firmware doesn't enter a fail-loop.
+    });
   }
 
   return NextResponse.json({
@@ -50,6 +40,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  if (!scannerKeyOk(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   let body: { deviceId?: string; lastScanAt?: number } = {};
   try {
     body = await req.json();
@@ -59,18 +50,10 @@ export async function POST(req: NextRequest) {
   const deviceId = body.deviceId ?? 'unknown';
   const lastScanAt = body.lastScanAt;
 
-  const client = getConvexClient();
-  const adminKey = process.env.CONVEX_DEPLOY_KEY;
-  if (client && adminKey) {
-    client.setAuth(adminKey);
-    try {
-      await client.mutation('mutations/operations:recordScannerHeartbeat' as any, {
-        deviceId,
-        lastScanAt,
-      });
-    } catch {
-      // Silent
-    }
+  try {
+    await convexAdmin('mutation', 'mutations/operations:recordScannerHeartbeat', { deviceId, lastScanAt });
+  } catch {
+    // Silent
   }
 
   return NextResponse.json({

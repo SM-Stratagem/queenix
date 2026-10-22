@@ -1,4 +1,46 @@
 services:
+  postgres:
+    # Auth database (BetterAuth users/sessions/OTPs). Same engine as production.
+    image: postgres:18-alpine
+    container_name: queenix-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: queenix
+      POSTGRES_PASSWORD: queenix-local-only
+      POSTGRES_DB: queenix_auth
+    ports:
+      - "5433:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql
+    healthcheck:
+      # TCP check: the image's first-boot init server is socket-only, so this
+      # only passes once the real server is up (not mid-initialization).
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U queenix -d queenix_auth"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  mailpit:
+    # Local inbox: catches every email AND (SMS_PROVIDER=dev-inbox) every SMS.
+    # UI http://localhost:8025 — tests read codes from its API.
+    image: axllent/mailpit:latest
+    container_name: queenix-mailpit
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+
+  ocr:
+    # OCR service (services/ocr): IDs, passports, plates, receipts, forms.
+    build:
+      context: services/ocr
+    container_name: queenix-ocr
+    restart: unless-stopped
+    environment:
+      OCR_API_KEY: dev-ocr-key
+    ports:
+      - "8800:8000"
+
   convex-backend:
     # Self-hosted Convex stores all state in SQLite via the /convex/data volume.
     # No separate database required for local dev. For prod-with-postgres,
@@ -29,7 +71,11 @@ services:
       retries: 30
 
   convex-dashboard:
-    image: ghcr.io/get-convex/convex-dashboard:latest
+    # Pinned by commit SHA: :latest (2026-09, Next 16/turbopack build) 500s on
+    # every route — its SSR bundle references an externalized
+    # @radix-ui/react-icons chunk missing from the image. Last good build
+    # before that regression is 2025-10-22 below (verified 200 on /).
+    image: ghcr.io/get-convex/convex-dashboard:6d7b35510d3501705b637964aab201d076893e72
     container_name: queenix-convex-dashboard
     restart: unless-stopped
     ports:
@@ -54,6 +100,9 @@ services:
       - /app/apps/web/node_modules
     environment:
       NODE_ENV: development
+      # Next dev restarts itself near the heap limit (default ~2GB) once the
+      # console's ~22 Tamagui routes are compiled; 4GB keeps a full walk stable.
+      NODE_OPTIONS: --max-old-space-size=4096
       CONVEX_SELF_HOSTED_URL: http://convex-backend:3210
       CONVEX_SITE_URL: http://localhost:3211
       NEXT_PUBLIC_CONVEX_URL: ${NEXT_PUBLIC_CONVEX_URL:-http://localhost:3210}
@@ -61,11 +110,19 @@ services:
       AUTH_TRUST_HOST: "true"
       # Shared testing DB (same file the host uses) so seed/migrate/host-dev
       # and the container all see the same users.
-      AUTH_DB_PATH: /app/apps/web/.data/queenix-auth-testing.db
+      DATABASE_URL: postgres://queenix:queenix-local-only@postgres:5432/queenix_auth
+      CONVEX_DEPLOY_KEY: ${CONVEX_DEPLOY_KEY:-}
+      SMTP_URL: smtp://mailpit:1025
+      EMAIL_FROM: Queenix Gym <no-reply@queenix.local>
+      SMS_PROVIDER: dev-inbox
+      OCR_URL: http://ocr:8000
+      OCR_API_KEY: dev-ocr-key
       AUTH_SECRET: ${AUTH_SECRET:-testing-secret-replace-before-production-min-32-chars-0123456789ab}
       QUEENIX_ADMIN_TOKEN: ${QUEENIX_ADMIN_TOKEN:-queenix-dev-admin-token}
       PAYMENTS_PROVIDER: ${PAYMENTS_PROVIDER:-mock}
     depends_on:
+      postgres:
+        condition: service_healthy
       convex-backend:
         condition: service_healthy
     healthcheck:
@@ -116,8 +173,9 @@ services:
         condition: service_healthy
 
   seed:
-    # One-shot: signs up the 4 demo accounts + links them into Convex.
-    # Runs after web is healthy; retries Convex until functions are synced.
+    # One-shot: signs up the 6 demo accounts, links them into Convex, and
+    # loads the realistic demo dataset. Runs after web is healthy; retries
+    # Convex until functions are synced.
     build:
       context: .
       dockerfile: apps/web/Dockerfile.dev
@@ -131,8 +189,8 @@ services:
     environment:
       AUTH_BASE_URL: http://web:3000
       EXPO_PUBLIC_CONVEX_URL: http://convex-backend:3210
-      AUTH_DB_PATH: apps/web/.data/queenix-auth-testing.db
       QUEENIX_ADMIN_TOKEN: ${QUEENIX_ADMIN_TOKEN:-queenix-dev-admin-token}
+      CONVEX_DEPLOY_KEY: ${CONVEX_DEPLOY_KEY:-}
     depends_on:
       web:
         condition: service_healthy
@@ -143,3 +201,4 @@ services:
 
 volumes:
   convex_data:
+  pg_data:

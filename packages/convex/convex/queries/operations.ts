@@ -1,17 +1,11 @@
 /**
  * Queenix Gym — Operations queries
- * Reads for the operations dashboard: incidents, shifts, support queue.
+ * Reads for the operations screens: own shifts, tickets, notifications.
+ * (Incidents + support queue live in queries/users.ts.)
  */
 
 import { query } from "../_generated/server"
 import { requireUser } from "../_helpers"
-
-export const getIncidents = query({
-  args: {},
-  handler: async () => {
-    return []
-  },
-})
 
 export const getMyActiveShift = query({
   args: {},
@@ -34,13 +28,6 @@ export const getMyShifts = query({
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .order("desc")
       .take(20)
-  },
-})
-
-export const getSupportQueue = query({
-  args: {},
-  handler: async () => {
-    return []
   },
 })
 

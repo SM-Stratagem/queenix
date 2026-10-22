@@ -13,7 +13,7 @@ import {
   ErrorState,
   EmptyState,
 } from '@queenix/ui';
-import { RefreshCw, Eye, History, Car } from '@tamagui/lucide-icons';
+import { RefreshCw, Eye, History, Car } from '@tamagui/lucide-icons-2';
 import QRCode from 'react-native-qrcode-svg';
 import { useConvexQuery, useConvexMutation } from '@/lib/convex';
 import { api } from '@queenix/convex';

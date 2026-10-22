@@ -15,7 +15,8 @@
     "noFallthroughCasesInSwitch": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "incremental": true
+    "incremental": true,
+    "types": ["node"]
   },
   "exclude": ["node_modules", ".next", "dist", ".expo"]
 }

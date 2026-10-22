@@ -6,6 +6,7 @@
 import { v } from 'convex/values';
 import { query } from '../_generated/server';
 import { requireRole, requireUser } from '../_helpers';
+import { platesMatch } from '../_scanFields';
 
 const valetStatus = v.union(
   v.literal('reserved'),
@@ -63,5 +64,27 @@ export const slotCounts = query({
       checkedIn: checkedIn.length,
       active: reserved.length + checkedIn.length,
     };
+  },
+});
+
+/**
+ * Members whose saved vehicles match a (scanned) plate, for the desk check-in form.
+ * ponytail: full scan of memberProfiles; add a normalized-plate index table past ~10k members.
+ */
+export const membersByPlate = query({
+  args: { plate: v.string() },
+  handler: async (ctx, { plate }) => {
+    await requireRole(ctx, ['operations', 'owner', 'admin', 'superadmin'] as any);
+    const profiles = await ctx.db.query('memberProfiles').collect();
+    const hits = profiles.flatMap((p) =>
+      p.vehicles.filter((veh) => platesMatch(veh.plate, plate)).map((veh) => ({ userId: p.userId, vehicle: veh }))
+    );
+    const rows = await Promise.all(
+      hits.slice(0, 5).map(async (h) => {
+        const u = await ctx.db.get(h.userId);
+        return { ...h, fullName: u?.fullName ?? 'Unknown member', email: u?.email ?? null };
+      })
+    );
+    return rows;
   },
 });

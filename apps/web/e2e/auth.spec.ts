@@ -1,7 +1,8 @@
 import { test, expect, request } from "@playwright/test"
+import config from "../playwright.config"
 
 test.describe("BetterAuth e2e", () => {
-  const baseURL = "http://localhost:3300"
+  const baseURL = config.use!.baseURL!
   const stamp = Date.now()
   const email = `e2e-${stamp}@queenix.test`
   const password = "Test123456!"
@@ -34,16 +35,17 @@ test.describe("BetterAuth e2e", () => {
 
     const roleRes = await ctx.post(`/api/admin/users/${userId}/role`, {
       headers: {
-        "x-queenix-admin-token": "queenix-dev-admin-token",
+        "x-queenix-admin-token": process.env.QUEENIX_ADMIN_TOKEN ?? "queenix-dev-admin-token",
         "content-type": "application/json",
       },
+      // Deprecated alias on purpose: the server must normalize owner → finance.
       data: { activeRole: "owner", roles: ["owner", "member"] },
     })
     expect(roleRes.status()).toBe(200)
     const roleBody = await roleRes.json()
     expect(roleBody.ok).toBe(true)
-    expect(roleBody.activeRole).toBe("owner")
-    expect(roleBody.roles).toEqual(["owner", "member"])
+    expect(roleBody.activeRole).toBe("finance")
+    expect(roleBody.roles).toEqual(["finance", "member"])
 
     // Use a fresh context (no cookies) for the sign-in test.
     const signinCtx = await request.newContext({ baseURL })
@@ -52,8 +54,8 @@ test.describe("BetterAuth e2e", () => {
     })
     expect(signin.status()).toBe(200)
     const signinBody = await signin.json()
-    expect(signinBody.user.activeRole).toBe("owner")
-    expect(signinBody.user.roles).toEqual(["owner", "member"])
+    expect(signinBody.user.activeRole).toBe("finance")
+    expect(signinBody.user.roles).toEqual(["finance", "member"])
 
     const session = await signinCtx.get("/api/auth/get-session")
     expect(session.status()).toBe(200)
@@ -85,7 +87,7 @@ test.describe("BetterAuth e2e", () => {
   })
 
   test("convex health endpoint reachable", async ({ request }) => {
-    const res = await request.get("http://localhost:3210/version")
+    const res = await request.get(`${process.env.E2E_CONVEX_URL ?? "http://localhost:3210"}/version`)
     expect(res.status()).toBe(200)
   })
 })

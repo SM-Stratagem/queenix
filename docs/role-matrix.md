@@ -75,7 +75,7 @@ all gated on `staff.manage` / `staff.read`).
 - `requireCapability` checks role capabilities first, then grants, and
   throws `FORBIDDEN` when neither covers the capability.
 
-## Demo accounts (`seedDemoAccounts`)
+## Demo accounts (seeded by `scripts/seed-demo-users.mjs`; password `QueenixDemo123!`)
 
 | Email | Roles | Active |
 |---|---|---|

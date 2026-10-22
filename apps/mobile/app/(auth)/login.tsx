@@ -1,46 +1,42 @@
 import React, { useState } from 'react';
-import { YStack, XStack, ScrollView } from 'tamagui';
+import { YStack, XStack } from 'tamagui';
 import { useRouter } from 'expo-router';
-import { Screen, Text, Input, Button, Logo, Spacer } from '@queenix/ui';
+import { Screen, Text, Input, Button, Logo } from '@queenix/ui';
 import { useAuth } from '@/lib/auth';
-import { Mail, Lock, Phone } from '@tamagui/lucide-icons';
+import { Mail, Lock, Phone, KeyRound } from '@tamagui/lucide-icons-2';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { signIn, sendOtp } = useAuth();
+  const { signIn, sendPhoneCode, signInWithPhone } = useAuth();
   const [mode, setMode] = useState<'email' | 'phone'>('email');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
+  const [code, setCode] = useState('');
+  const [codeSent, setCodeSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleEmailLogin = async () => {
+  const run = async (fn: () => Promise<{ ok: boolean; error?: string }>, onOk?: () => void) => {
     setError(null);
-    if (!email || !password) {
-      setError('Please enter your email and password');
-      return;
-    }
     setLoading(true);
-    const res = await signIn(email, password);
+    const res = await fn();
     setLoading(false);
-    if (!res.ok) setError(res.error ?? 'Sign in failed');
+    if (!res.ok) setError(res.error ?? 'Something went wrong');
+    else onOk?.();
   };
 
-  const handlePhoneLogin = async () => {
-    setError(null);
-    if (!phone || phone.length < 8) {
-      setError('Please enter a valid phone number');
-      return;
-    }
-    setLoading(true);
-    const res = await sendOtp(phone);
-    setLoading(false);
-    if (!res.ok) {
-      setError(res.error ?? 'Failed to send code');
-      return;
-    }
-    router.push({ pathname: '/(auth)/otp', params: { phone } });
+  const onEmail = () => {
+    if (!email || !password) return setError('Please enter your email and password');
+    void run(() => signIn(email, password));
+  };
+
+  const onPhone = () => {
+    // E.164: the SMS gateway needs the country code (UAE = +971).
+    if (!/^\+[1-9]\d{7,14}$/.test(phone.trim())) return setError('Enter your number with country code, e.g. +971501234567');
+    if (!codeSent) void run(() => sendPhoneCode(phone), () => setCodeSent(true));
+    else if (code.trim().length !== 6) setError('Enter the 6-digit code');
+    else void run(() => signInWithPhone(phone, code));
   };
 
   return (
@@ -54,26 +50,20 @@ export default function LoginScreen() {
           </Text>
         </YStack>
 
-        <XStack
-          backgroundColor="$surfaceMuted"
-          borderRadius="$lg"
-          padding="$1"
-          alignSelf="stretch"
-        >
-          <Button
-            label="Email"
-            onPress={() => setMode('email')}
-            variant={mode === 'email' ? 'primary' : 'ghost'}
-            size="sm"
-            fullWidth
-          />
-          <Button
-            label="Phone"
-            onPress={() => setMode('phone')}
-            variant={mode === 'phone' ? 'primary' : 'ghost'}
-            size="sm"
-            fullWidth
-          />
+        <XStack backgroundColor="$surfaceMuted" borderRadius="$lg" padding="$1" alignSelf="stretch">
+          {(['email', 'phone'] as const).map((m) => (
+            <Button
+              key={m}
+              label={m === 'email' ? 'Email' : 'Phone'}
+              onPress={() => {
+                setMode(m);
+                setError(null);
+              }}
+              variant={mode === m ? 'primary' : 'ghost'}
+              size="sm"
+              fullWidth
+            />
+          ))}
         </XStack>
 
         {mode === 'email' ? (
@@ -99,25 +89,50 @@ export default function LoginScreen() {
               leftIcon={<Lock size={18} color="$textMuted" />}
               required
             />
-            <Text
-              variant="caption"
-              color="brand"
-              align="right"
-              onPress={() => {/* TODO: forgot password */}}
-            >
+            <Text variant="caption" color="brand" align="right" onPress={() => router.push('/(auth)/forgot-password')}>
               Forgot password?
             </Text>
           </YStack>
         ) : (
-          <Input
-            label="Phone number"
-            placeholder="+971 50 123 4567"
-            value={phone}
-            onChangeText={setPhone}
-            keyboardType="phone-pad"
-            leftIcon={<Phone size={18} color="$textMuted" />}
-            required
-          />
+          <YStack gap="$3">
+            <Input
+              label="Phone number"
+              placeholder="+971 50 123 4567"
+              value={phone}
+              onChangeText={(t) => setPhone(t.replace(/[^\d+]/g, ''))}
+              keyboardType="phone-pad"
+              autoComplete="tel"
+              disabled={codeSent}
+              leftIcon={<Phone size={18} color="$textMuted" />}
+              required
+            />
+            {codeSent && (
+              <>
+                <Input
+                  label="SMS code"
+                  placeholder="6-digit code"
+                  value={code}
+                  onChangeText={(t) => setCode(t.replace(/\D/g, '').slice(0, 6))}
+                  keyboardType="number-pad"
+                  autoComplete="sms-otp"
+                  textContentType="oneTimeCode"
+                  leftIcon={<KeyRound size={18} color="$textMuted" />}
+                  required
+                />
+                <Text
+                  variant="caption"
+                  color="brand"
+                  align="right"
+                  onPress={() => {
+                    setCodeSent(false);
+                    setCode('');
+                  }}
+                >
+                  Use a different number
+                </Text>
+              </>
+            )}
+          </YStack>
         )}
 
         {error && (
@@ -125,8 +140,8 @@ export default function LoginScreen() {
         )}
 
         <Button
-          label={mode === 'email' ? 'Sign in' : 'Send code'}
-          onPress={mode === 'email' ? handleEmailLogin : handlePhoneLogin}
+          label={mode === 'email' ? 'Sign in' : codeSent ? 'Verify & sign in' : 'Text me a code'}
+          onPress={mode === 'email' ? onEmail : onPhone}
           loading={loading}
           variant="primary"
           size="lg"
@@ -135,12 +150,7 @@ export default function LoginScreen() {
 
         <XStack justifyContent="center" alignItems="center" gap="$1" marginTop="$3">
           <Text variant="bodySmall" color="secondary">Don't have an account?</Text>
-          <Text
-            variant="bodySmall"
-            color="brand"
-            fontWeight="600"
-            onPress={() => router.push('/(auth)/signup')}
-          >
+          <Text variant="bodySmall" color="brand" fontWeight="600" onPress={() => router.push('/(auth)/signup')}>
             Sign up
           </Text>
         </XStack>

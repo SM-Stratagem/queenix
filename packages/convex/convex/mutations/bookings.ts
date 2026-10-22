@@ -22,6 +22,16 @@ export const bookClass = mutation({
       .first();
     if (existing) return existing;
 
+    // One live booking per member per class (same rule as joinWaitlist): a
+    // second tap with a fresh idempotency key must not double-book.
+    const live = (
+      await ctx.db
+        .query('bookings')
+        .withIndex('by_classInstance', (q) => q.eq('classInstanceId', classInstanceId))
+        .collect()
+    ).find((b) => String(b.userId) === String(user._id) && b.status !== 'cancelled');
+    if (live) return live;
+
     const classInstance = await ctx.db.get(classInstanceId);
     if (!classInstance) throw new ConvexError({ code: 'NOT_FOUND', message: 'Class not found' });
     if (classInstance.status !== 'scheduled') {

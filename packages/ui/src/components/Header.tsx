@@ -2,7 +2,7 @@ import React from 'react';
 import { XStack, YStack, useTheme } from 'tamagui';
 import { Text } from './Text';
 import { Pressable } from 'react-native';
-import { ChevronLeft, X } from '@tamagui/lucide-icons';
+import { ChevronLeft, X } from '@tamagui/lucide-icons-2';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export interface HeaderProps {
@@ -39,8 +39,8 @@ export const Header: React.FC<HeaderProps> = ({
         {showBack && (
           <Pressable
             onPress={onBack}
-            accessibilityRole="button"
-            accessibilityLabel="Go back"
+            role="button"
+            aria-label="Go back"
             hitSlop={12}
           >
             <ChevronLeft size={28} color="$textPrimary" />

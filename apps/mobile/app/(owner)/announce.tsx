@@ -6,7 +6,7 @@ import {
 } from '@queenix/ui';
 import { useConvexQuery, useConvexMutation } from '@/lib/convex';
 import { api } from '@queenix/convex';
-import { Megaphone } from '@tamagui/lucide-icons';
+import { Megaphone } from '@tamagui/lucide-icons-2';
 
 export default function OwnerAnnounceScreen() {
   const router = useRouter();
@@ -45,14 +45,14 @@ export default function OwnerAnnounceScreen() {
       <YStack paddingHorizontal="$4" paddingBottom="$6" gap="$4">
         <YStack gap="$2">
           <Text variant="h4">New announcement</Text>
-          <Input value={title} onChangeText={setTitle} placeholder="Title" accessibilityLabel="Announcement title" />
+          <Input value={title} onChangeText={setTitle} placeholder="Title" aria-label="Announcement title" />
           <Input
             value={body}
             onChangeText={setBody}
             placeholder="Message for the club…"
             multiline
             numberOfLines={3}
-            accessibilityLabel="Announcement message"
+            aria-label="Announcement message"
           />
           <XStack gap="$2">
             {(['members', 'all'] as const).map((a) => (

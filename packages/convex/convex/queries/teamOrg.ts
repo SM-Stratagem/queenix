@@ -266,6 +266,19 @@ export const timeOffList = query({
 });
 
 /** Roles & permissions overview: headcount per role + every staffer's grants. */
+/** Find any user (incl. members) by email — to grant a new hire a staff role. */
+export const userByEmail = query({
+  args: { email: v.string() },
+  handler: async (ctx, { email }) => {
+    await requireRole(ctx, ['owner']);
+    const u = await ctx.db
+      .query('users')
+      .withIndex('by_email', (q) => q.eq('email', email.trim().toLowerCase()))
+      .first();
+    return u ? { _id: u._id, fullName: u.fullName, email: u.email, activeRole: u.activeRole, roles: u.roles } : null;
+  },
+});
+
 export const rolesOverview = query({
   args: {},
   handler: async (ctx) => {

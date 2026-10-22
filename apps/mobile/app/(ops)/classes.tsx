@@ -31,7 +31,7 @@ import {
   UserCheck,
   PlayCircle,
   RefreshCw,
-} from '@tamagui/lucide-icons';
+} from '@tamagui/lucide-icons-2';
 import { formatTime } from '@queenix/types';
 import { RosterDetail } from '@/components/ops-classes/RosterDetail';
 
@@ -120,7 +120,7 @@ export default function OpsClassesScreen() {
             size="sm"
             icon={<UserCheck size={16} color="$textOnBrand" />}
             onPress={() => router.push('/(ops)/scanner')}
-            accessibilityLabel="Open scanner"
+            aria-label="Open scanner"
           />
         }
       />
@@ -143,9 +143,9 @@ export default function OpsClassesScreen() {
                   backgroundColor={active ? '$brand' : '$surfaceMuted'}
                   onPress={() => setSelectedDateOffset(d.offset)}
                   pressStyle={{ opacity: 0.75, scale: 0.96 }}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${d.isToday ? 'Today, ' : ''}${d.day} ${d.num} ${d.month}`}
-                  accessibilityState={{ selected: active }}
+                  role="button"
+                  aria-label={`${d.isToday ? 'Today, ' : ''}${d.day} ${d.num} ${d.month}`}
+                  aria-selected={active}
                 >
                   <Text
                     variant="caption"

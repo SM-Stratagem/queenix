@@ -11,16 +11,17 @@ export type SwitchProps = ViewProps & {
   accessibilityLabel?: string;
 }
 
-export const Switch: React.FC<SwitchProps> = ({ value, onValueChange, label, description, disabled }) => {
+export const Switch: React.FC<SwitchProps> = ({ value, onValueChange, label, description, disabled, accessibilityLabel }) => {
   if (!label && !description) {
     return (
       <TamaguiSwitch
         checked={value}
         onCheckedChange={onValueChange}
         disabled={disabled}
+        aria-label={accessibilityLabel ?? label}
         size="$3"
       >
-        <TamaguiSwitch.Thumb animation="quick" />
+        <TamaguiSwitch.Thumb transition="quick" />
       </TamaguiSwitch>
     );
   }
@@ -35,9 +36,10 @@ export const Switch: React.FC<SwitchProps> = ({ value, onValueChange, label, des
         checked={value}
         onCheckedChange={onValueChange}
         disabled={disabled}
+        aria-label={accessibilityLabel ?? label}
         size="$3"
       >
-        <TamaguiSwitch.Thumb animation="quick" />
+        <TamaguiSwitch.Thumb transition="quick" />
       </TamaguiSwitch>
     </XStack>
   );

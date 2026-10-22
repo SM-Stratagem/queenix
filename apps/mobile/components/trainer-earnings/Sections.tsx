@@ -1,7 +1,7 @@
 import React from "react"
 import { YStack, XStack } from "tamagui"
 import { Card, Text, Badge } from "@queenix/ui"
-import { Wallet, TrendingUp, TrendingDown, CalendarClock, Dumbbell } from "@tamagui/lucide-icons"
+import { Wallet, TrendingUp, TrendingDown, CalendarClock, Dumbbell } from "@tamagui/lucide-icons-2"
 import { formatMoney, formatMoneyShort } from "./format"
 
 export function EarningsHero({

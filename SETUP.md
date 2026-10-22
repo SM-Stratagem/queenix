@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Node.js 20+
+- Node.js 24 LTS+
 - pnpm 10+
 - iOS: Xcode 15+ (macOS)
 - Android: Android Studio + SDK
@@ -75,19 +75,15 @@ pnpm dev
 
 Visit http://localhost:3000
 
-## 7. Seed sample data (optional)
+## 7. Seed demo data (optional, never in production)
 
-In the Convex dashboard:
-1. Go to https://dashboard.convex.dev
-2. Open your deployment
-3. Use the "Functions" tab to call `seed:seedSampleData` to populate with sample members, classes, trainers
-
-Or run the seed script:
+`./scripts/dev-up.sh` seeds the demo accounts + dataset automatically. To re-run it:
 
 ```bash
-cd packages/convex
-npx convex run seed:seedSampleData
+docker compose --env-file .env.docker up -d --force-recreate --no-deps seed
 ```
+
+For the production build run locally: `./scripts/prod-local.sh --demo`.
 
 ## Troubleshooting
 

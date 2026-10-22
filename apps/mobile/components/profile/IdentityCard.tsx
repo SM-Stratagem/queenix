@@ -1,7 +1,7 @@
 import React from "react"
 import { YStack, XStack } from "tamagui"
 import { Card, Text, Avatar, Badge, Divider } from "@queenix/ui"
-import { Mail, Phone, IdCard } from "@tamagui/lucide-icons"
+import { Mail, Phone, IdCard } from "@tamagui/lucide-icons-2"
 import { ContactRow } from "./ContactRow"
 
 export type ProfileIdentity = {

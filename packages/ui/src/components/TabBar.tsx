@@ -34,9 +34,9 @@ export const TabBar: React.FC<TabBarProps> = ({ tabs, activeKey, onChange }) => 
             key={tab.key}
             onPress={() => onChange(tab.key)}
             style={({ pressed }) => ({ flex: 1, opacity: pressed ? 0.7 : 1 })}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: active }}
-            accessibilityLabel={tab.label}
+            role="tab"
+            aria-selected={active}
+            aria-label={tab.label}
           >
             <YStack alignItems="center" gap="$0.5" paddingVertical="$1">
               <View>

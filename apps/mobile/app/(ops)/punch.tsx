@@ -37,7 +37,7 @@ import {
   Fingerprint,
   CheckCircle2,
   Calendar,
-} from '@tamagui/lucide-icons';
+} from '@tamagui/lucide-icons-2';
 
 function formatTime(ts: number): string {
   return new Date(ts).toLocaleTimeString('en-GB', {
@@ -131,7 +131,7 @@ export default function OpsPunch() {
                   )
                 }
                 onPress={handlePunch}
-                accessibilityLabel={isClockedIn ? 'Punch out' : 'Punch in'}
+                aria-label={isClockedIn ? 'Punch out' : 'Punch in'}
               />
             </YStack>
           </Card>

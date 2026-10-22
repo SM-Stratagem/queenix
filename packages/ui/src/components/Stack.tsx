@@ -1,10 +1,10 @@
 import React from 'react';
 import {
-  Stack as TamaguiStack,
+  View as TamaguiStack,
   XStack,
   YStack,
   ZStack,
-  type StackProps as TamaguiStackProps,
+  type ViewProps as TamaguiStackProps,
 } from 'tamagui';
 
 export { XStack, YStack, ZStack };
@@ -22,7 +22,9 @@ export const Stack = React.forwardRef<React.ElementRef<typeof TamaguiStack>, Sta
     <TamaguiStack
       ref={ref}
       padding={padding ?? (padded ? '$4' : undefined)}
-      flexDirection={flexDirection ?? direction}
+      // Native defaults to column but CSS flex defaults to row: pin column so
+      // web (Expo web) lays screens out like the phone does.
+      flexDirection={flexDirection ?? direction ?? 'column'}
       {...props}
     />
   )

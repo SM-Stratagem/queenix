@@ -1,7 +1,7 @@
 import React from "react"
 import { YStack, XStack } from "tamagui"
 import { Card, Text, Divider, Badge, Button, EmptyState } from "@queenix/ui"
-import { Mail, Phone, Activity, Calendar, Dumbbell, AlertCircle } from "@tamagui/lucide-icons"
+import { Mail, Phone, Activity, Calendar, Dumbbell, AlertCircle } from "@tamagui/lucide-icons-2"
 import { Section, KeyValue, Stat } from "./primitives"
 import { getRelative } from "./format"
 

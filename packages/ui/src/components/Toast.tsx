@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useCallback, useState } from 'react';
 import { YStack } from 'tamagui';
 import { Text } from './Text';
-import { CheckCircle2, AlertCircle, Info, XCircle } from '@tamagui/lucide-icons';
+import { CheckCircle2, AlertCircle, Info, XCircle } from '@tamagui/lucide-icons-2';
 
 export type ToastVariant = 'success' | 'error' | 'info' | 'warning';
 

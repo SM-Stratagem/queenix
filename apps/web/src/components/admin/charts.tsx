@@ -79,33 +79,3 @@ export function GrowthChart({ points }: { points: GrowthPoint[] }) {
     </div>
   );
 }
-
-export type StatusBucket = { label: string; count: number; color: string };
-
-/** Horizontal bars for membership-status mix. */
-export function StatusBars({ buckets }: { buckets: StatusBucket[] }) {
-  const max = Math.max(1, ...buckets.map((b) => b.count));
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {buckets.map((b) => (
-        <div key={b.label} style={{ display: 'grid', gridTemplateColumns: '90px 1fr 40px', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 12, fontWeight: 600, textTransform: 'capitalize', color: 'var(--text-secondary)' }}>
-            {b.label}
-          </span>
-          <div style={{ height: 10, background: 'var(--bg-muted)', borderRadius: 999, overflow: 'hidden' }}>
-            <div
-              style={{
-                width: `${(b.count / max) * 100}%`,
-                height: '100%',
-                background: b.color,
-                borderRadius: 999,
-                minWidth: b.count > 0 ? 6 : 0,
-              }}
-            />
-          </div>
-          <span style={{ fontSize: 13, fontWeight: 700, textAlign: 'right' }}>{b.count}</span>
-        </div>
-      ))}
-    </div>
-  );
-}

@@ -1,13 +1,14 @@
-import React, { useEffect, useMemo, useState } from "react"
+import React, { useCallback, useEffect, useMemo, useState } from "react"
 import { TamaguiProvider, Theme } from "tamagui"
 import { GestureHandlerRootView } from "react-native-gesture-handler"
 import { SafeAreaProvider } from "react-native-safe-area-context"
 import { Stack } from "expo-router"
 import { StatusBar } from "@queenix/ui"
 import { config } from "@queenix/theme"
-import { ConvexProvider, ConvexReactClient } from "convex/react"
-import { authClient } from "@queenix/auth"
+import { ConvexProviderWithAuth, ConvexReactClient, useConvexAuth } from "convex/react"
+import { AUTH_BASE_URL, authClient } from "@queenix/auth"
 import { AuthProvider, useAuth } from "@/lib/auth"
+import { usePushNotifications } from "@/lib/push"
 import { ToastProvider } from "@queenix/ui"
 import { initI18n } from "@queenix/i18n"
 import { View, ActivityIndicator } from "react-native"
@@ -28,12 +29,11 @@ const convexUrl =
 const convex = new ConvexReactClient(convexUrl, { unsavedChangesWarning: false })
 
 /**
- * Pin to LIGHT mode. The theme package intentionally ships only `light` —
- * the OS preference is intentionally ignored so the app's brand and
- * contrast stay consistent. If you ever add `dark: darkTheme`, also wire
- * it here.
+ * Pin to DARK mode. The theme package ships dark (light is an alias of
+ * dark) — the OS preference is intentionally ignored so the app's brand
+ * and contrast stay consistent.
  */
-const FIXED_THEME = "light" as const
+const FIXED_THEME = "dark" as const
 
 export default function RootLayout() {
   const [appReady, setAppReady] = useState(false)
@@ -66,15 +66,14 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <TamaguiProvider config={config} defaultTheme={FIXED_THEME}>
           <Theme name={FIXED_THEME}>
-            <ConvexProvider client={convex}>
-              <AuthProvider>
-                <ConvexAuthSync />
+            <AuthProvider>
+              <ConvexProviderWithAuth client={convex} useAuth={useConvexAuthFromSession}>
                 <ToastProvider>
-                  <StatusBar style="dark" />
+                  <StatusBar style="light" />
                   {appReady ? <RootNavigator /> : <AppLoader />}
                 </ToastProvider>
-              </AuthProvider>
-            </ConvexProvider>
+              </ConvexProviderWithAuth>
+            </AuthProvider>
           </Theme>
         </TamaguiProvider>
       </SafeAreaProvider>
@@ -83,28 +82,33 @@ export default function RootLayout() {
 }
 
 /**
- * Keeps the Convex client authorized with a fresh RS256 token minted by
- * /api/convex/token (BetterAuth session cookie is attached by the expo
- * client plugin). Re-armed on every session change so login/logout
- * immediately flips live queries and mutations between authorized and
- * unauthenticated without an app restart.
+ * Feeds ConvexProviderWithAuth from the BetterAuth session: tokens are
+ * minted by /api/convex/token (session cookie attached by the expo client
+ * plugin). The token fetcher's identity changes only when the signed-in
+ * user does, so Convex re-arms on login/logout/switch — not on every
+ * session refresh or role switch (that raced in-flight query updates →
+ * "Base version N passed up doesn't match" fatal errors).
  */
-function ConvexAuthSync() {
-  const { session } = useAuth()
-
-  useEffect(() => {
-    convex.setAuth(async () => {
-      try {
-        const res = await authClient.$fetch("/api/convex/token")
-        const token = (res.data as { token?: unknown } | null | undefined)?.token
-        return typeof token === "string" ? token : null
-      } catch {
-        return null
-      }
-    })
-  }, [session])
-
-  return null
+function useConvexAuthFromSession() {
+  const { session, isLoading } = useAuth()
+  const userId = session?.userId ?? null
+  const fetchAccessToken = useCallback(async () => {
+    if (!userId) return null
+    try {
+      // Absolute URL: a relative path is resolved under the auth basePath
+      // (/api/auth/api/convex/token → 404 → every query "Not signed in").
+      // $fetch still attaches the expo session cookie.
+      const res = await authClient.$fetch(`${AUTH_BASE_URL}/api/convex/token`)
+      const token = (res.data as { token?: unknown } | null | undefined)?.token
+      return typeof token === "string" ? token : null
+    } catch {
+      return null
+    }
+  }, [userId])
+  return useMemo(
+    () => ({ isLoading, isAuthenticated: userId !== null, fetchAccessToken }),
+    [isLoading, userId, fetchAccessToken]
+  )
 }
 
 function AppLoader() {
@@ -117,6 +121,9 @@ function AppLoader() {
 
 function RootNavigator() {
   const { isLoading, session } = useAuth()
+  // Screens subscribe on mount: hold them until Convex has accepted the token.
+  const convexAuth = useConvexAuth()
+  usePushNotifications(!!session && convexAuth.isAuthenticated)
 
   // Single Stack instance per auth state — switching identity flips
   // the redirect prop, which Expo Router handles atomically.
@@ -132,7 +139,7 @@ function RootNavigator() {
     []
   )
 
-  if (isLoading) return <AppLoader />
+  if (isLoading || (session && convexAuth.isLoading)) return <AppLoader />
 
   return (
     <Stack {...stackProps}>

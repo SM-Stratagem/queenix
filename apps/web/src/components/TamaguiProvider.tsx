@@ -12,8 +12,8 @@ import { config } from '@queenix/theme';
  */
 export function QueenixProvider({ children }: { children: React.ReactNode }) {
   return (
-    <TamaguiProvider config={config} defaultTheme="light">
-      <Theme name="light">{children}</Theme>
+    <TamaguiProvider config={config} defaultTheme="dark">
+      <Theme name="dark">{children}</Theme>
     </TamaguiProvider>
   );
 }

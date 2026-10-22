@@ -1,7 +1,7 @@
 import React from "react"
 import { XStack, YStack } from "tamagui"
 import { Card, Text, Avatar } from "@queenix/ui"
-import { CheckCircle2, XCircle } from "@tamagui/lucide-icons"
+import { CheckCircle2, XCircle } from "@tamagui/lucide-icons-2"
 
 export type CheckInEntry = {
   granted: boolean
@@ -26,7 +26,7 @@ export function CheckInRow({ entry }: { entry: CheckInEntry }) {
     <Card
       variant="outlined"
       padding="sm"
-      accessibilityLabel={`${name}, ${isGranted ? "granted" : "denied"} ${formatRelative(entry.timestamp)}`}
+      aria-label={`${name}, ${isGranted ? "granted" : "denied"} ${formatRelative(entry.timestamp)}`}
     >
       <XStack alignItems="center" gap="$3">
         <Avatar

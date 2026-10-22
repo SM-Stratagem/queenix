@@ -15,7 +15,7 @@ import {
 } from '@queenix/ui';
 import { useConvexQuery, useConvexMutation } from '@/lib/convex';
 import { api } from '@queenix/convex';
-import { FileCheck, ShieldCheck, ShieldAlert, ShieldX, Infinity as InfinityIcon } from '@tamagui/lucide-icons';
+import { FileCheck, ShieldCheck, ShieldAlert, ShieldX, Infinity as InfinityIcon } from '@tamagui/lucide-icons-2';
 
 type Cert = {
   name: string;
@@ -159,27 +159,27 @@ export default function TrainerDocuments() {
 
         <YStack gap="$2" marginTop="$2">
           <Text variant="h4">Add document</Text>
-          <Input placeholder="Certificate name" value={name} onChangeText={setName} accessibilityLabel="Certificate name" />
-          <Input placeholder="Issuer" value={issuer} onChangeText={setIssuer} accessibilityLabel="Issuer" />
+          <Input placeholder="Certificate name" value={name} onChangeText={setName} aria-label="Certificate name" />
+          <Input placeholder="Issuer" value={issuer} onChangeText={setIssuer} aria-label="Issuer" />
           <XStack gap="$2">
             <YStack flex={1} gap="$1">
               <Text variant="caption" color="muted">
                 Issued (YYYY-MM-DD)
               </Text>
-              <Input value={issued} onChangeText={setIssued} accessibilityLabel="Issued date" />
+              <Input value={issued} onChangeText={setIssued} aria-label="Issued date" />
             </YStack>
             <YStack flex={1} gap="$1">
               <Text variant="caption" color="muted">
                 Expires (optional)
               </Text>
-              <Input value={expires} onChangeText={setExpires} accessibilityLabel="Expiry date" />
+              <Input value={expires} onChangeText={setExpires} aria-label="Expiry date" />
             </YStack>
           </XStack>
           <Input
             placeholder="Document URL (optional)"
             value={docUrl}
             onChangeText={setDocUrl}
-            accessibilityLabel="Document URL"
+            aria-label="Document URL"
           />
           {error && (
             <Text variant="bodySmall" color="danger">

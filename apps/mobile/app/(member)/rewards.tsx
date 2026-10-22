@@ -1,59 +1,36 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { YStack, XStack, ScrollView } from 'tamagui';
 import { useRouter } from 'expo-router';
-import {
-  Screen,
-  Text,
-  Card,
-  Button,
-  Badge,
-  Divider,
-  Skeleton,
-  ErrorState,
-  EmptyState,
-  useToast,
-  Progress,
-} from '@queenix/ui';
-import {
-  Award,
-  Share2,
-  TrendingUp,
-  TrendingDown,
-  Crown,
-  Sparkles,
-  CheckCircle2,
-} from '@tamagui/lucide-icons';
+import { Screen, Text, useToast } from '@queenix/ui';
 import { useConvexQuery, useConvexMutation } from '@/lib/convex';
-import { TabPill, TierRow } from '@/components/rewards/primitives';
+import { TabPill } from '@/components/rewards/primitives';
 import { PointsHeroCard } from '@/components/rewards/PointsHero';
-import { api } from '@queenix/convex';
 import {
-  formatDate,
-  tierForBalance,
-  tierVariant,
-  type Tier,
-} from '@/components/rewards/format';
+  ReferCard,
+  ReferralsList,
+  RedeemList,
+  HistoryList,
+  type Reward,
+  TiersSummary,
+  type HistoryItem,
+} from '@/components/rewards/sections';
+import { api } from '@queenix/convex';
+import { tierForBalance } from '@/components/rewards/format';
 
-type TabKey = 'available' | 'history';
-
-interface HistoryItem {
-  id: string;
-  type: 'earned' | 'redeemed' | 'expired' | 'adjusted';
-  amount: number;
-  description: string;
-  date: number;
-}
+type TabKey = 'redeem' | 'history' | 'referrals';
 
 const NEXT_TIER_COST = 2000;
 
 export default function RewardsScreen() {
   const router = useRouter();
   const toast = useToast();
-  const [tab, setTab] = useState<TabKey>('available');
+  const [tab, setTab] = useState<TabKey>('redeem');
 
   // Real data
   const loyalty = useConvexQuery(api.queries.users.getLoyaltyBalance, {});
   const referrals = useConvexQuery(api.queries.users.getMyReferrals, {});
+  const rewards = useConvexQuery(api.queries.users.listRewards, {});
+  const [redeeming, setRedeeming] = useState<string | null>(null);
 
   // Mutations
   const redeemReward = useConvexMutation(api.mutations.loyalty.redeemReward);
@@ -75,19 +52,18 @@ export default function RewardsScreen() {
   const tierProgressPct = Math.min(100, (pointsBalance / NEXT_TIER_COST) * 100);
 
   const handleRedeem = useCallback(
-    async (reward: { id: string; name: string; cost: number }) => {
-      if (pointsBalance < reward.cost) {
-        toast.warning(`You need ${reward.cost - pointsBalance} more points`);
-        return;
-      }
+    async (reward: Reward) => {
+      setRedeeming(reward.id);
       try {
-        await redeemReward({ points: reward.cost, reason: reward.name });
-        toast.success(`Redeemed: ${reward.name}`);
+        await redeemReward({ rewardId: reward.id });
+        toast.success(`Redeemed: ${reward.name} — show this at the desk`);
       } catch (err: any) {
-        toast.error(err?.message ?? 'Redemption failed');
+        toast.error(err?.data?.message ?? err?.message ?? 'Redemption failed');
+      } finally {
+        setRedeeming(null);
       }
     },
-    [pointsBalance, redeemReward, toast]
+    [redeemReward, toast]
   );
 
   const handleRefer = useCallback(async () => {
@@ -130,31 +106,7 @@ export default function RewardsScreen() {
 
         {/* Refer a friend */}
         <YStack paddingHorizontal="$4" marginTop="$3">
-          <Card
-            variant="outlined"
-            padding="md"
-            onPress={handleRefer}
-            accessibilityLabel="Refer a friend and earn 500 points"
-          >
-            <XStack alignItems="center" gap="$3">
-              <YStack backgroundColor="$success50" padding="$3" borderRadius="$xl">
-                <Share2 size={22} color="$success700" />
-              </YStack>
-              <YStack flex={1}>
-                <Text variant="h4">Refer a friend</Text>
-                <Text variant="bodySmall" color="secondary">
-                  Earn 500 points when they join. They get 200.
-                </Text>
-                <XStack alignItems="center" gap="$1" marginTop="$1">
-                  <Text variant="caption" color="brand" weight="700">
-                    {referrals && referrals.length > 0
-                      ? `${referrals.length} referral${referrals.length === 1 ? '' : 's'} so far`
-                      : 'Share your link'}
-                  </Text>
-                </XStack>
-              </YStack>
-            </XStack>
-          </Card>
+          <ReferCard referrals={referrals} onPress={handleRefer} />
         </YStack>
 
         {/* Tabs */}
@@ -165,215 +117,21 @@ export default function RewardsScreen() {
             borderRadius="$lg"
             gap="$1"
           >
-            <TabPill
-              label="History"
-              active={tab === 'history'}
-              onPress={() => setTab('history')}
-              flex={1}
-            />
-            <TabPill
-              label="Referrals"
-              active={tab === 'available'}
-              onPress={() => setTab('available')}
-              flex={1}
-            />
+            <TabPill label="Redeem" active={tab === 'redeem'} onPress={() => setTab('redeem')} flex={1} />
+            <TabPill label="History" active={tab === 'history'} onPress={() => setTab('history')} flex={1} />
+            <TabPill label="Referrals" active={tab === 'referrals'} onPress={() => setTab('referrals')} flex={1} />
           </XStack>
 
-          {tab === 'available' ? (
-            <YStack gap="$3">
-              {referrals === undefined ? (
-                <Card variant="outlined" padding="md">
-                  <YStack gap="$2">
-                    <Skeleton width="100%" height={48} borderRadius={8} />
-                    <Skeleton width="100%" height={48} borderRadius={8} />
-                  </YStack>
-                </Card>
-              ) : referrals === null ? (
-                <ErrorState
-                  title="Could not load referrals"
-                  message="Please try again in a moment."
-                  onRetry={() => {
-                    /* Convex auto-revalidates */
-                  }}
-                />
-              ) : referrals.length === 0 ? (
-                <Card variant="outlined" padding="md">
-                  <EmptyState
-                    title="No referrals yet"
-                    message="Tap the card above to generate your first referral link."
-                  />
-                </Card>
-              ) : (
-                <YStack gap="$2">
-                  <Text variant="caption" color="muted">
-                    {referrals.length} referral{referrals.length === 1 ? '' : 's'}
-                  </Text>
-                  <Card variant="outlined" padding="none">
-                    <YStack>
-                      {referrals.map((r, idx) => (
-                        <YStack key={r._id}>
-                          {idx > 0 && <Divider />}
-                          <XStack alignItems="center" gap="$3" padding="$4">
-                            <YStack
-                              backgroundColor={
-                                r.status === 'converted'
-                                  ? '$success50'
-                                  : r.status === 'expired'
-                                    ? '$danger50'
-                                    : '$warning50'
-                              }
-                              padding="$2.5"
-                              borderRadius="$md"
-                            >
-                              <Share2
-                                size={18}
-                                color={
-                                  r.status === 'converted'
-                                    ? '$success700'
-                                    : r.status === 'expired'
-                                      ? '$danger'
-                                      : '$warning'
-                                }
-                              />
-                            </YStack>
-                            <YStack flex={1}>
-                              <Text variant="label" numberOfLines={1}>
-                                {r.code}
-                              </Text>
-                              <Text variant="caption" color="muted">
-                                {formatDate(r.createdAt)} • {r.rewardPoints} pts reward
-                              </Text>
-                            </YStack>
-                            <Badge
-                              label={r.status}
-                              variant={
-                                r.status === 'converted'
-                                  ? 'success'
-                                  : r.status === 'expired'
-                                    ? 'danger'
-                                    : 'warning'
-                              }
-                            />
-                          </XStack>
-                        </YStack>
-                      ))}
-                    </YStack>
-                  </Card>
-                </YStack>
-              )}
-            </YStack>
+          {tab === 'redeem' ? (
+            <RedeemList rewards={rewards} balance={pointsBalance} busyId={redeeming} onRedeem={handleRedeem} />
+          ) : tab === 'referrals' ? (
+            <ReferralsList referrals={referrals} />
           ) : (
-            <YStack gap="$2">
-              <Text variant="caption" color="muted">
-                {entries.length} transaction{entries.length === 1 ? '' : 's'}
-              </Text>
-              {loyalty === undefined ? (
-                <Card variant="outlined" padding="md">
-                  <YStack gap="$2">
-                    <Skeleton width="100%" height={48} borderRadius={8} />
-                    <Skeleton width="100%" height={48} borderRadius={8} />
-                    <Skeleton width="100%" height={48} borderRadius={8} />
-                  </YStack>
-                </Card>
-              ) : loyalty === null ? (
-                <ErrorState
-                  title="Could not load history"
-                  message="Please try again in a moment."
-                  onRetry={() => {
-                    /* Convex auto-revalidates */
-                  }}
-                />
-              ) : entries.length === 0 ? (
-                <Card variant="outlined" padding="md">
-                  <EmptyState
-                    title="No history yet"
-                    message="Earn your first points by checking into a class."
-                  />
-                </Card>
-              ) : (
-                <Card variant="outlined" padding="none">
-                  <YStack>
-                    {entries
-                      .slice()
-                      .reverse()
-                      .map((h, idx) => (
-                        <YStack key={h.id}>
-                          {idx > 0 && <Divider />}
-                          <XStack alignItems="center" gap="$3" padding="$4">
-                            <YStack
-                              backgroundColor={
-                                h.amount >= 0 ? '$success50' : '$warning50'
-                              }
-                              padding="$2.5"
-                              borderRadius="$md"
-                            >
-                              {h.amount >= 0 ? (
-                                <TrendingUp size={18} color="$success700" />
-                              ) : h.type === 'redeemed' ? (
-                                <TrendingDown size={18} color="$warning" />
-                              ) : (
-                                <CheckCircle2 size={18} color="$textMuted" />
-                              )}
-                            </YStack>
-                            <YStack flex={1}>
-                              <Text variant="label" numberOfLines={1}>
-                                {h.description}
-                              </Text>
-                              <Text variant="caption" color="muted">
-                                {formatDate(h.date)}
-                              </Text>
-                            </YStack>
-                            <Text
-                              variant="label"
-                              color={h.amount >= 0 ? 'success' : 'warning'}
-                            >
-                              {h.amount >= 0 ? '+' : ''}
-                              {h.amount} pts
-                            </Text>
-                          </XStack>
-                        </YStack>
-                      ))}
-                  </YStack>
-                </Card>
-              )}
-            </YStack>
+            <HistoryList loyalty={loyalty} entries={entries} />
           )}
         </YStack>
 
-        {/* Tiers summary */}
-        <YStack paddingHorizontal="$4" marginTop="$5" gap="$3">
-          <Text variant="h3">Membership tiers</Text>
-          <Card variant="outlined" padding="md">
-            <YStack gap="$3">
-              <TierRow
-                name="Silver"
-                from={0}
-                to={500}
-                current={pointsBalance >= 0 && pointsBalance < 500}
-                reached={pointsBalance >= 0}
-                perks={['Basic point earning', 'Birthday reward']}
-              />
-              <Divider />
-              <TierRow
-                name="Gold"
-                from={500}
-                to={2000}
-                current={pointsBalance >= 500 && pointsBalance < 2000}
-                reached={pointsBalance >= 500}
-                perks={['2x points on weekends', 'Free smoothie monthly', 'Priority booking']}
-              />
-              <Divider />
-              <TierRow
-                name="Platinum"
-                from={2000}
-                to={5000}
-                current={false}
-                reached={false}
-                perks={['3x points always', 'Free PT session quarterly', 'VIP events']}
-              />
-            </YStack>
-          </Card>
-        </YStack>
+        <TiersSummary pointsBalance={pointsBalance} />
       </ScrollView>
     </Screen>
   );

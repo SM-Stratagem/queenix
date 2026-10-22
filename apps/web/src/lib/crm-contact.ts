@@ -4,7 +4,7 @@
  * Pure functions — safe to unit-test and reuse on any surface.
  */
 
-export function normalizePhoneForWhatsApp(phone: string): string {
+function normalizePhoneForWhatsApp(phone: string): string {
   return phone.replace(/\D/g, '');
 }
 

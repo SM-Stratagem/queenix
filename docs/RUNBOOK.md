@@ -4,7 +4,7 @@ Single source of truth for getting the app running locally. Follow the numbered 
 
 ## 0. Prerequisites
 
-- **Node.js 20+** (recommended 22)
+- **Node.js 24 LTS+**
 - **Docker Desktop** or **OrbStack** (macOS)
 - (Optional) **Xcode 15+** for iOS simulator, **Android Studio** for emulator
 - (Optional) **Maestro CLI** for mobile E2E: `brew install maestro`
@@ -145,10 +145,7 @@ cd packages/convex && npx convex dev --once
 You haven't migrated yet. Run `npm run db:migrate`.
 
 ### "createReactContext is not a function" / "missing tokens.space"
-Already handled by `scripts/patch-tamagui-react19.mjs` which runs as part of `npm install`. If it fails, run it manually:
-```bash
-node scripts/patch-tamagui-react19.mjs
-```
+Fixed upstream in Tamagui 2 (the old `patch-tamagui-react19.mjs` workaround is gone). If you see it, you have a stale Tamagui 1 copy: `rm -rf node_modules && npm install`.
 
 ### "Port 3000 already in use"
 Another project (aleeya-web) is on port 3000. Override with `WEB_PORT=3300 npm run dev` and use `AUTH_BASE_URL=http://localhost:3300` in your .env.

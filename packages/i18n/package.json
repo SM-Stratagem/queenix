@@ -9,10 +9,10 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "i18next": "^24.2.1",
-    "react-i18next": "^15.2.0"
+    "i18next": "^26.4.2",
+    "react-i18next": "^17.0.15"
   },
   "devDependencies": {
-    "typescript": "^5.7.2"
+    "typescript": "~6.0.3"
   }
 }

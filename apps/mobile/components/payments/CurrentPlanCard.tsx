@@ -1,7 +1,7 @@
 import React from "react"
 import { YStack, XStack } from "tamagui"
 import { Text, Card, Button, Badge, Divider } from "@queenix/ui"
-import { ChevronRight, Crown, Pause, Play, Sparkles } from "@tamagui/lucide-icons"
+import { ChevronRight, Crown, Pause, Play, Sparkles } from "@tamagui/lucide-icons-2"
 import { PlanBenefit } from "./PlanBenefit"
 import { formatDate, formatMoney } from "./format"
 

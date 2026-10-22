@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth';
 import { useToast } from '@queenix/ui';
 import { useConvexMutation, useConvexQuery } from '@/lib/convex';
 import { api } from '@queenix/convex';
+import { VerifyIdCard } from '@/components/identity/VerifyIdCard';
 import {
   CreditCard,
   FileText,
@@ -17,7 +18,7 @@ import {
   Globe,
   Car,
   Heart,
-} from '@tamagui/lucide-icons';
+} from '@tamagui/lucide-icons-2';
 
 export default function MemberProfile() {
   const router = useRouter();
@@ -118,6 +119,10 @@ export default function MemberProfile() {
             subtitle="Plates the valet recognises"
             onPress={() => router.push('/(member)/vehicles')}
           />
+        </YStack>
+
+        <YStack paddingHorizontal="$4" marginTop="$4">
+          <VerifyIdCard identity={(memberProfile as any)?.identity} userId={(memberProfile as any)?.userId} />
         </YStack>
 
         {/* Preferences */}

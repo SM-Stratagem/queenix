@@ -2,11 +2,11 @@ import type { ClassView, TrainerView } from "./types"
 import React from "react"
 import { XStack, YStack } from "tamagui"
 
-export function formatHour(ts: number): string {
+function formatHour(ts: number): string {
   return new Date(ts).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
 }
 
-export function formatDay(ts: number): string {
+function formatDay(ts: number): string {
   return new Date(ts).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })
 }
 import {
@@ -22,7 +22,7 @@ import {
   Users,
   ChevronRight,
   Star,
-} from "@tamagui/lucide-icons"
+} from "@tamagui/lucide-icons-2"
 
 export function TabPill({
   label,
@@ -50,9 +50,9 @@ export function TabPill({
       borderColor={active ? '$brand' : '$borderColor'}
       onPress={onPress}
       pressStyle={{ opacity: 0.85, scale: 0.98 }}
-      accessibilityRole="tab"
-      accessibilityLabel={label}
-      accessibilityState={{ selected: active }}
+      role="tab"
+      aria-label={label}
+      aria-selected={active}
     >
       {icon}
       <Text variant="label" color={active ? 'inverse' : 'primary'}>
@@ -77,7 +77,7 @@ export function ClassCard({
   const isFull = cls.bookedCount >= cls.capacity;
 
   return (
-    <Card variant="elevated" padding="none" onPress={onPress} accessibilityLabel={`Open ${cls.name}`}>
+    <Card variant="elevated" padding="none" onPress={onPress} aria-label={`Open ${cls.name}`}>
       <YStack>
         {/* Hero image area */}
         <YStack
@@ -139,15 +139,25 @@ export function ClassCard({
             />
           </YStack>
 
-          <Button
-            label={busy ? 'Booking…' : isFull ? 'Join waitlist' : 'Book class'}
-            variant={isFull ? 'outline' : 'primary'}
-            size="md"
-            fullWidth
-            disabled={busy}
-            onPress={isFull ? onPress : onBook}
-            iconRight={!isFull && !busy ? <ChevronRight size={16} color="$textOnBrand" /> : undefined}
-          />
+          {cls.myStatus ? (
+            <Button
+              label={cls.myStatus === 'confirmed' ? 'Booked ✓' : 'On waitlist'}
+              variant="outline"
+              size="md"
+              fullWidth
+              onPress={onPress}
+            />
+          ) : (
+            <Button
+              label={busy ? 'Booking…' : isFull ? 'Join waitlist' : 'Book class'}
+              variant={isFull ? 'outline' : 'primary'}
+              size="md"
+              fullWidth
+              disabled={busy}
+              onPress={isFull ? onPress : onBook}
+              iconRight={!isFull && !busy ? <ChevronRight size={16} color="$textOnBrand" /> : undefined}
+            />
+          )}
         </YStack>
       </YStack>
     </Card>
@@ -156,7 +166,7 @@ export function ClassCard({
 
 export function TrainerCard({ trainer, onPress }: { trainer: TrainerView; onPress: () => void }) {
   return (
-    <Card variant="outlined" padding="md" onPress={onPress} accessibilityLabel={`View ${trainer.name} profile`}>
+    <Card variant="outlined" padding="md" onPress={onPress} aria-label={`View ${trainer.name} profile`}>
       <XStack gap="$3" alignItems="flex-start">
         <Avatar name={trainer.name} size="lg" />
         <YStack flex={1} gap="$1">

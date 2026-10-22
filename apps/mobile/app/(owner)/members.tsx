@@ -21,7 +21,7 @@ import {
   TrendingUp,
   UserMinus,
   UserPlus,
-} from '@tamagui/lucide-icons';
+} from '@tamagui/lucide-icons-2';
 
 type MembershipStatus =
   | 'active'
@@ -164,7 +164,7 @@ export default function FinanceMembers() {
             value={query}
             onChangeText={setQuery}
             leftIcon={<Search size={18} color="$textMuted" />}
-            accessibilityLabel="Search members"
+            aria-label="Search members"
           />
         </YStack>
 

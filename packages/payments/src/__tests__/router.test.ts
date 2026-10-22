@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { pickProvider, generateInvoiceNumber } from "../index"
+import { pickProvider, generateInvoiceNumber, createPayment } from "../index"
 
 describe("pickProvider", () => {
   it("returns 'tap' for AED currency", () => {
@@ -36,5 +36,32 @@ describe("generateInvoiceNumber", () => {
   it("uses current year by default", () => {
     const inv = generateInvoiceNumber(1)
     expect(inv).toMatch(/^QNX-\d{4}-00001$/)
+  })
+})
+
+describe("createPayment mock mode", () => {
+  const params = { amountCents: 49900, currency: "aed", userId: "u1", description: "d", idempotencyKey: "k1" }
+
+  it("returns a fake Stripe-shaped intent without calling a gateway", async () => {
+    process.env.PAYMENTS_PROVIDER = "mock"
+    try {
+      const intent = await createPayment(params)
+      expect(intent).toMatchObject({ id: "pi_mock_k1", provider: "stripe", amountCents: 49900, currency: "AED" })
+      expect(intent.clientSecret).toBeTruthy()
+    } finally {
+      delete process.env.PAYMENTS_PROVIDER
+    }
+  })
+
+  it("refuses to run in production", async () => {
+    process.env.PAYMENTS_PROVIDER = "mock"
+    const prev = process.env.NODE_ENV
+    process.env.NODE_ENV = "production"
+    try {
+      await expect(createPayment(params)).rejects.toThrow(/not allowed in production/)
+    } finally {
+      process.env.NODE_ENV = prev
+      delete process.env.PAYMENTS_PROVIDER
+    }
   })
 })

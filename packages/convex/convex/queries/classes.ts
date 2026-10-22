@@ -4,7 +4,7 @@
 
 import { v } from 'convex/values';
 import { query } from '../_generated/server';
-import { requireUser } from '../_helpers';
+import { requireRole, requireUser } from '../_helpers';
 
 export const getUpcomingClasses = query({
   args: { limit: v.optional(v.number()) },
@@ -52,7 +52,12 @@ export const getClassById = query({
     if (!classInstance) return null;
     const classType = await ctx.db.get(classInstance.classTypeId);
     const trainer = classInstance.trainerId ? await ctx.db.get(classInstance.trainerId) : null;
-    return { ...classInstance, classType, trainer };
+    // Public catalog data: only the trainer's public card, never the full user row.
+    return {
+      ...classInstance,
+      classType,
+      trainer: trainer ? { _id: trainer._id, fullName: trainer.fullName, avatarUrl: trainer.avatarUrl } : null,
+    };
   },
 });
 
@@ -67,24 +72,6 @@ export const getMyBookings = query({
   },
 });
 
-export const getClassRoster = query({
-  args: { classInstanceId: v.id('classInstances') },
-  handler: async (ctx, { classInstanceId }) => {
-    const bookings = await ctx.db
-      .query('bookings')
-      .withIndex('by_classInstance', (q) => q.eq('classInstanceId', classInstanceId))
-      .filter((q) => q.eq(q.field('status'), 'confirmed'))
-      .collect();
-    const enriched = await Promise.all(
-      bookings.map(async (b) => {
-        const user = await ctx.db.get(b.userId);
-        return { ...b, user };
-      })
-    );
-    return enriched;
-  },
-});
-
 /**
  * Today's class roster for the operations dashboard.
  * Returns classInstances that start today (00:00 → 23:59) with
@@ -94,6 +81,7 @@ export const getClassRoster = query({
 export const getTodayRoster = query({
   args: {},
   handler: async (ctx) => {
+    await requireRole(ctx, ['finance', 'operations', 'trainer']);
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     const endOfDay = startOfDay + 24 * 60 * 60 * 1000;

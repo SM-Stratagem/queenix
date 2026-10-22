@@ -4,9 +4,8 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@queenix/convex';
-import { RequireAuth } from '@/components/RequireAuth';
-import { AdminShell } from '@/components/admin/AdminShell';
 import { downloadCsv } from '../../components/finance/CsvExport';
+import { canOpen, useSessionRoles } from '@/lib/access';
 
 // New convex modules are not in the generated api.d.ts until `convex dev`
 // codegen runs against a live deployment; access them untyped so
@@ -217,21 +216,19 @@ function MembershipMix() {
 
 export default function MembersPage() {
   const [tab, setTab] = useState<'directory' | 'plans'>('directory');
+  // Plan catalogue + membership mix read finance-only queries; operations gets the directory.
+  const finance = canOpen(useSessionRoles(), '/finance');
   return (
-    <RequireAuth>
-      <AdminShell>
-      <div>
-        <h1>Members &amp; plans</h1>
-        <p style={{ color: 'var(--text-muted)', margin: '4px 0 16px' }}>Directory, member detail, lifecycle (freeze / cancel), plan catalogue.</p>
-        <MembershipMix />
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-          {(['directory', 'plans'] as const).map((t) => (
-            <button key={t} onClick={() => setTab(t)} style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid var(--border)', background: tab === t ? 'var(--brand)' : 'var(--bg-elevated)', color: tab === t ? '#fff' : 'var(--text)', cursor: 'pointer', textTransform: 'capitalize' }}>{t}</button>
-          ))}
-        </div>
-        {tab === 'directory' ? <Directory /> : <Plans />}
-      </div>
-    </AdminShell>
-    </RequireAuth>
+    <div>
+      <h1>Members &amp; plans</h1>
+      <p style={{ color: 'var(--text-muted)', margin: '4px 0 16px' }}>Directory, member detail, lifecycle (freeze / cancel), plan catalogue.</p>
+      {finance && <MembershipMix />}
+      {finance && <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        {(['directory', 'plans'] as const).map((t) => (
+          <button key={t} onClick={() => setTab(t)} style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid var(--border)', background: tab === t ? 'var(--brand)' : 'var(--bg-elevated)', color: tab === t ? '#fff' : 'var(--text)', cursor: 'pointer', textTransform: 'capitalize' }}>{t}</button>
+        ))}
+      </div>}
+      {tab === 'plans' && finance ? <Plans /> : <Directory />}
+    </div>
   );
 }

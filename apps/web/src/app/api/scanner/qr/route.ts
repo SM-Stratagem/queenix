@@ -2,8 +2,8 @@
  * Queenix Gym — Physical QR scanner bridge (incoming scan).
  *
  * The hardware scanner at the gym entrance POSTs every successful
- * QR read to this endpoint. We forward it to Convex via the deploy key
- * and return a simple decision the scanner firmware can act on
+ * QR read to this endpoint. We forward it to Convex (internal mutation,
+ * admin key) and return a simple decision the scanner firmware can act on
  * (open_door_2s, beep_twice, etc.).
  *
  * Scanner firmware contract (ZKTeco / Hikvision / generic TCP barcode):
@@ -26,8 +26,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { ConvexHttpClient } from 'convex/browser';
-import { getConvexApiUrl } from '@/lib/convex-env';
+import { convexAdmin } from '@queenix/auth/convex-admin';
+import { scannerKeyOk } from '@/lib/scanner-auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -49,19 +49,8 @@ function isDeviceAllowed(deviceId: string): boolean {
   return ALLOWED_DEVICES.includes(deviceId);
 }
 
-function getConvexClient(): ConvexHttpClient | null {
-  // Self-hosted Convex: the HTTP API lives at :3210 (NOT :3211, which is the
-  // dashboard UI). The Next.js admin typically runs alongside Convex in
-  // docker-compose, so reach the API at `convex-backend:3210`.
-  const url =
-    process.env.CONVEX_SELF_HOSTED_URL ??
-    process.env.NEXT_PUBLIC_CONVEX_URL ??
-    process.env.CONVEX_SITE_URL;
-  if (!url) return null;
-  return new ConvexHttpClient(url);
-}
-
 export async function POST(req: NextRequest) {
+  if (!scannerKeyOk(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   let body: ScanBody = {};
   try {
     body = (await req.json()) as ScanBody;
@@ -90,33 +79,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const client = getConvexClient();
-  if (!client) {
-    return NextResponse.json(
-      {
-        granted: false,
-        reason: 'Convex not configured',
-        action: 'beep_twice',
-        display: '✗ Server misconfigured',
-      },
-      { status: 500 }
-    );
-  }
-
-  // Authenticate as a Convex deploy key (server-to-server).
-  const adminKey = process.env.CONVEX_DEPLOY_KEY;
-  if (adminKey) {
-    client.setAuth(adminKey);
-  }
-
   try {
-    // Use the convex client to call our mutation. We invoke by string
-    // path so this route compiles even when the generated `api` types
-    // are out of sync.
-    const result = await client.mutation(
-      'mutations/access:processAccessScan' as any,
-      { token, accessPointId: deviceId, direction }
-    );
+    const result = await convexAdmin('mutation', 'mutations/access:processAccessScanInternal', {
+      token,
+      accessPointId: deviceId,
+      direction,
+    });
 
     const granted = Boolean((result as any)?.granted);
     const reason = (result as any)?.reason ?? null;

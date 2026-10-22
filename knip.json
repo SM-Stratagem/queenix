@@ -1,0 +1,16 @@
+{
+  "$schema": "https://unpkg.com/knip@latest/schema.json",
+  "ignore": [
+    "packages/theme/src/animations.native.ts"
+  ],
+  "ignoreDependencies": [
+    "@tamagui/animations-react-native",
+    "expo-network",
+    "expo-web-browser",
+    "expo-updates",
+    "zod"
+  ],
+  "ignoreBinaries": [
+    "eas"
+  ]
+}

@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@queenix/convex';
-import { RequireAuth } from '@/components/RequireAuth';
-import { AdminShell } from '@/components/admin/AdminShell';
+import { errMsg } from '@/lib/errors';
+import { IdentityScan } from '@/components/ocr/IdentityScan';
+import { MemberDocuments } from '@/components/ocr/PaperForms';
 
 const adminApi = api as any;
 
@@ -34,101 +35,100 @@ export default function MemberDetailPage() {
       await fn();
       setMsg(`${label} done.`);
     } catch (e: any) {
-      setMsg(e?.data?.message ?? e?.message ?? `${label} failed.`);
+      setMsg(errMsg(e, `${label} failed.`));
     }
   };
 
   return (
-    <RequireAuth>
-      <AdminShell>
-      <div>
-        <Link href="/members" style={{ color: 'var(--brand)', fontSize: 13 }}>← Members</Link>
-        {!detail ? (
-          <p style={{ color: 'var(--text-muted)', marginTop: 16 }}>Loading member…</p>
-        ) : !detail.member ? (
-          <p style={{ marginTop: 16 }}>Member not found.</p>
-        ) : (
-          <>
-            <h1 style={{ marginTop: 8 }}>{detail.member.fullName}</h1>
-            <p style={{ color: 'var(--text-muted)' }}>{detail.member.email}{detail.member.phone ? ` · ${detail.member.phone}` : ''}</p>
-            {view360 && (
-              <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
-                <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px', background: 'var(--bg-elevated)' }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Lifetime value</div>
-                  <div style={{ fontSize: 20, fontWeight: 800 }}>{((view360.lifetimePaidCents ?? 0) / 100).toLocaleString()} AED</div>
-                </div>
-                <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px', background: 'var(--bg-elevated)' }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Open CRM tasks</div>
-                  <div style={{ fontSize: 20, fontWeight: 800 }}>{view360.openTaskCount ?? 0}</div>
-                </div>
-                <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px', background: 'var(--bg-elevated)' }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Memberships</div>
-                  <div style={{ fontSize: 20, fontWeight: 800 }}>{detail.memberships.length}</div>
-                </div>
+    <div>
+      <Link href="/members" style={{ color: 'var(--brand)', fontSize: 13 }}>← Members</Link>
+      {!detail ? (
+        <p style={{ color: 'var(--text-muted)', marginTop: 16 }}>Loading member…</p>
+      ) : !detail.member ? (
+        <p style={{ marginTop: 16 }}>Member not found.</p>
+      ) : (
+        <>
+          <h1 style={{ marginTop: 8 }}>{detail.member.fullName}</h1>
+          <p style={{ color: 'var(--text-muted)' }}>{detail.member.email}{detail.member.phone ? ` · ${detail.member.phone}` : ''}</p>
+          {view360 && (
+            <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+              <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px', background: 'var(--bg-elevated)' }}>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Lifetime value</div>
+                <div style={{ fontSize: 20, fontWeight: 800 }}>{((view360.lifetimePaidCents ?? 0) / 100).toLocaleString()} AED</div>
               </div>
-            )}
+              <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px', background: 'var(--bg-elevated)' }}>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Open CRM tasks</div>
+                <div style={{ fontSize: 20, fontWeight: 800 }}>{view360.openTaskCount ?? 0}</div>
+              </div>
+              <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px', background: 'var(--bg-elevated)' }}>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Memberships</div>
+                <div style={{ fontSize: 20, fontWeight: 800 }}>{detail.memberships.length}</div>
+              </div>
+            </div>
+          )}
 
-            <h2 style={{ fontSize: 17, margin: '20px 0 8px' }}>Memberships</h2>
-            {detail.memberships.length === 0 ? (
-              <p style={{ color: 'var(--text-muted)' }}>No memberships on record.</p>
-            ) : (
-              <div style={{ display: 'grid', gap: 10 }}>
-                {detail.memberships.map((m: any) => (
-                  <div key={m._id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, background: 'var(--bg-elevated)', fontSize: 14 }}>
-                    <div style={{ fontWeight: 700 }}>{m.status} <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>· ends {new Date(m.endDate).toLocaleDateString()}</span></div>
-                    <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Classes left: {m.remainingClasses} · PT left: {m.remainingPTSessions} · auto-renew: {m.autoRenew ? 'on' : 'off'}</div>
-                    <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                      {m.status === 'active' && (
-                        <>
-                          <input value={days} onChange={(e) => setDays(e.target.value)} placeholder="days" style={{ width: 70, padding: '6px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }} />
-                          <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="reason (optional)" style={{ padding: '6px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', minWidth: 160 }} />
-                          <button onClick={() => run(() => freeze({ membershipId: m._id, days: Number(days), reason: reason || undefined }), 'Freeze')} style={btn}>Freeze</button>
-                          <button onClick={() => { if (confirm('Cancel this membership?')) run(() => cancel({ membershipId: m._id }), 'Cancel'); }} style={btn}>Cancel</button>
-                        </>
-                      )}
-                      {m.status === 'frozen' && (
-                        <button onClick={() => run(() => unfreeze({ membershipId: m._id }), 'Unfreeze')} style={btn}>Unfreeze</button>
-                      )}
-                    </div>
+          <h2 style={{ fontSize: 17, margin: '20px 0 8px' }}>Memberships</h2>
+          {detail.memberships.length === 0 ? (
+            <p style={{ color: 'var(--text-muted)' }}>No memberships on record.</p>
+          ) : (
+            <div style={{ display: 'grid', gap: 10 }}>
+              {detail.memberships.map((m: any) => (
+                <div key={m._id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, background: 'var(--bg-elevated)', fontSize: 14 }}>
+                  <div style={{ fontWeight: 700 }}>{m.status} <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>· ends {new Date(m.endDate).toLocaleDateString()}</span></div>
+                  <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Classes left: {m.remainingClasses} · PT left: {m.remainingPTSessions} · auto-renew: {m.autoRenew ? 'on' : 'off'}</div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                    {m.status === 'active' && (
+                      <>
+                        <input value={days} onChange={(e) => setDays(e.target.value)} placeholder="days" style={{ width: 70, padding: '6px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }} />
+                        <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="reason (optional)" style={{ padding: '6px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', minWidth: 160 }} />
+                        <button onClick={() => run(() => freeze({ membershipId: m._id, days: Number(days), reason: reason || undefined }), 'Freeze')} style={btn}>Freeze</button>
+                        <button onClick={() => { if (confirm('Cancel this membership?')) run(() => cancel({ membershipId: m._id }), 'Cancel'); }} style={btn}>Cancel</button>
+                      </>
+                    )}
+                    {m.status === 'frozen' && (
+                      <button onClick={() => run(() => unfreeze({ membershipId: m._id }), 'Unfreeze')} style={btn}>Unfreeze</button>
+                    )}
                   </div>
-                ))}
-              </div>
-            )}
-            {msg && <p style={{ marginTop: 8, fontSize: 13 }}>{msg}</p>}
+                </div>
+              ))}
+            </div>
+          )}
+          {msg && <p style={{ marginTop: 8, fontSize: 13 }}>{msg}</p>}
 
-            <h2 style={{ fontSize: 17, margin: '20px 0 8px' }}>Recent payments</h2>
-            {detail.payments.length === 0 ? (
-              <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>No payments recorded.</p>
-            ) : (
-              <ul style={{ fontSize: 14, display: 'grid', gap: 6, paddingLeft: 18 }}>
-                {detail.payments.map((p: any) => (
-                  <li key={p._id}>{p.description} — {(p.amountCents / 100).toLocaleString()} {p.currency} ({p.status})</li>
-                ))}
-              </ul>
-            )}
+          <h2 style={{ fontSize: 17, margin: '20px 0 8px' }}>Recent payments</h2>
+          {detail.payments.length === 0 ? (
+            <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>No payments recorded.</p>
+          ) : (
+            <ul style={{ fontSize: 14, display: 'grid', gap: 6, paddingLeft: 18 }}>
+              {detail.payments.map((p: any) => (
+                <li key={p._id}>{p.description} — {(p.amountCents / 100).toLocaleString()} {p.currency} ({p.status})</li>
+              ))}
+            </ul>
+          )}
 
-            <h2 style={{ fontSize: 17, margin: '20px 0 8px' }}>Recent visits</h2>
-            {detail.visits.length === 0 ? (
-              <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>No check-ins recorded.</p>
-            ) : (
-              <ul style={{ fontSize: 14, display: 'grid', gap: 6, paddingLeft: 18 }}>
-                {detail.visits.map((v: any) => (
-                  <li key={v._id}>{new Date(v.timestamp).toLocaleString()} — {v.direction}</li>
-                ))}
-              </ul>
-            )}
+          <h2 style={{ fontSize: 17, margin: '20px 0 8px' }}>Recent visits</h2>
+          {detail.visits.length === 0 ? (
+            <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>No check-ins recorded.</p>
+          ) : (
+            <ul style={{ fontSize: 14, display: 'grid', gap: 6, paddingLeft: 18 }}>
+              {detail.visits.map((v: any) => (
+                <li key={v._id}>{new Date(v.timestamp).toLocaleString()} — {v.direction}</li>
+              ))}
+            </ul>
+          )}
 
-            {(view360?.profile ?? detail.profile) && (
-              <>
-                <h2 style={{ fontSize: 17, margin: '20px 0 8px' }}>Profile</h2>
-                <ProfileFields profile={(view360?.profile ?? detail.profile) as any} />
-              </>
-            )}
-          </>
-        )}
-      </div>
-    </AdminShell>
-    </RequireAuth>
+          <IdentityScan memberId={memberId!} identity={(detail.profile as any)?.identity} />
+          <MemberDocuments memberId={memberId!} />
+
+          {(view360?.profile ?? detail.profile) && (
+            <>
+              <h2 style={{ fontSize: 17, margin: '20px 0 8px' }}>Profile</h2>
+              <ProfileFields profile={(view360?.profile ?? detail.profile) as any} />
+            </>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 

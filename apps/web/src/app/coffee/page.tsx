@@ -6,11 +6,15 @@
 import { useState } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '@queenix/convex';
-import { RequireAuth } from '@/components/RequireAuth';
-import { AdminShell } from '@/components/admin/AdminShell';
 import { VenueGatewayCard, OrderPay } from '@/components/commerce/VenuePayments';
+import { errMsg } from '@/lib/errors';
 
-const ORDER_STEPS = ['preparing', 'ready', 'served', 'cancelled'] as const;
+/** Next step per order status: queued → preparing → ready → served. */
+const NEXT_STEP: Record<string, { status: 'preparing' | 'ready' | 'served'; label: string }> = {
+  queued: { status: 'preparing', label: 'Start preparing' },
+  preparing: { status: 'ready', label: 'Mark ready' },
+  ready: { status: 'served', label: 'Mark served' },
+};
 
 
 const card: React.CSSProperties = {
@@ -80,7 +84,7 @@ export default function WebCoffeePage() {
       setSaleQty('1');
       setSaleMsg('Counter sale recorded (cash).');
     } catch (e: any) {
-      setSaleMsg(e?.data?.message ?? e?.message ?? 'Counter sale failed.');
+      setSaleMsg(errMsg(e, 'Counter sale failed.'));
     }
   }
 
@@ -101,148 +105,148 @@ export default function WebCoffeePage() {
   }
 
   return (
-    <RequireAuth>
-      <AdminShell>
-      <div>
+    <div>
 
-        <h1 style={{ color: 'var(--text)' }}>Coffee management</h1>
+      <h1 style={{ color: 'var(--text)' }}>Coffee management</h1>
 
-        <VenueGatewayCard venue="coffee" title="Coffee shop" />
+      <VenueGatewayCard venue="coffee" title="Coffee shop" />
 
-        <section style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
-          <div style={card}>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Revenue (non-cancelled)</div>
-            <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text)' }}>
-              {revenue === undefined ? '…' : fmt(revenue.grossCents)}
-            </div>
+      <section style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+        <div style={card}>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Revenue (non-cancelled)</div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text)' }}>
+            {revenue === undefined ? '…' : fmt(revenue.grossCents)}
           </div>
-          <div style={card}>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Billable orders</div>
-            <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text)' }}>
-              {revenue === undefined ? '…' : revenue.orderCount}
-            </div>
+        </div>
+        <div style={card}>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Billable orders</div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text)' }}>
+            {revenue === undefined ? '…' : revenue.orderCount}
           </div>
-          <div style={card}>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Open queue</div>
-            <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text)' }}>
-              {queue === undefined ? '…' : queue.length}
-            </div>
+        </div>
+        <div style={card}>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Open queue</div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text)' }}>
+            {queue === undefined ? '…' : queue.length}
           </div>
-          <div style={card}>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Inflow by status</div>
-            <div style={{ fontSize: 13, color: 'var(--text)' }}>
-              {revenue === undefined
-                ? '…'
-                : Object.entries(revenue.byStatus as Record<string, number>).map(([k, v]) => (
-                    <div key={k}>
-                      {k}: {v}
-                    </div>
-                  ))}
-            </div>
+        </div>
+        <div style={card}>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Inflow by status</div>
+          <div style={{ fontSize: 13, color: 'var(--text)' }}>
+            {revenue === undefined
+              ? '…'
+              : Object.entries(revenue.byStatus as Record<string, number>).map(([k, v]) => (
+                  <div key={k}>
+                    {k}: {v}
+                  </div>
+                ))}
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section style={card}>
-          <h2 style={{ color: 'var(--text)', marginBottom: 8 }}>Add menu item</h2>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <input style={input} placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
-            <input style={input} placeholder="Price" value={price} onChange={(e) => setPrice(e.target.value)} />
-            <button style={btnPrimary} onClick={onCreate}>Create item</button>
-          </div>
-          {err && <p style={{ color: 'var(--danger)', marginTop: 8 }}>{err}</p>}
-        </section>
+      <section style={card}>
+        <h2 style={{ color: 'var(--text)', marginBottom: 8 }}>Add menu item</h2>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <input style={input} placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
+          <input style={input} placeholder="Price" value={price} onChange={(e) => setPrice(e.target.value)} />
+          <button style={btnPrimary} onClick={onCreate}>Create item</button>
+        </div>
+        {err && <p style={{ color: 'var(--danger)', marginTop: 8 }}>{err}</p>}
+      </section>
 
-        <section style={card}>
-          <h2 style={{ color: 'var(--text)', marginBottom: 8 }}>Menu</h2>
-          {menu === undefined ? (
-            'Loading…'
-          ) : menu.length === 0 ? (
-            <p style={{ color: 'var(--text-muted)' }}>No menu items yet — add the first one above.</p>
-          ) : (
-            <div style={{ display: 'grid', gap: 8 }}>
-              {menu.map((m: any) => (
-                <div key={String(m._id)} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <span style={{ color: 'var(--text)' }}>
-                    {m.name} · {fmt(m.priceCents)}
-                    {!m.isActive && ' (inactive)'}
-                  </span>
-                  <button style={btnGhost} onClick={() => toggle({ itemId: m._id, isActive: !m.isActive })}>
-                    {m.isActive ? 'Deactivate' : 'Activate'}
-                  </button>
-                  <button
-                    style={{ ...btnGhost, color: '#dc2626', borderColor: '#dc262680' }}
-                    onClick={async () => {
-                      if (!confirm(`Remove "${m.name}" from the menu?`)) return;
-                      setErr(null);
-                      try {
-                        await remove({ itemId: m._id });
-                      } catch (e: any) {
-                        setErr(e?.data?.message ?? e?.message ?? 'Remove failed.');
-                      }
-                    }}
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section style={card}>
-          <h2 style={{ color: 'var(--text)', marginBottom: 8 }}>Counter sale (walk-up, cash)</h2>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <select value={saleItem} onChange={(e) => setSaleItem(e.target.value)} style={input} aria-label="Counter item">
-              <option value="">Pick item…</option>
-              {(menu ?? []).filter((m: any) => m.isActive).map((m: any) => (
-                <option key={String(m._id)} value={String(m._id)}>
+      <section style={card}>
+        <h2 style={{ color: 'var(--text)', marginBottom: 8 }}>Menu</h2>
+        {menu === undefined ? (
+          'Loading…'
+        ) : menu.length === 0 ? (
+          <p style={{ color: 'var(--text-muted)' }}>No menu items yet — add the first one above.</p>
+        ) : (
+          <div style={{ display: 'grid', gap: 8 }}>
+            {menu.map((m: any) => (
+              <div key={String(m._id)} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <span style={{ color: 'var(--text)' }}>
                   {m.name} · {fmt(m.priceCents)}
-                </option>
-              ))}
-            </select>
-            <input value={saleQty} onChange={(e) => setSaleQty(e.target.value)} placeholder="Qty" style={{ ...input, width: 80 }} aria-label="Quantity" />
-            <button style={btnPrimary} onClick={onCounterSale}>Record cash sale</button>
-            {saleMsg && <span style={{ fontSize: 13 }}>{saleMsg}</span>}
+                  {!m.isActive && ' (inactive)'}
+                </span>
+                <button style={btnGhost} onClick={() => toggle({ itemId: m._id, isActive: !m.isActive })}>
+                  {m.isActive ? 'Deactivate' : 'Activate'}
+                </button>
+                <button
+                  style={{ ...btnGhost, color: '#dc2626', borderColor: '#dc262680' }}
+                  onClick={async () => {
+                    if (!confirm(`Remove "${m.name}" from the menu?`)) return;
+                    setErr(null);
+                    try {
+                      await remove({ itemId: m._id });
+                    } catch (e: any) {
+                      setErr(errMsg(e, 'Remove failed.'));
+                    }
+                  }}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
           </div>
-          <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '8px 0 0' }}>
-            Cash is counter-only — members order from the app and pay on pickup.
-          </p>
-        </section>
+        )}
+      </section>
 
-        <section style={card}>
-          <h2 style={{ color: 'var(--text)', marginBottom: 8 }}>Order queue</h2>
-          {queue === undefined ? (
-            'Loading…'
-          ) : queue.length === 0 ? (
-            <p style={{ color: 'var(--text-muted)' }}>Queue is empty — no queued or preparing orders.</p>
-          ) : (
-            <div style={{ display: 'grid', gap: 8 }}>
-              {queue.map((o: any) => (
-                <div key={String(o._id)} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <span style={{ color: 'var(--text)' }}>
-                    {o.items.reduce((s: number, l: any) => s + l.qty, 0)} items · {fmt(o.totalCents)} · {o.status} ·{' '}
-                    {o.paymentMode}
-                  </span>
-                  {ORDER_STEPS.map((s) => (
-                    <button key={s} style={btnGhost} onClick={() => update({ orderId: o._id, status: s })}>
-                      {s}
-                    </button>
-                  ))}
-                  <OrderPay
-                    venue="coffee"
-                    orderId={String(o._id)}
-                    totalLabel={`${fmt(o.totalCents)} AED`}
-                    paidAt={o.paidAt}
-                    provider={o.paymentProvider}
-                    paymentLink={o.paymentLink}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-      </div>
-    </AdminShell>
-    </RequireAuth>
+      <section style={card}>
+        <h2 style={{ color: 'var(--text)', marginBottom: 8 }}>Counter sale (walk-up, cash)</h2>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <select value={saleItem} onChange={(e) => setSaleItem(e.target.value)} style={input} aria-label="Counter item">
+            <option value="">Pick item…</option>
+            {(menu ?? []).filter((m: any) => m.isActive).map((m: any) => (
+              <option key={String(m._id)} value={String(m._id)}>
+                {m.name} · {fmt(m.priceCents)}
+              </option>
+            ))}
+          </select>
+          <input value={saleQty} onChange={(e) => setSaleQty(e.target.value)} placeholder="Qty" style={{ ...input, width: 80 }} aria-label="Quantity" />
+          <button style={btnPrimary} onClick={onCounterSale}>Record cash sale</button>
+          {saleMsg && <span style={{ fontSize: 13 }}>{saleMsg}</span>}
+        </div>
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '8px 0 0' }}>
+          Cash is counter-only — members order from the app and pay on pickup.
+        </p>
+      </section>
+
+      <section style={card}>
+        <h2 style={{ color: 'var(--text)', marginBottom: 8 }}>Order queue</h2>
+        {queue === undefined ? (
+          'Loading…'
+        ) : queue.length === 0 ? (
+          <p style={{ color: 'var(--text-muted)' }}>Queue is empty — no open orders.</p>
+        ) : (
+          <div style={{ display: 'grid', gap: 8 }}>
+            {queue.map((o: any) => (
+              <div key={String(o._id)} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <span style={{ color: 'var(--text)' }}>
+                  <strong>{o.customerName}</strong> · {o.itemsLabel} · {fmt(o.totalCents)} · {o.status} · {o.paymentMode}
+                </span>
+                {NEXT_STEP[o.status] && (
+                  <button style={btnGhost} onClick={() => update({ orderId: o._id, status: NEXT_STEP[o.status]!.status })}>
+                    {NEXT_STEP[o.status]!.label}
+                  </button>
+                )}
+                {o.status !== 'ready' && (
+                  <button style={btnGhost} onClick={() => update({ orderId: o._id, status: 'cancelled' })}>
+                    Cancel
+                  </button>
+                )}
+                <OrderPay
+                  venue="coffee"
+                  orderId={String(o._id)}
+                  totalLabel={`${fmt(o.totalCents)} AED`}
+                  paidAt={o.paidAt}
+                  provider={o.paymentProvider}
+                  paymentLink={o.paymentLink}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
   );
 }

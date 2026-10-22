@@ -6,19 +6,19 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "queenix",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#09090b"
     },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.queenix.gym",
       "infoPlist": {
-        "NSCameraUsageDescription": "Queenix uses your camera to scan QR codes for gym access.",
-        "NSPhotoLibraryUsageDescription": "Queenix needs photo access to update your profile picture.",
+        "NSCameraUsageDescription": "Queenix uses your camera to scan gym QR codes, and to scan IDs, car plates, receipts and signed forms.",
+        "NSPhotoLibraryUsageDescription": "Queenix uses your photos to set your profile picture and to attach documents you choose.",
         "NSFaceIDUsageDescription": "Queenix uses Face ID for secure authentication."
       }
     },
@@ -26,7 +26,7 @@
       "package": "com.queenix.gym",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#09090b"
       },
       "permissions": ["CAMERA", "READ_EXTERNAL_STORAGE"]
     },
@@ -43,7 +43,14 @@
         {
           "photosPermission": "Allow Queenix to access your photos for your profile picture."
         }
-      ]
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Queenix to use the camera to scan member QR codes at the door."
+        }
+      ],
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true,

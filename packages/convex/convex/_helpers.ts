@@ -48,6 +48,13 @@ export async function requireRole(ctx: any, roles: Role | Role[]) {
   const user = await requireUser(ctx);
   const required = (Array.isArray(roles) ? roles : [roles]).map(normalizeRole);
   const userRoles = (user.roles ?? []).map(normalizeRole);
+  // Platform admins outrank every role (superadmin > admin > finance >
+  // operations > salon = coffee = trainer > member), so they satisfy any
+  // role gate. Without this, superadmin is locked out of staff queries
+  // that list only operational roles (e.g. ['owner', 'operations']).
+  if (userRoles.includes('superadmin') || userRoles.includes('admin')) {
+    return user;
+  }
   const hasPermission = required.some((r) => userRoles.includes(r));
   if (!hasPermission) {
     throw new ConvexError({

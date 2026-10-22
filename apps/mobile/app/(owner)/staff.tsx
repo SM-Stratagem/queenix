@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import {
   Screen, Text, Card, Header, Skeleton, EmptyState, Badge, Input,
 } from '@queenix/ui';
-import { Search } from '@tamagui/lucide-icons';
+import { Search } from '@tamagui/lucide-icons-2';
 import { useConvexQuery } from '@/lib/convex';
 import { api } from '@queenix/convex';
 
@@ -33,7 +33,7 @@ export default function OwnerStaffScreen() {
           onChangeText={setSearch}
           placeholder="Search staff"
           leftIcon={<Search size={18} color="$textMuted" />}
-          accessibilityLabel="Search staff"
+          aria-label="Search staff"
         />
         {dir === undefined ? (
           <Skeleton height={120} />

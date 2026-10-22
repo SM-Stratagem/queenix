@@ -1,7 +1,7 @@
 import React from "react"
 import { YStack, XStack } from "tamagui"
 import { Text, Card, Button, Badge } from "@queenix/ui"
-import { CheckCircle2, XCircle, RotateCw } from "@tamagui/lucide-icons"
+import { CheckCircle2, XCircle, RotateCw } from "@tamagui/lucide-icons-2"
 import { formatRelative } from "./format"
 
 export type LastScan = {
@@ -33,7 +33,7 @@ export function LastResultCard({
         padding="md"
         backgroundColor={granted ? "$success50" : "$danger50"}
         borderColor={granted ? "$success" : "$danger"}
-        accessibilityLabel={`Last scan ${granted ? "granted" : "denied"}`}
+        aria-label={`Last scan ${granted ? "granted" : "denied"}`}
       >
         <XStack alignItems="center" gap="$3">
           <YStack
@@ -64,7 +64,7 @@ export function LastResultCard({
               size="sm"
               icon={<RotateCw size={14} color="$textMuted" />}
               onPress={onReset}
-              accessibilityLabel="Clear last result"
+              aria-label="Clear last result"
             />
           )}
         </XStack>

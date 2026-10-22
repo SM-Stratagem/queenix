@@ -22,7 +22,7 @@ export function RosterRow({ entry }: { entry: RosterEntry }) {
   const c = COLORS[entry.status]
   const label = entry.status === "late" && entry.time ? entry.time : c.label
   return (
-    <Card variant="outlined" padding="sm" accessibilityLabel={`${entry.name}, ${label}`}>
+    <Card variant="outlined" padding="sm" aria-label={`${entry.name}, ${label}`}>
       <XStack alignItems="center" gap="$3">
         <Avatar name={entry.name} size="md" fallbackColor={c.fg} />
         <YStack flex={1} gap="$0.5">

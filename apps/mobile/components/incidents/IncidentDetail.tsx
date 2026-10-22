@@ -49,7 +49,7 @@ export function IncidentDetail({
           size="md"
           flex={1}
           onPress={onResolve}
-          accessibilityLabel="Mark incident as resolved"
+          aria-label="Mark incident as resolved"
           disabled={incident.status === "resolved"}
         />
         <Button
@@ -58,7 +58,7 @@ export function IncidentDetail({
           size="md"
           flex={1}
           onPress={() => {}}
-          accessibilityLabel="Escalate incident"
+          aria-label="Escalate incident"
         />
       </XStack>
     </YStack>

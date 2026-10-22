@@ -1,94 +1,22 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { YStack, XStack, ScrollView } from 'tamagui';
 import { useRouter } from 'expo-router';
-import {
-  Screen,
-  Text,
-  Card,
-  Avatar,
-  Button,
-  Badge,
-  Chip,
-  Progress,
-  Skeleton,
-  ErrorState,
-  EmptyState,
-  useToast,
-} from '@queenix/ui';
+import { Screen, Text, useToast } from '@queenix/ui';
 import {
   Calendar,
   Dumbbell,
   Flame,
   Heart,
-  Star,
-  Users,
-  Clock,
-  ChevronRight,
   Sparkles,
   Zap,
-} from '@tamagui/lucide-icons';
-import {
-  TabPill,
-  ClassCard,
-  TrainerCard,
-} from '@/components/book/BookCards';
+} from '@tamagui/lucide-icons-2';
+import { TabPill } from '@/components/book/BookCards';
+import { ClassesTab, TrainersTab } from '@/components/book/BookTabs';
+import type { ClassCategory, ClassView, Level, TrainerView } from '@/components/book/types';
 import { useConvexQuery, useConvexMutation } from '@/lib/convex';
 import { api } from '@queenix/convex';
 
-type ClassCategory = 'All' | 'HIIT' | 'Yoga' | 'Strength' | 'Cardio' | 'Pilates';
 type TabKey = 'classes' | 'pt';
-type Level = 'Beginner' | 'Intermediate' | 'Advanced';
-
-const CATEGORIES: ClassCategory[] = ['All', 'HIIT', 'Yoga', 'Strength', 'Cardio', 'Pilates'];
-
-interface ClassView {
-  id: string;
-  name: string;
-  category: ClassCategory;
-  level: Level;
-  startsAt: number;
-  durationMin: number;
-  room: string;
-  capacity: number;
-  bookedCount: number;
-  waitlistCount: number;
-  trainerName?: string;
-  hue: string;
-  icon: React.ReactNode;
-}
-
-interface TrainerView {
-  id: string;
-  name: string;
-  avatarUrl?: string;
-  specialty: string;
-  rating: number;
-  reviewCount: number;
-  hourlyRate: number;
-  bio?: string;
-  certifications: string[];
-  years?: number;
-  nextAvailable?: string;
-}
-
-function formatHour(ts: number): string {
-  const d = new Date(ts);
-  const h = d.getHours();
-  const m = d.getMinutes();
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const hh = h % 12 || 12;
-  return `${hh}:${m.toString().padStart(2, '0')} ${ampm}`;
-}
-
-function formatDay(ts: number): string {
-  const d = new Date(ts);
-  const today = new Date();
-  const tomorrow = new Date();
-  tomorrow.setDate(today.getDate() + 1);
-  if (d.toDateString() === today.toDateString()) return 'Today';
-  if (d.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
-  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-}
 
 function categoryFromString(raw: string | undefined): Exclude<ClassCategory, 'All'> {
   const allowed = ['HIIT', 'Yoga', 'Strength', 'Cardio', 'Pilates'] as const;
@@ -133,12 +61,17 @@ export default function BookScreen() {
 
   // Real data
   const upcoming = useConvexQuery(api.queries.classes.getUpcomingClasses, { limit: 30 });
+  const myBookings = useConvexQuery(api.queries.classes.getMyBookings, {});
   const trainersRaw = useConvexQuery(api.queries.users.getAvailableTrainers, {});
   const bookClass = useConvexMutation(api.mutations.bookings.bookClass);
   const joinWaitlist = useConvexMutation((api.mutations as any).bookings.joinWaitlist);
 
   const classes: ClassView[] = useMemo(() => {
     if (!upcoming) return [];
+    const mine = new Map<string, 'confirmed' | 'waitlisted'>();
+    for (const b of myBookings ?? []) {
+      if (b.status === 'confirmed' || b.status === 'waitlisted') mine.set(String(b.classInstanceId), b.status);
+    }
     return upcoming.map((c) => {
       const cat = categoryFromString(c.classType?.category);
       const level = levelFromString(c.classType?.difficulty);
@@ -157,9 +90,10 @@ export default function BookScreen() {
         trainerName: c.trainer?.fullName,
         hue: style.hue,
         icon: style.icon,
+        myStatus: mine.get(String(c._id)),
       };
     });
-  }, [upcoming]);
+  }, [upcoming, myBookings]);
 
   const trainers: TrainerView[] = useMemo(() => {
     if (!trainersRaw) return [];
@@ -241,115 +175,23 @@ export default function BookScreen() {
         </XStack>
 
         {tab === 'classes' ? (
-          <YStack>
-            {/* Category filter */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
-            >
-              {CATEGORIES.map((cat) => (
-                <Chip
-                  key={cat}
-                  label={cat}
-                  selected={category === cat}
-                  variant={category === cat ? 'brand' : 'default'}
-                  onPress={() => setCategory(cat)}
-                />
-              ))}
-            </ScrollView>
-
-            <YStack paddingHorizontal="$4" marginTop="$3" gap="$3">
-              {isLoadingClasses ? (
-                <YStack gap="$3">
-                  {[0, 1, 2].map((i) => (
-                    <Card key={i} variant="elevated" padding="md">
-                      <YStack gap="$2">
-                        <Skeleton width="100%" height={120} borderRadius={16} />
-                        <Skeleton width="60%" height={18} />
-                        <Skeleton width="40%" height={14} />
-                      </YStack>
-                    </Card>
-                  ))}
-                </YStack>
-              ) : classesError ? (
-                <ErrorState
-                  title="Could not load classes"
-                  message="We had trouble fetching the schedule."
-                  onRetry={() => {
-                    /* Convex auto-revalidates */
-                  }}
-                />
-              ) : (
-                <>
-                  <Text variant="caption" color="muted">
-                    {filteredClasses.length} class{filteredClasses.length === 1 ? '' : 'es'} available
-                  </Text>
-                  {filteredClasses.length === 0 ? (
-                    <EmptyState
-                      title="No classes in this category"
-                      message="Try a different filter or check back soon."
-                    />
-                  ) : (
-                    filteredClasses.map((cls) => (
-                      <ClassCard
-                        key={cls.id}
-                        cls={cls}
-                        busy={bookingId === cls.id}
-                        onPress={() => router.push(`/(member)/classes/${cls.id}`)}
-                        onBook={() => handleBook(cls)}
-                      />
-                    ))
-                  )}
-                </>
-              )}
-            </YStack>
-          </YStack>
+          <ClassesTab
+            category={category}
+            onCategory={setCategory}
+            isLoadingClasses={isLoadingClasses}
+            classesError={classesError}
+            filteredClasses={filteredClasses}
+            bookingId={bookingId}
+            onOpenClass={(cls) => router.push(`/(member)/classes/${cls.id}`)}
+            onBook={handleBook}
+          />
         ) : (
-          <YStack paddingHorizontal="$4" marginTop="$2" gap="$3">
-            {isLoadingTrainers ? (
-              <YStack gap="$3">
-                {[0, 1].map((i) => (
-                  <Card key={i} variant="outlined" padding="md">
-                    <XStack gap="$3">
-                      <Skeleton width={48} height={48} circle />
-                      <YStack flex={1} gap="$1">
-                        <Skeleton width="50%" height={16} />
-                        <Skeleton width="70%" height={12} />
-                        <Skeleton width="80%" height={12} />
-                      </YStack>
-                    </XStack>
-                  </Card>
-                ))}
-              </YStack>
-            ) : trainersRaw === null ? (
-              <ErrorState
-                title="Could not load trainers"
-                message="Please try again in a moment."
-                onRetry={() => {
-                  /* Convex auto-revalidates */
-                }}
-              />
-            ) : trainers.length === 0 ? (
-              <EmptyState
-                title="No trainers available"
-                message="Check back soon for new coaching talent."
-              />
-            ) : (
-              <>
-                <Text variant="caption" color="muted">
-                  {trainers.length} certified trainer{trainers.length === 1 ? '' : 's'}
-                </Text>
-                {trainers.map((trainer) => (
-                  <TrainerCard
-                    key={trainer.id}
-                    trainer={trainer}
-                    onPress={() => router.push('/(member)/trainers')}
-                  />
-                ))}
-              </>
-            )}
-          </YStack>
+          <TrainersTab
+            isLoadingTrainers={isLoadingTrainers}
+            trainersError={trainersRaw === null}
+            trainers={trainers}
+            onOpenTrainer={() => router.push('/(member)/trainers')}
+          />
         )}
       </ScrollView>
     </Screen>

@@ -9,7 +9,7 @@ function escapeCell(value: unknown): string {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-export function toCsv<T extends object>(rows: T[]): string {
+function toCsv<T extends object>(rows: T[]): string {
   const first = rows[0];
   if (!first) return '';
   const headers = Object.keys(first);

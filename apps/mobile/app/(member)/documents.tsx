@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { YStack, XStack, ScrollView } from 'tamagui';
 import { useRouter } from 'expo-router';
 import { Screen, Text, Card, Button, Badge, EmptyState, Sheet, Input, Skeleton, useToast } from '@queenix/ui';
-import { FileText, CheckCircle, AlertCircle, ChevronRight, FileSignature } from '@tamagui/lucide-icons';
+import { FileText, CheckCircle, AlertCircle, ChevronRight, FileSignature } from '@tamagui/lucide-icons-2';
 import { useConvexQuery, useConvexMutation, api } from '@/lib/convex';
 
 const docsQueries = (api.queries as any).documentsAdmin;
@@ -16,7 +16,7 @@ type Template = {
   version: string;
   required: boolean;
   effectiveDate: number;
-  mySignature: { signedAt: number; documentVersion: string; signatureData: string } | null;
+  mySignature: { signedAt: number; documentVersion: string; signatureData: string; paperScanStorageId?: string } | null;
 };
 
 export default function DocumentsScreen() {
@@ -183,6 +183,12 @@ export default function DocumentsScreen() {
                       {new Date(selected.mySignature.signedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </Text>
                   </XStack>
+                  {selected.mySignature.paperScanStorageId && (
+                    <XStack justifyContent="space-between">
+                      <Text variant="caption" color="muted">Signed as</Text>
+                      <Text variant="caption" weight="600">Paper copy (scanned at the desk)</Text>
+                    </XStack>
+                  )}
                   <XStack justifyContent="space-between">
                     <Text variant="caption" color="muted">Version</Text>
                     <Text variant="caption" weight="600">{selected.mySignature.documentVersion}</Text>
@@ -198,7 +204,7 @@ export default function DocumentsScreen() {
                   value={signerName}
                   onChangeText={setSignerName}
                   placeholder="Full legal name"
-                  accessibilityLabel="Signature name"
+                  aria-label="Signature name"
                 />
                 <Button
                   label={busy ? 'Signing…' : 'Read & sign'}
@@ -228,7 +234,7 @@ function DocumentCard({ doc, onPress }: { doc: Template; onPress: () => void }) 
           <Text variant="caption" color="muted">
             v{doc.version}
             {doc.mySignature
-              ? ` · signed ${new Date(doc.mySignature.signedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`
+              ? ` · signed ${new Date(doc.mySignature.signedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}${doc.mySignature.paperScanStorageId ? ' (paper copy)' : ''}`
               : doc.required ? ' · needs signature' : ' · optional'}
           </Text>
         </YStack>

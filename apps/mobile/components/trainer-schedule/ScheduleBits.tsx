@@ -1,6 +1,7 @@
 import React from "react"
 import { XStack, YStack } from "tamagui"
 import { Card, Text, Badge, Skeleton, EmptyState } from "@queenix/ui"
+import { ChevronLeft, ChevronRight } from "@tamagui/lucide-icons-2"
 import type { GridSlot } from "./types"
 
 const SLOT_COLOR: Record<string, { border: string }> = {
@@ -59,9 +60,9 @@ export function ToggleButton({
       justifyContent="center"
       onPress={onPress}
       pressStyle={{ opacity: 0.7 }}
-      accessibilityRole="button"
-      accessibilityLabel={`${label} view`}
-      accessibilityState={{ selected }}
+      role="button"
+      aria-label={`${label} view`}
+      aria-selected={selected}
     >
       <Text variant="label" color={selected ? "inverse" : "secondary"}>
         {label}
@@ -160,4 +161,47 @@ export function DayView({
         ))}
     </YStack>
   )
+}
+
+export function WeekSelector({
+  weekLabel,
+  weekRange,
+  onPrev,
+  onNext,
+}: {
+  weekLabel: string
+  weekRange: string
+  onPrev: () => void
+  onNext: () => void
+}) {
+  return (
+    <Card variant="outlined" padding="sm">
+      <XStack alignItems="center" justifyContent="space-between">
+        <XStack
+          onPress={onPrev}
+          role="button"
+          aria-label="Previous week"
+          pressStyle={{ opacity: 0.5 }}
+          padding="$2"
+        >
+          <ChevronLeft size={22} color="$textPrimary" />
+        </XStack>
+        <YStack alignItems="center">
+          <Text variant="label">{weekLabel}</Text>
+          <Text variant="caption" color="muted">
+            {weekRange}
+          </Text>
+        </YStack>
+        <XStack
+          onPress={onNext}
+          role="button"
+          aria-label="Next week"
+          pressStyle={{ opacity: 0.5 }}
+          padding="$2"
+        >
+          <ChevronRight size={22} color="$textPrimary" />
+        </XStack>
+      </XStack>
+    </Card>
+  );
 }

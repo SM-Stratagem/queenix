@@ -130,7 +130,7 @@ export const attachProviderIntent = internalMutation({
  * Mark a payment as succeeded (called by Stripe/Tap webhook). Creates an
  * invoice, updates related memberships, and writes an audit event.
  */
-export const recordPaymentSuccess = mutation({
+export const recordPaymentSuccess = internalMutation({
   args: {
     stripePaymentIntentId: v.optional(v.string()),
     tapChargeId: v.optional(v.string()),
@@ -243,7 +243,7 @@ export const recordPaymentSuccess = mutation({
   },
 });
 
-export const recordPaymentFailure = mutation({
+export const recordPaymentFailure = internalMutation({
   args: {
     stripePaymentIntentId: v.optional(v.string()),
     tapChargeId: v.optional(v.string()),
@@ -279,7 +279,7 @@ export const recordPaymentFailure = mutation({
   },
 });
 
-export const recordRefund = mutation({
+export const recordRefund = internalMutation({
   args: {
     stripePaymentIntentId: v.optional(v.string()),
     tapChargeId: v.optional(v.string()),

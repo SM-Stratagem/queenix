@@ -19,39 +19,27 @@ a {
 }
 
 html {
-  color-scheme: light dark;
+  color-scheme: dark;
 }
 
+/* Dark-mode only — no light theme ships. The :root defaults are the dark
+   palette so first paint is dark even before any data-theme attribute. */
 :root {
   --brand: #0081cc;
   --brand-hover: #006ba8;
   --brand-light: #e6f4fb;
-  --bg: #ffffff;
-  --bg-muted: #fafafa;
-  --bg-elevated: #ffffff;
-  --border: #e4e4e7;
-  --text: #18181b;
-  --text-muted: #71717a;
-  --text-secondary: #52525b;
+  --bg: #09090b;
+  --bg-muted: #18181b;
+  --bg-elevated: #18181b;
+  --border: #27272a;
+  --text: #fafafa;
+  --text-muted: #a1a1aa;
+  --text-secondary: #d4d4d8;
   --success: #10b981;
   --warning: #f59e0b;
   --danger: #ef4444;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --bg: #09090b;
-    --bg-muted: #18181b;
-    --bg-elevated: #18181b;
-    --border: #27272a;
-    --text: #fafafa;
-    --text-muted: #a1a1aa;
-    --text-secondary: #d4d4d8;
-  }
-}
-
-/* Explicit theme override: light is the default (:root above); setting
-   data-theme="dark" on <html> forces dark regardless of OS preference. */
 :root[data-theme='dark'] {
   --bg: #09090b;
   --bg-muted: #18181b;

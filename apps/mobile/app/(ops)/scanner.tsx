@@ -28,7 +28,7 @@ import {
   WifiOff,
   AlertTriangle,
   RotateCw,
-} from '@tamagui/lucide-icons';
+} from '@tamagui/lucide-icons-2';
 import { CornerBracket } from '@/components/scanner/CornerBracket';
 import { CheckInRow } from '@/components/scanner/CheckInRow';
 import { ScannerStatusBanner } from '@/components/scanner/ScannerStatusBanner';
@@ -137,35 +137,6 @@ export default function ScannerScreen() {
     }
   };
 
-  // Camera scanner fallback — react-native-vision-camera + code scanner
-  // We use dynamic require so the screen still renders in environments
-  // (web, Expo Go on older SDKs) where the native module is absent.
-  const [CameraComponent, setCameraComponent] = useState<any>(null);
-  const [codeScanner, setCodeScanner] = useState<any>(null);
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const cam = await import('react-native-vision-camera');
-        const cs = await import('vision-camera-code-scanner');
-        if (!mounted) return;
-        setCameraComponent(() => cam.Camera);
-        setCodeScanner(() => cs);
-        // Request permission
-        const status = await cam.Camera.requestCameraPermission();
-        setHasPermission(status === 'granted');
-      } catch {
-        // Native module missing — fall back to manual entry only
-        setHasPermission(false);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
   const liveCount = occupancy?.count ?? 0;
   const maxCapacity = 180;
   const capacityRatio = Math.min(1, liveCount / maxCapacity);
@@ -184,7 +155,7 @@ export default function ScannerScreen() {
             borderRadius="$full"
             alignItems="center"
             gap="$2"
-            accessibilityLabel={`${liveCount} of ${maxCapacity} members inside`}
+            aria-label={`${liveCount} of ${maxCapacity} members inside`}
           >
             <Users size={16} color="$brand" />
             <Text variant="label" color="brand">
@@ -239,9 +210,6 @@ export default function ScannerScreen() {
         {/* QR scanner viewport */}
         <ScannerViewfinder
           scanning={scanning}
-          hasPermission={hasPermission}
-          CameraComponent={CameraComponent}
-          codeScanner={codeScanner}
           handleToken={handleToken}
           setScanning={setScanning}
         />

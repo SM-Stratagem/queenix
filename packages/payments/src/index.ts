@@ -74,7 +74,8 @@ function getStripeClient(): Stripe {
     throw new Error('STRIPE_SECRET_KEY is not set');
   }
   return new Stripe(key, {
-    apiVersion: '2024-12-18.acacia' as Stripe.LatestApiVersion,
+    // Must equal the SDK's typed version (stripe@22 → dahlia); keep the Dashboard webhook endpoint on the same version.
+    apiVersion: '2026-08-26.dahlia',
   });
 }
 
@@ -315,6 +316,20 @@ export interface CreatePaymentParams {
  * when configured, otherwise Stripe. All other currencies always go to Stripe.
  */
 export const createPayment = async (params: CreatePaymentParams): Promise<PaymentIntent> => {
+  // Local dev without gateway keys: a fake Stripe-shaped intent, nothing charged.
+  if (process.env.PAYMENTS_PROVIDER === 'mock') {
+    if (process.env.NODE_ENV === 'production') throw new Error('PAYMENTS_PROVIDER=mock is not allowed in production');
+    const id = `pi_mock_${params.idempotencyKey}`;
+    return {
+      id,
+      provider: 'stripe',
+      clientSecret: `${id}_secret_mock`,
+      amountCents: params.amountCents,
+      currency: params.currency.toUpperCase(),
+      status: 'requires_payment_method',
+      metadata: params.metadata ?? {},
+    };
+  }
   const isAED = params.currency.toUpperCase() === 'AED';
   const hasTap = Boolean(process.env.TAP_SECRET_KEY);
 

@@ -68,13 +68,13 @@ export default function OwnerBranchScreen() {
           <Card padded>
             <Text variant="h4">Club details</Text>
             <Text color="$muted" marginTop="$2">Name</Text>
-            <Input value={name} onChangeText={setName} accessibilityLabel="Branch name" />
+            <Input value={name} onChangeText={setName} aria-label="Branch name" />
             <Text color="$muted" marginTop="$2">City</Text>
-            <Input value={city} onChangeText={setCity} accessibilityLabel="City" />
+            <Input value={city} onChangeText={setCity} aria-label="City" />
             <Text color="$muted" marginTop="$2">Address (optional)</Text>
-            <Input value={address} onChangeText={setAddress} accessibilityLabel="Address" />
+            <Input value={address} onChangeText={setAddress} aria-label="Address" />
             <Text color="$muted" marginTop="$2">Phone (optional)</Text>
-            <Input value={phone} onChangeText={setPhone} accessibilityLabel="Phone" />
+            <Input value={phone} onChangeText={setPhone} aria-label="Phone" />
             <Button marginTop="$3" label={busy ? 'Saving…' : 'Save changes'} onPress={onSave} variant="primary" size="lg" disabled={busy} />
           </Card>
         )}

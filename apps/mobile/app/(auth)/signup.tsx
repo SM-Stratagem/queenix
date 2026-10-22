@@ -3,7 +3,7 @@ import { YStack, XStack, ScrollView } from 'tamagui';
 import { useRouter } from 'expo-router';
 import { Screen, Text, Input, Button, Logo, Spacer } from '@queenix/ui';
 import { useAuth } from '@/lib/auth';
-import { Mail, Lock, User } from '@tamagui/lucide-icons';
+import { Mail, Lock, User } from '@tamagui/lucide-icons-2';
 
 export default function SignupScreen() {
   const router = useRouter();

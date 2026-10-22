@@ -4,55 +4,23 @@ import { useRouter } from 'expo-router';
 import {
   Screen,
   Text,
-  Card,
-  Avatar,
   Badge,
   Button,
   Input,
   Header,
   EmptyState,
-  Sheet,
   Skeleton,
   ErrorState,
   useToast,
 } from '@queenix/ui';
 import { useConvexQuery, useConvexMutation, api } from '@/lib/convex';
-import { MemberRow, type Member, type MemberStatus, type Tier } from '@/components/support/MemberRow';
+import { MemberRow, type Member } from '@/components/support/MemberRow';
+import { NewTicketSheet, type Category, type Priority } from '@/components/support/NewTicketSheet';
 import { TicketRow, type Ticket } from '@/components/support/TicketRow';
 import { getInitials, formatRelative } from '@/components/support/format';
-import {
-  Search,
-  Plus,
-  ChevronRight,
-  Phone,
-  Ticket as TicketIcon,
-  Clock,
-  Crown,
-  Sparkles,
-  MessageSquare,
-} from '@tamagui/lucide-icons';
-
-type Priority = 'low' | 'medium' | 'high' | 'critical';
-
-type Category = 'billing' | 'access' | 'class' | 'general';
-
-interface SupportTicket {
-  id: string;
-  ticketCode: string;
-  memberName: string;
-  memberInitials: string;
-  subject: string;
-  status: "open" | "in_progress" | "waiting" | "resolved";
-  priority: Priority;
-  category: Category;
-  timeAgo: string;
-}
+import { Search, Plus, Ticket as TicketIcon } from '@tamagui/lucide-icons-2';
 
 const TICKET_CODE_PREFIX = 'QNX';
-const CATEGORIES: Category[] = ['billing', 'access', 'class', 'general'];
-const PRIORITIES: Priority[] = ['low', 'medium', 'high', 'critical'];
-
-
 
 export default function OpsSupportScreen() {
   const router = useRouter();
@@ -163,7 +131,7 @@ export default function OpsSupportScreen() {
             size="sm"
             icon={<Plus size={16} color="$textOnBrand" />}
             onPress={() => setComposeOpen(true)}
-            accessibilityLabel="Create new support ticket"
+            aria-label="Create new support ticket"
           />
         }
       />
@@ -179,7 +147,7 @@ export default function OpsSupportScreen() {
             value={query}
             onChangeText={setQuery}
             leftIcon={<Search size={18} color="$textMuted" />}
-            accessibilityLabel="Search members"
+            aria-label="Search members"
           />
         </YStack>
 
@@ -249,195 +217,24 @@ export default function OpsSupportScreen() {
       </ScrollView>
 
       {/* New ticket sheet */}
-      <Sheet open={composeOpen} onOpenChange={setComposeOpen}>
-        <YStack gap="$3">
-          <YStack gap="$0.5" marginBottom="$1">
-            <Text variant="h2">New support ticket</Text>
-            <Text variant="bodySmall" color="secondary">
-              Logged for operations follow-up
-            </Text>
-          </YStack>
-
-          {/* Member picker */}
-          <YStack gap="$1">
-            <Text variant="caption" color="secondary" fontWeight="600">
-              Member
-            </Text>
-            <Input
-              placeholder="Search member name or ID"
-              value={selectedMember?.name ?? memberQuery}
-              onChangeText={(v: string) => {
-                setMemberQuery(v);
-                setSelectedMember(null);
-              }}
-              leftIcon={<Search size={16} color="$textMuted" />}
-              accessibilityLabel="Member name or ID"
-            />
-            {memberQuery.length > 0 && !selectedMember && (
-              <YStack gap="$1" marginTop="$1">
-                {filtered.slice(0, 4).map((m) => (
-                  <Card
-                    key={m.id}
-                    variant="outlined"
-                    padding="sm"
-                    onPress={() => {
-                      setSelectedMember(m);
-                      setMemberQuery('');
-                    }}
-                  >
-                    <XStack alignItems="center" gap="$2">
-                      <Avatar name={m.name} size="sm" fallbackColor="$brand" />
-                      <YStack flex={1}>
-                        <Text variant="label" numberOfLines={1}>{m.name}</Text>
-                        <Text variant="caption" color="muted">
-                          {m.tier} • {m.visits} visits
-                        </Text>
-                      </YStack>
-                    </XStack>
-                  </Card>
-                ))}
-                {filtered.length === 0 && (
-                  <Text variant="caption" color="muted">No matches — leave blank for walk-in.</Text>
-                )}
-              </YStack>
-            )}
-            {selectedMember && (
-              <XStack alignItems="center" gap="$2" marginTop="$1">
-                <Badge label={`Selected: ${selectedMember.name}`} variant="info" />
-                <Button
-                  label="Clear"
-                  variant="ghost"
-                  size="sm"
-                  onPress={() => setSelectedMember(null)}
-                />
-              </XStack>
-            )}
-          </YStack>
-
-          <YStack gap="$1">
-            <Text variant="caption" color="secondary" fontWeight="600">
-              Category
-            </Text>
-            <XStack gap="$2" flexWrap="wrap">
-              {CATEGORIES.map((c) => {
-                const active = category === c;
-                return (
-                  <Card
-                    key={c}
-                    variant={active ? 'elevated' : 'outlined'}
-                    padding="sm"
-                    onPress={() => setCategory(c)}
-                    backgroundColor={active ? '$brand50' : undefined}
-                    accessibilityLabel={`Category ${c}`}
-                  >
-                    <Text
-                      variant="caption"
-                      weight="600"
-                      textTransform="capitalize"
-                      color={active ? 'brand' : 'primary'}
-                    >
-                      {c}
-                    </Text>
-                  </Card>
-                );
-              })}
-            </XStack>
-          </YStack>
-          <YStack gap="$1">
-            <Text variant="caption" color="secondary" fontWeight="600">
-              Priority
-            </Text>
-            <XStack gap="$2">
-              {PRIORITIES.map((p) => {
-                const active = priority === p;
-                return (
-                  <Card
-                    key={p}
-                    variant={active ? 'elevated' : 'outlined'}
-                    padding="sm"
-                    flex={1}
-                    onPress={() => setPriority(p)}
-                    backgroundColor={
-                      active
-                        ? p === 'critical'
-                          ? '$danger50'
-                          : p === 'high'
-                          ? '$warning50'
-                          : '$brand50'
-                        : undefined
-                    }
-                    accessibilityLabel={`Priority ${p}`}
-                  >
-                    <Text
-                      variant="caption"
-                      weight="600"
-                      textTransform="capitalize"
-                      textAlign="center"
-                      color={
-                        active
-                          ? p === 'critical'
-                            ? 'danger'
-                            : p === 'high'
-                            ? 'warning'
-                            : 'brand'
-                          : 'primary'
-                      }
-                    >
-                      {p}
-                    </Text>
-                  </Card>
-                );
-              })}
-            </XStack>
-          </YStack>
-          <Input
-            label="Subject"
-            placeholder="Brief description"
-            value={subject}
-            onChangeText={setSubject}
-            accessibilityLabel="Ticket subject"
-          />
-          <YStack gap="$1">
-            <Text variant="caption" color="secondary" fontWeight="600">
-              Details
-            </Text>
-            <YStack
-              borderWidth={1}
-              borderColor="$borderColor"
-              borderRadius="$md"
-              padding="$3"
-              backgroundColor="$surface"
-              minHeight={120}
-            >
-              <textarea
-                value={description}
-                onChange={(e: any) => setDescription(e.target.value)}
-                placeholder="What happened? Any context for the team?"
-                style={{
-                  width: '100%',
-                  minHeight: 100,
-                  border: 'none',
-                  background: 'transparent',
-                  outline: 'none',
-                  fontSize: 14,
-                  color: 'inherit',
-                  fontFamily: 'inherit',
-                  resize: 'none',
-                }}
-                aria-label="Ticket details"
-              />
-            </YStack>
-          </YStack>
-          <Button
-            label="Log ticket"
-            variant="primary"
-            size="md"
-            fullWidth
-            onPress={handleSubmit}
-            accessibilityLabel="Log new ticket"
-          />
-        </YStack>
-      </Sheet>
+      <NewTicketSheet
+        open={composeOpen}
+        onOpenChange={setComposeOpen}
+        memberQuery={memberQuery}
+        setMemberQuery={setMemberQuery}
+        selectedMember={selectedMember}
+        setSelectedMember={setSelectedMember}
+        filtered={filtered}
+        category={category}
+        setCategory={setCategory}
+        priority={priority}
+        setPriority={setPriority}
+        subject={subject}
+        setSubject={setSubject}
+        description={description}
+        setDescription={setDescription}
+        onSubmit={handleSubmit}
+      />
     </Screen>
   );
 }

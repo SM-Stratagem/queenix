@@ -1,7 +1,7 @@
 import React from "react"
 import { XStack, YStack } from "tamagui"
 import { Card, Text } from "@queenix/ui"
-import { ChevronRight } from "@tamagui/lucide-icons"
+import { ChevronRight } from "@tamagui/lucide-icons-2"
 
 export function SettingsItem({
   icon,

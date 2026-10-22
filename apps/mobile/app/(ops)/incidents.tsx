@@ -17,7 +17,7 @@ import { useRouter } from 'expo-router';
 import {
   Plus,
   CheckCircle2,
-} from '@tamagui/lucide-icons';
+} from '@tamagui/lucide-icons-2';
 import {
   TYPE_META,
   SEVERITY_META,
@@ -197,9 +197,9 @@ export default function IncidentsScreen() {
                   borderColor="$borderColor"
                   onPress={() => setTab(t)}
                   pressStyle={{ opacity: 0.8 }}
-                  accessibilityRole="tab"
-                  accessibilityLabel={`Show ${t} incidents`}
-                  accessibilityState={{ selected: active }}
+                  role="tab"
+                  aria-label={`Show ${t} incidents`}
+                  aria-selected={active}
                 >
                   <Text
                     variant="caption"
@@ -254,7 +254,7 @@ export default function IncidentsScreen() {
         position="absolute"
         bottom="$5"
         right="$4"
-        accessibilityLabel="Report new incident"
+        aria-label="Report new incident"
       >
         <Button
           label="Report incident"

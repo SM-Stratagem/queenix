@@ -13,7 +13,7 @@ import {
 } from '@queenix/ui';
 import { useConvexQuery, useConvexMutation } from '@/lib/convex';
 import { api } from '@queenix/convex';
-import { Search, CalendarPlus } from '@tamagui/lucide-icons';
+import { Search, CalendarPlus } from '@tamagui/lucide-icons-2';
 
 function todayStr(): string {
   const d = new Date();
@@ -110,7 +110,7 @@ export default function NewSessionScreen() {
                 value={memberSearch}
                 onChangeText={setMemberSearch}
                 leftIcon={<Search size={18} color="$textMuted" />}
-                accessibilityLabel="Search members"
+                aria-label="Search members"
               />
               {memberSearch.trim().length > 0 &&
                 (hits === undefined ? (
@@ -151,13 +151,13 @@ export default function NewSessionScreen() {
               <Text variant="caption" color="muted">
                 Date (YYYY-MM-DD)
               </Text>
-              <Input value={date} onChangeText={setDate} accessibilityLabel="Session date" />
+              <Input value={date} onChangeText={setDate} aria-label="Session date" />
             </YStack>
             <YStack flex={1} gap="$1">
               <Text variant="caption" color="muted">
                 Time (HH:MM)
               </Text>
-              <Input value={time} onChangeText={setTime} accessibilityLabel="Session time" />
+              <Input value={time} onChangeText={setTime} aria-label="Session time" />
             </YStack>
           </XStack>
         </YStack>
@@ -172,21 +172,21 @@ export default function NewSessionScreen() {
               <Input
                 value={duration}
                 onChangeText={setDuration}
-                accessibilityLabel="Duration minutes"
+                aria-label="Duration minutes"
               />
             </YStack>
             <YStack flex={1} gap="$1">
               <Text variant="caption" color="muted">
                 Price (AED)
               </Text>
-              <Input value={price} onChangeText={setPrice} accessibilityLabel="Price AED" />
+              <Input value={price} onChangeText={setPrice} aria-label="Price AED" />
             </YStack>
           </XStack>
           <Input
             placeholder="Notes (optional)"
             value={notes}
             onChangeText={setNotes}
-            accessibilityLabel="Session notes"
+            aria-label="Session notes"
           />
         </YStack>
 

@@ -37,14 +37,18 @@ if [ -z "$LAN_IP" ]; then
   LAN_IP="localhost"
 fi
 
-# --- free host ports held by stale local servers (compose is untouched)
+# --- free host ports held by stale local *node* dev servers (npm run dev).
+# Only node processes: when the stack is already up, Docker Desktop's own
+# port forwarder listens on these ports, and killing it takes Docker down.
 for p in 3000 8081 19002; do
-  pids="$(lsof -ti:$p 2>/dev/null || true)"
-  if [ -n "$pids" ]; then
-    # shellcheck disable=SC2086
-    kill -9 $pids 2>/dev/null || true
-    echo "freed host port $p"
-  fi
+  for pid in $(lsof -ti:$p 2>/dev/null || true); do
+    case "$(ps -o comm= -p "$pid" 2>/dev/null)" in
+      *node*)
+        kill -9 "$pid" 2>/dev/null || true
+        echo "freed host port $p (stale node pid $pid)"
+        ;;
+    esac
+  done
 done
 
 # --- clear stale Next build cache (fixes vendor-chunks ENOENT 500s)
@@ -62,7 +66,29 @@ EXPO_HOST_IP=$LAN_IP
 EOF
 
 echo "LAN IP: $LAN_IP"
-docker compose --env-file .env.docker up -d --build
+
+# --- data services first, then the Convex admin key (the web server calls
+# --- internal Convex functions with it; convex-sync pushes functions with it).
+docker compose --env-file .env.docker up -d --wait postgres convex-backend
+touch packages/convex/.env.local
+ADMIN_KEY="$(grep '^CONVEX_SELF_HOSTED_ADMIN_KEY=' packages/convex/.env.local | cut -d= -f2- || true)"
+if [ -z "$ADMIN_KEY" ]; then
+  echo "Generating Convex admin key..."
+  ADMIN_KEY="$(docker exec queenix-convex ./generate_admin_key.sh | tail -1)"
+  {
+    echo "CONVEX_SELF_HOSTED_URL=http://127.0.0.1:3210"
+    echo "CONVEX_SELF_HOSTED_ADMIN_KEY=$ADMIN_KEY"
+  } >> packages/convex/.env.local
+fi
+echo "CONVEX_DEPLOY_KEY=$ADMIN_KEY" >> .env.docker
+
+# --renew-anon-volumes: node_modules live in anonymous volumes; without it a
+# rebuilt image's fresh deps (e.g. after an Expo SDK bump) are shadowed by the
+# previous container's stale copy. Named volumes (convex_data, pg_data) are untouched.
+docker compose --env-file .env.docker up -d --build --renew-anon-volumes
+# Re-run the one-shot seed on every boot so demo accounts + dataset
+# (including the schedule repair) refresh even when containers already exist.
+docker compose --env-file .env.docker up -d --force-recreate --no-deps seed
 
 # --- point the Convex deployment at this host.
 # Convex bakes the accepted JWT issuer (auth.config) from DEPLOYMENT env
@@ -84,12 +110,17 @@ sleep 5
 
 echo ""
 echo "================ QUEENIX GYM IS UP ================"
-echo "Web admin : http://$LAN_IP:3000/login"
-echo "  owner@queenix.test / ops@queenix.test /"
-echo "  trainer@queenix.test / member@queenix.test"
-echo "  password for all: QueenixDemo123!"
+echo "Web admin : http://$LAN_IP:3000/login  (dark-only staff console)"
+echo "  Tap a demo block to sign in — password for all: QueenixDemo123!"
+echo "  superadmin@queenix.test (full access) / owner@queenix.test (Finance) /"
+echo "  ops@queenix.test (Operations) / trainer@queenix.test /"
+echo "  salon@queenix.test / coffee@queenix.test"
+echo "  (member@queenix.test is mobile-app only — web bounces it.)"
 echo "Convex dash: http://$LAN_IP:6791"
-echo "Mobile    : scan the QR below with Expo Go (same Wi-Fi)"
+echo "Inbox     : http://localhost:8025  (every email + SMS code the system sends, locally)"
+echo "Mobile    : Expo Go (same Wi-Fi) → Enter URL manually:"
+echo "            exp://$LAN_IP:8081"
+echo "            (or scan the QR in the expo logs below)"
 echo "==================================================="
 echo ""
 docker logs --tail 5 queenix-expo 2>/dev/null || true

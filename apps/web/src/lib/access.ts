@@ -1,0 +1,123 @@
+/**
+ * Web console route access — the one place that says which staff role can
+ * open which admin page. Mirrors the Convex role guards each page's queries
+ * enforce (the backend stays the source of truth; this only keeps the UI
+ * from offering pages that would fail). Used by AdminNav (which links to
+ * show) and AdminShell (staff-only panel instead of a broken page).
+ */
+import { WEB_LANDING, type Role } from '@queenix/auth/roles';
+import { authClient } from './auth-client';
+
+/** Canonical role names from a BetterAuth session user ('owner' → 'finance'). */
+export function sessionRoles(user: unknown): string[] {
+  const u = user as { roles?: unknown; activeRole?: unknown } | undefined;
+  const raw = Array.isArray(u?.roles) ? (u.roles as unknown[]) : u?.activeRole ? [u.activeRole] : [];
+  const out: string[] = [];
+  for (const r of raw) {
+    if (typeof r !== 'string') continue;
+    const n = r === 'owner' ? 'finance' : r;
+    if (!out.includes(n)) out.push(n);
+  }
+  return out;
+}
+
+/** Roles of the signed-in web user (empty while loading / signed out). */
+export function useSessionRoles(): string[] {
+  const { data } = authClient.useSession();
+  return sessionRoles(data?.user);
+}
+
+export function isPureMember(roles: string[]): boolean {
+  return roles.length > 0 && roles.every((r) => r === 'member');
+}
+
+/** superadmin/admin open everything; everyone else is listed per route. */
+const ELEVATED = ['superadmin', 'admin'];
+
+const ROUTE_ROLES: Record<string, string[]> = {
+  '/dashboard': ['finance', 'operations'],
+  '/members': ['finance', 'operations'],
+  '/trainers': ['finance', 'operations'],
+  '/trainer': ['trainer'],
+  '/team': ['finance', 'operations'],
+  '/approvals': ['finance', 'operations'],
+  '/classes': ['finance', 'operations', 'trainer'],
+  '/branches': ['finance', 'operations'],
+  '/events': ['finance', 'operations'],
+  '/valet': ['finance', 'operations'],
+  '/finance': ['finance'],
+  '/coffee': ['finance', 'operations', 'coffee'],
+  '/salon': ['finance', 'operations', 'salon'],
+  '/crm': ['finance', 'operations'],
+  '/promotions': ['finance'],
+  '/partners': ['finance'],
+  '/documents': ['finance'],
+  '/notifications': ['finance', 'operations', 'trainer'],
+  '/sales-push': ['finance', 'operations', 'trainer'],
+  '/reports': ['finance'],
+  '/audit': ['finance'],
+  '/settings': ['finance', 'operations', 'salon', 'coffee'],
+  // Website CMS (content.manage capability): operations + superadmin/admin.
+  '/website': ['operations'],
+};
+
+/**
+ * Public website routes: rendered without the staff console frame or auth.
+ * Everything else is the console.
+ */
+const PUBLIC_ROUTES = ['/', '/schedule', '/gallery', '/contact', '/blog'];
+
+export function isPublicPath(pathname: string): boolean {
+  return PUBLIC_ROUTES.some((r) => pathname === r || (r !== '/' && pathname.startsWith(`${r}/`)));
+}
+
+/** Longest registered route prefix for a pathname ('/members/abc' → '/members'). */
+function routeFor(pathname: string): string | undefined {
+  return Object.keys(ROUTE_ROLES)
+    .filter((r) => r !== '/' && (pathname === r || pathname.startsWith(`${r}/`)))
+    .sort((a, b) => b.length - a.length)[0];
+}
+
+/** Unlisted paths (login, api) are not gated here. */
+export function canOpen(roles: string[], pathname: string): boolean {
+  if (roles.some((r) => ELEVATED.includes(r))) return true;
+  const route = routeFor(pathname);
+  if (!route) return true;
+  return roles.some((r) => ROUTE_ROLES[route]!.includes(r));
+}
+
+/**
+ * Where a staff user starts after sign-in. Single-role staff with a home
+ * surface (WEB_LANDING: finance/trainer/salon/coffee) go there; admins and
+ * operations honor ?next (default '/dashboard') when they can open it.
+ */
+export function landingFor(roles: string[], next = '/dashboard'): string {
+  // Same-site paths only: '//host' or 'https:…' in ?next would be an open redirect.
+  if (!next.startsWith('/') || next.startsWith('//') || next.startsWith('/\\')) next = '/dashboard';
+  // '/' is the public website — staff signing in want the console.
+  if (next === '/') next = '/dashboard';
+  const staff = roles.filter((r) => r !== 'member');
+  if (staff.length === 1) {
+    const home = WEB_LANDING[staff[0] as Role];
+    if (home && home !== '/dashboard' && (next === '/dashboard' || !canOpen(roles, next))) return home;
+  }
+  if (canOpen(roles, next)) return next;
+  return Object.keys(ROUTE_ROLES).find((r) => canOpen(roles, r)) ?? '/dashboard';
+}
+
+/**
+ * Who may OCR which document kind via /api/ocr (superadmin/admin always).
+ * Members may scan only ID documents (their own — the save mutation enforces it).
+ */
+const OCR_ROLES: Record<string, string[]> = {
+  emirates_id: ['operations', 'finance', 'member'],
+  passport: ['operations', 'finance', 'member'],
+  plate: ['operations'],
+  receipt: ['finance'],
+  document: ['operations', 'finance', 'trainer', 'salon', 'coffee'],
+};
+
+export function canOcr(roles: string[], kind: string): boolean {
+  if (roles.some((r) => ELEVATED.includes(r))) return true;
+  return roles.some((r) => OCR_ROLES[kind]?.includes(r) ?? false);
+}

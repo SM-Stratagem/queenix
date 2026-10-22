@@ -1,21 +1,24 @@
 #!/usr/bin/env node
 /**
- * Queenix Gym — create the 4 demo accounts for local testing.
+ * Queenix Gym — create the 7 demo accounts for local testing.
  *
- * Reads config from root .env.testing, then for each role (member, trainer,
- * owner, operations):
+ * Reads config from root .env.testing, then for each role (superadmin,
+ * member, trainer, owner/finance, operations, salon, coffee):
  *   1. Signs the account up through the REAL BetterAuth API
  *      (falls back to sign-in if it already exists).
  *   2. Patches its roles/activeRole in the SQLite auth DB.
- *   3. Links it into Convex via the `seed:seedDemoUsers` mutation
+ *   3. Links it into Convex via the internal `seed:seedDemoUsers` mutation
  *      (creates user row + profile + membership where relevant).
+ *   4. Seeds the realistic demo dataset via internal `demoDataset:seedDemoDataset`
+ *      (members, classes, PT, venues, finance, CRM, documents).
+ *   Steps 3–4 need the Convex admin key in CONVEX_DEPLOY_KEY.
  *
  * Prerequisites (three terminals, from the repo root):
  *   pnpm --filter @queenix/convex dev     # Convex backend  (http://127.0.0.1:3210)
  *   pnpm --filter @queenix/web dev        # Web admin + auth (http://localhost:3000)
  *
  * Usage:
- *   node scripts/seed-demo-users.mjs
+ *   CONVEX_DEPLOY_KEY=<admin key> node scripts/seed-demo-users.mjs
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -37,35 +40,50 @@ function loadEnvFile(file) {
   }
   return out;
 }
-const env = loadEnvFile(path.join(ROOT, '.env.testing'));
+// Optional defaults file (absent in the prod-mode seed container: env comes from compose).
+const envFile = path.join(ROOT, '.env.testing');
+const env = fs.existsSync(envFile) ? loadEnvFile(envFile) : {};
 
 // Shell env wins; .env.testing is the default.
 const AUTH_BASE = process.env.AUTH_BASE_URL ?? env.AUTH_BASE_URL ?? 'http://localhost:3000';
 const CONVEX_URL =
   process.env.EXPO_PUBLIC_CONVEX_URL ?? env.EXPO_PUBLIC_CONVEX_URL ?? 'http://127.0.0.1:3210';
+// Convex admin key: the seed mutations are internal (not callable anonymously).
+const CONVEX_DEPLOY_KEY = process.env.CONVEX_DEPLOY_KEY;
 const PASSWORD = process.env.DEMO_PASSWORD ?? env.DEMO_PASSWORD ?? 'QueenixDemo123!';
-const DB_PATH =
-  process.env.AUTH_DB_PATH ?? env.AUTH_DB_PATH ?? path.join(ROOT, 'apps/web/.data/queenix-auth.db');
 
 const DEMOS = [
-  { role: 'member', email: env.DEMO_MEMBER_EMAIL, name: env.DEMO_MEMBER_NAME ?? 'Amna Member' },
-  { role: 'trainer', email: env.DEMO_TRAINER_EMAIL, name: env.DEMO_TRAINER_NAME ?? 'Layla Trainer' },
-  { role: 'owner', email: env.DEMO_OWNER_EMAIL, name: env.DEMO_OWNER_NAME ?? 'Sara Owner' },
-  { role: 'operations', email: env.DEMO_OPERATIONS_EMAIL, name: env.DEMO_OPERATIONS_NAME ?? 'Khalid Ops' },
+  { role: 'superadmin', email: env.DEMO_SUPERADMIN_EMAIL ?? 'superadmin@queenix.test', name: env.DEMO_SUPERADMIN_NAME ?? 'Super Admin' },
+  { role: 'member', email: env.DEMO_MEMBER_EMAIL ?? 'member@queenix.test', name: env.DEMO_MEMBER_NAME ?? 'Amna Member' },
+  { role: 'trainer', email: env.DEMO_TRAINER_EMAIL ?? 'trainer@queenix.test', name: env.DEMO_TRAINER_NAME ?? 'Layla Trainer' },
+  // 'owner' is the stored alias of 'finance' (normalized app-wide).
+  { role: 'owner', email: env.DEMO_OWNER_EMAIL ?? 'owner@queenix.test', name: env.DEMO_OWNER_NAME ?? 'Sara Owner' },
+  { role: 'operations', email: env.DEMO_OPERATIONS_EMAIL ?? 'ops@queenix.test', name: env.DEMO_OPERATIONS_NAME ?? 'Khalid Ops' },
+  { role: 'salon', email: env.DEMO_SALON_EMAIL ?? 'salon@queenix.test', name: env.DEMO_SALON_NAME ?? 'Maha Stylist' },
+  { role: 'coffee', email: env.DEMO_COFFEE_EMAIL ?? 'coffee@queenix.test', name: env.DEMO_COFFEE_NAME ?? 'Rania Barista' },
 ];
 
 async function api(pathname, body, method = 'POST', extraHeaders = {}) {
-  const res = await fetch(`${AUTH_BASE}${pathname}`, {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      Origin: AUTH_BASE,
-      ...extraHeaders,
-    },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  const data = await res.json().catch(() => ({}));
-  return { status: res.status, data };
+  // Production auth rate-limits sign-in/sign-up (a few per 10s per IP):
+  // back off on 429 and retry instead of failing half-way through.
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(`${AUTH_BASE}${pathname}`, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        Origin: AUTH_BASE,
+        ...extraHeaders,
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    if (res.status === 429 && attempt < 10) {
+      const wait = Number(res.headers.get('x-retry-after') ?? res.headers.get('retry-after') ?? 5);
+      await new Promise((r) => setTimeout(r, Math.max(1, wait) * 1000));
+      continue;
+    }
+    const data = await res.json().catch(() => ({}));
+    return { status: res.status, data };
+  }
 }
 
 async function setRoleViaAdmin(userId, role) {
@@ -86,7 +104,43 @@ async function ensureAuthUser({ email, name }) {
   throw new Error(`auth failed for ${email}: HTTP ${r.status} ${JSON.stringify(r.data).slice(0, 200)}`);
 }
 
+/**
+ * Call an internal Convex mutation with the admin key (POST /api/mutation,
+ * same on self-hosted and cloud). Retried: in compose the seed runs as soon
+ * as web is healthy, but function sync can lag ~30s behind. 6 x 10s.
+ */
+async function convexMutation(fnPath, args) {
+  let last;
+  for (let attempt = 1; attempt <= 6; attempt++) {
+    try {
+      const res = await fetch(`${CONVEX_URL}/api/mutation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Convex ${CONVEX_DEPLOY_KEY}` },
+        body: JSON.stringify({ path: fnPath, args, format: 'json' }),
+      });
+      const body = await res.text().catch(() => '');
+      last = `HTTP ${res.status} ${body.slice(0, 160)}`;
+      if (res.ok && !body.includes('"status":"error"')) {
+        console.log(`convex ${fnPath}:`, body.slice(0, 300));
+        return;
+      }
+    } catch (e) {
+      last = `${CONVEX_URL} not reachable (${e.message})`;
+    }
+    console.error(`  ${fnPath} attempt ${attempt}/6 → ${last}`);
+    if (attempt < 6) await new Promise((r) => setTimeout(r, 10000));
+  }
+  console.error(`✗ Convex ${fnPath} failed at ${CONVEX_URL}. Re-run later: node scripts/seed-demo-users.mjs (idempotent).`);
+  process.exit(1);
+}
+
 async function main() {
+  if (!CONVEX_DEPLOY_KEY) {
+    console.error('✗ CONVEX_DEPLOY_KEY is not set — the Convex admin key is required to run the internal seed mutations.');
+    console.error('  Local: export CONVEX_DEPLOY_KEY=<CONVEX_SELF_HOSTED_ADMIN_KEY from packages/convex/.env.local>');
+    process.exit(1);
+  }
+
   // --- preconditions ---------------------------------------------------------
 try {
       const r = await fetch(`${AUTH_BASE}/api/auth/get-session`, { headers: { Origin: AUTH_BASE } });
@@ -96,14 +150,9 @@ try {
     console.error('  Start it first:  pnpm --filter @queenix/web dev');
     process.exit(1);
   }
-  if (!fs.existsSync(DB_PATH)) {
-    console.error(`✗ Auth DB not found at ${DB_PATH}.`);
-    console.error('  The web server creates it on first auth request — sign up once, then re-run.');
-    process.exit(1);
-  }
 
   // --- 1+2. auth accounts + role patch ----------------------------------------
-  // Use BetterAuth API to set roles (the storage SQLite belongs to the container).
+  // Roles go through the web admin endpoint (works on Postgres or SQLite).
   const linked = [];
   for (const demo of DEMOS) {
     const { id, created } = await ensureAuthUser(demo);
@@ -119,46 +168,13 @@ try {
     console.log(`${created ? 'created' : 'exists '}  ${demo.role.padEnd(10)} ${demo.email}`);
   }
 
-  // --- 3. Convex link ----------------------------------------------------------
-  // Self-hosted Convex: POST to /api/run/<module>/<function> with {args, format}.
-  // Cloud Convex:     POST to /api/mutation        with {path, args, format}.
-  // Any http:// URL (localhost, LAN IP, or compose service name) is self-hosted;
-  // only https:// cloud deployments use the mutation path.
-  const isSelfHosted = CONVEX_URL.startsWith('http://');
-  const convexUrl = isSelfHosted
-    ? `${CONVEX_URL}/api/run/seed/seedDemoUsers`
-    : `${CONVEX_URL}/api/mutation`;
-  const convexBody = isSelfHosted
-    ? { args: { users: linked }, format: 'json' }
-    : {
-        path: 'seed:seedDemoUsers',
-        args: { users: linked },
-        format: 'json',
-      };
-  // Retry: in compose the seed runs as soon as web is healthy, but function
-  // sync (convex dev) can lag ~30s behind. 6 attempts x 10s.
-  let convexRes;
-  for (let attempt = 1; attempt <= 6; attempt++) {
-    try {
-      const res = await fetch(convexUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(convexBody),
-      });
-      const body = await res.text().catch(() => '');
-      convexRes = { status: res.status, body };
-      if (res.ok) break;
-      console.error(`  convex attempt ${attempt}/6 → HTTP ${res.status} ${body.slice(0, 120)}`);
-    } catch (e) {
-      console.error(`  convex attempt ${attempt}/6 → ${CONVEX_URL} not reachable (${e.message}).`);
-    }
-    if (attempt < 6) await new Promise((r) => setTimeout(r, 10000));
-  }
-  if (!convexRes || convexRes.status < 200 || convexRes.status >= 300) {
-    console.error(`✗ Convex seed failed at ${CONVEX_URL}.`);
-    process.exit(1);
-  }
-  console.log('convex seedDemoUsers:', JSON.stringify(convexRes).slice(0, 300));
+  // --- 3. Convex link + 4. demo dataset --------------------------------------
+  // Both seeders are internal Convex functions: only the admin key reaches them.
+  await convexMutation('seed:seedDemoUsers', { users: linked });
+  // Members, classes, PT, venues, finance, CRM, docs. Idempotent — safe to re-run.
+  await convexMutation('demoDataset:seedDemoDataset', {});
+  // Public website: stock hero/gallery photos + sample blog posts. Idempotent.
+  await convexMutation('siteSeed:seedSiteContent', {});
 
   console.log('\nDone. Log in anywhere with:');
   for (const demo of DEMOS) console.log(`  ${demo.role.padEnd(10)} ${demo.email} / ${PASSWORD}`);

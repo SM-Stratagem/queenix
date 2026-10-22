@@ -1,19 +1,25 @@
 /**
  * Queenix Gym — Payment receipt (HTML)
- * Renders a print-friendly HTML receipt for a payment.
- * Returns HTML that the mobile app can show in a WebView, and members can
- * print-to-PDF from the browser.
+ * Renders a print-friendly HTML receipt for a payment (members can
+ * print-to-PDF from the browser).
  *
- * GET /api/payments/[id]/receipt
+ *   GET  /api/payments/[id]/receipt          BetterAuth session: the payment's
+ *                                            owner, or finance/admin staff.
+ *   POST /api/payments/[id]/receipt          same auth → { token } valid 5 min
+ *   GET  /api/payments/[id]/receipt?t=token  no session needed
  *
- * Auth: requires a valid Convex session OR a Convex deploy key.
- * For unauthenticated / non-member access the receipt is still returned for
- * members viewing their own payment (queried via the Convex user binding).
+ * The token exists for the mobile app: it opens the receipt in the system
+ * browser, which has no session cookie. The app mints a token with its
+ * session (authClient.$fetch) and opens the ?t= URL. Tokens are an HMAC of
+ * (paymentId, expiry) under AUTH_SECRET — short-lived and bound to one receipt.
  */
 
+import { createHmac } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { renderReceiptHtml, computeVat } from '@queenix/receipts';
-import { getConvexApiUrl } from '@/lib/convex-env';
+import { renderReceiptHtml } from '@queenix/receipts';
+import { convexAdmin } from '@queenix/auth/convex-admin';
+import { safeEqual, secret } from '@queenix/auth/env';
+import { hasStaffRole, sessionUser } from '@/lib/session-user';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -21,6 +27,7 @@ export const dynamic = 'force-dynamic';
 const BRAND_NAME = 'Queenix Gym';
 const BRAND_ADDRESS = 'Dubai, UAE';
 const BRAND_VAT = process.env.QUEENIX_VAT_NUMBER ?? '';
+const TOKEN_TTL_MS = 5 * 60 * 1000;
 
 interface ReceiptContext {
   payment: any;
@@ -29,26 +36,51 @@ interface ReceiptContext {
   defaultPaymentMethod: any;
 }
 
-async function fetchReceiptContext(paymentId: string): Promise<ReceiptContext | null> {
-  const siteUrl = getConvexApiUrl();
-  const deployKey = process.env.CONVEX_DEPLOY_KEY;
-  if (!siteUrl) return null;
+function sign(paymentId: string, exp: number): string {
+  return createHmac('sha256', secret('AUTH_SECRET', 'dev-secret-replace-in-production-min-32-chars'))
+    .update(`receipt:${paymentId}:${exp}`)
+    .digest('base64url');
+}
 
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (deployKey) headers.Authorization = `Convex ${deployKey}`;
+function tokenOk(paymentId: string, token: string): boolean {
+  const [expRaw, mac] = token.split('.');
+  const exp = Number(expRaw);
+  return Boolean(mac) && exp > Date.now() && safeEqual(mac!, sign(paymentId, exp));
+}
 
-  // Use the admin-style "get" path; the query itself enforces auth & ownership.
-  const r = await fetch(`${siteUrl}/api/query`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      path: 'queries/payments:getReceiptContext',
-      args: { paymentId },
-    }),
-  });
-  if (!r.ok) return null;
-  const data = await r.json();
-  return data.value ?? null;
+const DENIED: Record<number, [string, string]> = {
+  401: ['Sign in required', 'Sign in to view this receipt, or open it again from the app.'],
+  403: ['Not allowed', 'You do not have permission to view this receipt.'],
+  404: ['Receipt not available', 'This receipt does not exist.'],
+};
+
+function htmlError(status: number) {
+  const [title, text] = DENIED[status] ?? ['Error', 'Something went wrong.'];
+  return new NextResponse(
+    `<!doctype html><html><body style="font-family:system-ui;padding:32px"><h1>${title}</h1><p>${text}</p></body></html>`,
+    { status, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+  );
+}
+
+const loadContext = (id: string) =>
+  convexAdmin<ReceiptContext | null>('query', 'queries/payments:getReceiptContext', { paymentId: id });
+
+/** Session auth + owner-or-finance check → the receipt context, or an HTTP status. */
+async function authorize(req: NextRequest, id: string): Promise<ReceiptContext | number> {
+  const user = await sessionUser(req);
+  if (!user) return 401;
+  const ctx = await loadContext(id);
+  if (!ctx?.payment) return 404;
+  if (ctx.payment.userId !== user._id && !hasStaffRole(user, ['finance'])) return 403;
+  return ctx;
+}
+
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const ctx = await authorize(req, id);
+  if (typeof ctx === 'number') return NextResponse.json({ error: DENIED[ctx]?.[0] }, { status: ctx });
+  const exp = Date.now() + TOKEN_TTL_MS;
+  return NextResponse.json({ token: `${exp}.${sign(id, exp)}`, expiresAt: exp });
 }
 
 function describePaymentMethod(pm: any): string {
@@ -65,16 +97,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const ctx = await fetchReceiptContext(id);
-  if (!ctx?.payment) {
-    return new NextResponse(
-      `<!doctype html><html><body style="font-family:system-ui;padding:32px">
-        <h1>Receipt not available</h1>
-        <p>This receipt does not exist or you do not have permission to view it.</p>
-      </body></html>`,
-      { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
-    );
-  }
+  const token = req.nextUrl.searchParams.get('t');
+  const ctx = token ? (tokenOk(id, token) ? ((await loadContext(id)) ?? 404) : 401) : await authorize(req, id);
+  if (typeof ctx === 'number') return htmlError(ctx);
+  if (!ctx.payment) return htmlError(404);
 
   const { payment, invoice, member } = ctx;
   const lineItems = invoice?.lineItems ?? [

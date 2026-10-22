@@ -21,7 +21,8 @@ export const crmLeads = defineTable({
   assignedTo: v.optional(v.id('users')),
   convertedUserId: v.optional(v.id('users')),
   lastContactAt: v.optional(v.number()),
-  createdBy: v.id('users'),
+  /** Absent for leads from the public website trial form (source 'website'). */
+  createdBy: v.optional(v.id('users')),
   createdAt: v.number(),
   updatedAt: v.number(),
 })

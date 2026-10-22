@@ -36,8 +36,8 @@ export const Chip: React.FC<ChipProps> = ({
       borderRadius="$full"
       onPress={onPress}
       pressStyle={{ opacity: 0.7, scale: 0.97 }}
-      accessibilityRole="button"
-      accessibilityState={{ selected }}
+      role="button"
+      aria-selected={selected}
     >
       <Text
         color={styles.text as any}

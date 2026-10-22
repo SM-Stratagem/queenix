@@ -146,18 +146,22 @@ export const MOBILE_HOME: Record<Role, string> = {
   member: '/(member)/home',
 };
 
-/** Next.js web landing per role (`/owner` redirects to `/finance` for compat). */
+/**
+ * Next.js web landing per role — real routes in apps/web/src/app
+ * (`/owner` redirects to `/finance` for compat). Members are mobile-only:
+ * the web console signs them out back to /login.
+ */
 export const WEB_LANDING: Record<Role, string> = {
-  superadmin: '/admin/platform',
-  admin: '/admin',
+  superadmin: '/dashboard',
+  admin: '/dashboard',
   finance: '/finance',
   /** @deprecated Alias of finance. */
   owner: '/finance',
-  operations: '/ops',
+  operations: '/dashboard',
   salon: '/salon',
   coffee: '/coffee',
   trainer: '/trainer',
-  member: '/app',
+  member: '/login',
 };
 
 export function mobileHomeFor(userRoles: Role[]): string {

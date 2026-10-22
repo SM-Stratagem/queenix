@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, ImageProps, View } from 'tamagui';
+import { Image, View } from 'tamagui';
 import { Text } from './Text';
 
 export interface LogoProps {
@@ -19,11 +19,11 @@ export const Logo: React.FC<LogoProps> = ({ size = 'md', showText = false }) => 
   return (
     <View flexDirection="row" alignItems="center" gap="$2">
       <Image
-        source={require('../../../../assets/logo/logo.jpg')}
+        src={require('../../../../assets/logo/logo.jpg')}
         height={height}
         width={height}
-        resizeMode="contain"
-        accessibilityLabel="Queenix Gym logo"
+        objectFit="contain"
+        aria-label="Queenix Gym logo"
       />
       {showText && (
         <Text variant="h2" color="brand" fontSize={fontSize}>

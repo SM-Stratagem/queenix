@@ -1,12 +1,13 @@
 /**
- * Queenix Gym — CRM mutations (staff only: admin / superadmin / owner).
+ * Queenix Gym — CRM mutations (admin / superadmin / owner + operations:
+ * front desk owns the pipeline — leads and tasks are assigned to ops).
  */
 
 import { v } from 'convex/values';
 import { mutation } from '../_generated/server';
 import { requireRole } from '../_helpers';
 
-const STAFF_ROLES = ['admin', 'superadmin', 'owner'] as any;
+const STAFF_ROLES = ['admin', 'superadmin', 'owner', 'operations'] as any;
 
 const leadStage = v.union(
   v.literal('new'),

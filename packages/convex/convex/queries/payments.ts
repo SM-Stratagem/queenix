@@ -4,7 +4,7 @@
  */
 
 import { v } from 'convex/values';
-import { query } from '../_generated/server';
+import { internalQuery, query } from '../_generated/server';
 import { requireUser } from '../_helpers';
 
 export const getMyPaymentMethods = query({
@@ -57,19 +57,16 @@ export const getInvoiceById = query({
 });
 
 /**
- * Used by the web receipt route. Returns full receipt context for a payment
- * the caller is allowed to view (their own payments, or any payment for admins
- * — admin gating is the caller's responsibility; this is the read).
+ * Internal (admin key): full receipt context for one payment. Used by the
+ * web receipt + create-intent routes, which authenticate the BetterAuth
+ * session and enforce owner/staff access themselves.
  */
-export const getReceiptContext = query({
-  args: { paymentId: v.id('payments') },
-  handler: async (ctx, { paymentId }) => {
-    const user = await requireUser(ctx);
-    const payment = await ctx.db.get(paymentId);
+export const getReceiptContext = internalQuery({
+  args: { paymentId: v.string() },
+  handler: async (ctx, args) => {
+    const paymentId = ctx.db.normalizeId('payments', args.paymentId);
+    const payment = paymentId ? await ctx.db.get(paymentId) : null;
     if (!payment) return null;
-    if (payment.userId !== user._id && !user.roles.includes('owner') && !user.roles.includes('operations')) {
-      return null;
-    }
     const invoice = payment.invoiceId ? await ctx.db.get(payment.invoiceId) : null;
     const member = await ctx.db.get(payment.userId);
     const defaultPm = await ctx.db

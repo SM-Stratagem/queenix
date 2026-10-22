@@ -1,16 +1,20 @@
 'use client';
 
-import React, { useEffect, useMemo } from 'react';
-import { ConvexProvider, ConvexReactClient } from 'convex/react';
+import React, { useCallback, useMemo } from 'react';
+import { ConvexProviderWithAuth, ConvexReactClient } from 'convex/react';
 import { getConvexApiUrl } from '@/lib/convex-env';
 import { authClient } from '@/lib/auth-client';
 
 /**
  * Client-side Convex boundary for the admin panel, with auth.
- * On every session change we re-arm client.setAuth so live queries and
- * mutations carry a fresh RS256 token from /api/convex/token (which reads
- * the BetterAuth cookie). Logged-out → token fetch returns null and Convex
- * treats the client as unauthenticated.
+ * Live queries carry an RS256 token minted by /api/convex/token (which
+ * reads the BetterAuth cookie). ConvexProviderWithAuth owns setAuth and
+ * exposes `useConvexAuth()` — AdminFrame waits for it before mounting a
+ * page, so no query ever runs on a not-yet-authenticated socket (the
+ * login → router.replace race otherwise surfaced as UNAUTHORIZED).
+ * Auth is re-armed only when the signed-in user changes: re-arming on
+ * every session refetch killed the socket with "Base version N passed up
+ * doesn't match the current version 0".
  */
 async function fetchConvexToken(): Promise<string | null> {
   try {
@@ -23,16 +27,22 @@ async function fetchConvexToken(): Promise<string | null> {
   }
 }
 
-export function ConvexClientProvider({ children }: { children: React.ReactNode }) {
-  const client = useMemo(
-    () => new ConvexReactClient(getConvexApiUrl() ?? 'http://127.0.0.1:3210'),
-    []
+function useBetterAuthForConvex() {
+  const { data, isPending } = authClient.useSession();
+  const userId = data?.user?.id ?? null;
+  // New identity per user → provider re-arms on login/logout/switch only.
+  const fetchAccessToken = useCallback(async () => (userId ? fetchConvexToken() : null), [userId]);
+  return useMemo(
+    () => ({ isLoading: isPending, isAuthenticated: userId !== null, fetchAccessToken }),
+    [isPending, userId, fetchAccessToken]
   );
-  const { data: session } = authClient.useSession();
+}
 
-  useEffect(() => {
-    client.setAuth(fetchConvexToken);
-  }, [client, session]);
-
-  return <ConvexProvider client={client}>{children}</ConvexProvider>;
+export function ConvexClientProvider({ children }: { children: React.ReactNode }) {
+  const client = useMemo(() => new ConvexReactClient(getConvexApiUrl() ?? 'http://127.0.0.1:3210'), []);
+  return (
+    <ConvexProviderWithAuth client={client} useAuth={useBetterAuthForConvex}>
+      {children}
+    </ConvexProviderWithAuth>
+  );
 }

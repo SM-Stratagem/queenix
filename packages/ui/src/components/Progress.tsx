@@ -28,7 +28,7 @@ export const Progress: React.FC<ProgressProps> = ({
       marginBottom={marginBottom}
       marginTop={marginTop}
     >
-      <TamaguiProgress.Indicator backgroundColor={color as any} animation="quick" />
+      <TamaguiProgress.Indicator backgroundColor={color as any} transition="quick" />
     </TamaguiProgress>
   );
 };

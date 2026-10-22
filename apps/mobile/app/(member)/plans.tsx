@@ -7,8 +7,8 @@
  *
  * Stripe SDK note: the React Native client-side @stripe/stripe-react-native
  * library is not in the dependency tree yet. For V1, we open the Stripe
- * PaymentSheet via a WebView deep-link fallback (URL = the receipt URL with
- * `?client_secret=…`) or, for Tap, the hosted redirect URL.
+ * PaymentSheet via the receipt page (signed short-lived link) or, for Tap,
+ * the hosted redirect URL.
  */
 
 import React, { useState } from 'react';
@@ -27,8 +27,10 @@ import {
   useToast,
 } from '@queenix/ui';
 import { useConvexQuery, useConvexMutation, api } from '@/lib/convex';
-import { Check, Crown, Sparkles, Star, X } from '@tamagui/lucide-icons';
+import { Check, Crown, Sparkles, Star, X } from '@tamagui/lucide-icons-2';
 import { useAuth } from '@/lib/auth';
+import { openReceipt } from '@/lib/receipt';
+import { authClient, AUTH_BASE_URL } from '@queenix/auth';
 
 interface MembershipPlan {
   _id: string;
@@ -71,40 +73,33 @@ export default function PlansScreen() {
     setLoadingPlanId(plan._id);
     try {
       const result = await createCheckout({ planId: plan._id });
-      // Call the Next.js server to create the actual provider intent.
-      const apiBase = (process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000') as string;
-      const res = await fetch(`${apiBase}/api/payments/create-intent`, {
+      // Next.js creates the provider intent; authClient.$fetch sends our session
+      // (absolute URL — a relative one gets the /api/auth prefix).
+      const { data: intent, error } = await authClient.$fetch<{
+        provider: 'stripe' | 'tap';
+        redirectUrl?: string;
+        clientSecret?: string;
+      }>(`${AUTH_BASE_URL}/api/payments/create-intent`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: {
           paymentId: result.paymentId,
-          userId: session.userId,
           name: session.fullName,
           email: session.email,
           phone: (session as any).phone,
-          amountCents: result.amountCents,
-          currency: result.currency,
-          description: `${plan.name} membership — ${plan.durationDays} days`,
-        }),
+        },
       });
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => ({}));
-        throw new Error(errBody.error ?? 'Failed to start checkout');
-      }
-      const intent = await res.json();
+      // better-fetch spreads our JSON body ({ error }) into `error`.
+      if (error || !intent) throw new Error((error as { error?: string })?.error ?? 'Failed to start checkout');
       // Tap charges are handled via a hosted redirect page.
       if (intent.provider === 'tap' && intent.redirectUrl) {
         await Linking.openURL(intent.redirectUrl);
         toast.info('Complete payment in your browser');
         return;
       }
-      // Stripe: in V1 we surface the test-card info and open a hosted receipt URL
-      // with the client_secret as a query param. A native PaymentSheet integration
-      // is the V1.5 follow-up.
+      // Stripe: native PaymentSheet is the V1.5 follow-up; for now surface the
+      // test-card info and open the payment's receipt page.
       toast.success('Stripe integration coming in V1.5 — using test card 4242 4242 4242 4242');
-      const apiBase2 = (process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000') as string;
-      const url = `${apiBase2}/api/payments/${result.paymentId}/receipt?client_secret=${encodeURIComponent(intent.clientSecret ?? '')}`;
-      await Linking.openURL(url);
+      await openReceipt(result.paymentId);
     } catch (err: any) {
       toast.error(err?.message ?? 'Could not start checkout');
     } finally {
@@ -156,8 +151,8 @@ export default function PlansScreen() {
           <XStack alignItems="center" gap="$2">
             <YStack
               onPress={() => router.back()}
-              accessibilityRole="button"
-              accessibilityLabel="Go back"
+              role="button"
+              aria-label="Go back"
               pressStyle={{ opacity: 0.7 }}
               padding="$2"
               borderRadius="$full"

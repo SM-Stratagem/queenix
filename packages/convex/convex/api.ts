@@ -23,7 +23,6 @@ export const api: {
       getUpcomingClasses: FunctionRef;
       getClassById: FunctionRef;
       getMyBookings: FunctionRef;
-      getClassRoster: FunctionRef;
       getTodayRoster: FunctionRef;
     };
     access: {

@@ -5,12 +5,6 @@
 
 export type Brand = "visa" | "mastercard" | "amex"
 
-export const brandLabel: Record<Brand, string> = {
-  visa: "Visa",
-  mastercard: "Mastercard",
-  amex: "Amex",
-}
-
 export function normalizeBrand(b?: string): Brand {
   const v = (b ?? "").toLowerCase()
   if (v.includes("master")) return "mastercard"

@@ -264,7 +264,8 @@ export const updateCoffeeOrderStatus = mutation({
 const venueProvider = v.union(v.literal('cash'), v.literal('tap'), v.literal('stripe'));
 
 /**
- * Save a venue's payment gateway choice (owner/ops manage).
+ * Save a venue's payment gateway choice — managers, or that venue's own
+ * staff (salon edits salon, coffee edits coffee).
  * Secrets stay in env vars — only provider + currency live here.
  */
 export const saveVenuePaymentSettings = mutation({
@@ -275,7 +276,7 @@ export const saveVenuePaymentSettings = mutation({
     enabled: v.boolean(),
   },
   handler: async (ctx, args) => {
-    await staff(ctx, MANAGE);
+    await staff(ctx, args.venue === 'salon' ? STAFF_SALON : STAFF_COFFEE);
     const currency = args.currency.trim().toUpperCase() || 'AED';
     const existing = await ctx.db
       .query('venuePaymentSettings')
@@ -410,10 +411,11 @@ export const setOrderPaymentLink = internalMutation({
     paymentLink: v.string(),
   },
   handler: async (ctx, args) => {
-    const row = await ctx.db.get(args.orderId as any);
-    if (!row) throw new ConvexError('Order not found');
+    const id = ctx.db.normalizeId(args.venue === 'coffee' ? 'coffeeOrders' : 'salonBookings', args.orderId);
+    const row = id ? await ctx.db.get(id) : null;
+    if (!id || !row) throw new ConvexError('Order not found');
     if ((row as any).paidAt) throw new ConvexError('Already paid');
-    await ctx.db.patch(args.orderId as any, {
+    await ctx.db.patch(id, {
       paymentProvider: args.provider,
       paymentLink: args.paymentLink,
     });

@@ -20,7 +20,7 @@ import {
   X,
   Clock,
   Wallet,
-} from '@tamagui/lucide-icons';
+} from '@tamagui/lucide-icons-2';
 
 type ApprovalTab = 'all' | 'membership' | 'payment' | 'document' | 'trainer' | 'access' | 'payout';
 
@@ -108,8 +108,8 @@ export default function ApprovalsScreen() {
             borderRadius="$full"
             backgroundColor={tab === t.key ? '$brand' : '$surfaceMuted'}
             onPress={() => setTab(t.key)}
-            accessibilityRole="button"
-            accessibilityLabel={`Filter by ${t.label}`}
+            role="button"
+            aria-label={`Filter by ${t.label}`}
             pressStyle={{ opacity: 0.85 }}
           >
             <Text

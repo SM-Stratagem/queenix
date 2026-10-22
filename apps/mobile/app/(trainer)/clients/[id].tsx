@@ -38,7 +38,7 @@ import {
   CheckCircle2,
   FileText,
   Send,
-} from '@tamagui/lucide-icons';
+} from '@tamagui/lucide-icons-2';
 import { Pressable } from 'react-native';
 
 type Tab = 'overview' | 'sessions' | 'notes';
@@ -141,8 +141,8 @@ export default function TrainerClientDetail() {
           <Pressable
             onPress={() => toast.show('Opening chat…', 'info')}
             hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel="Message client"
+            role="button"
+            aria-label="Message client"
           >
             <MessageCircle size={22} color="$textPrimary" />
           </Pressable>
@@ -177,7 +177,7 @@ export default function TrainerClientDetail() {
                 size="sm"
                 icon={<CalendarPlus size={16} color="$textOnBrand" />}
                 onPress={() => toast.show('Opening scheduler…', 'info')}
-                accessibilityLabel="Book session"
+                aria-label="Book session"
                 flex={1}
               />
               <Button
@@ -186,7 +186,7 @@ export default function TrainerClientDetail() {
                 size="sm"
                 icon={<MessageCircle size={16} color="$brand" />}
                 onPress={() => toast.show('Opening chat…', 'info')}
-                accessibilityLabel="Send message"
+                aria-label="Send message"
                 flex={1}
               />
             </XStack>
@@ -258,7 +258,7 @@ export default function TrainerClientDetail() {
               placeholder="New coaching note…"
               multiline
               numberOfLines={3}
-              accessibilityLabel="New coaching note"
+              aria-label="New coaching note"
             />
             <Button label="Save note" variant="primary" onPress={handleSendNote} />
             <ClientNotesTab notes={latestNotes ?? []} onAdd={() => noteInputRef.current?.focus?.()} />

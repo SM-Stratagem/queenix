@@ -56,8 +56,8 @@ export const Card: React.FC<CardProps> = ({
       borderRadius="$xl"
       padding={paddingMap[resolvedPadding]}
       testID={testID}
-      accessibilityLabel={accessibilityLabel}
-      accessibilityRole={onPress ? 'button' : undefined}
+      aria-label={accessibilityLabel}
+      role={onPress ? 'button' : undefined}
       {...variantStyles[variant]}
     >
       {title && (

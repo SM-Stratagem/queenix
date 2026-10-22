@@ -27,8 +27,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { ConvexHttpClient } from 'convex/browser';
-import { getConvexApiUrl } from '@/lib/convex-env';
+import { convexAdmin } from '@queenix/auth/convex-admin';
+import { scannerKeyOk } from '@/lib/scanner-auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -61,13 +61,8 @@ function getBaseUrl(req: NextRequest): string {
   return process.env.PUBLIC_WEB_URL ?? req.nextUrl.origin;
 }
 
-function getConvexClient(): ConvexHttpClient | null {
-  const url = getConvexApiUrl();
-  if (!url) return null;
-  return new ConvexHttpClient(url);
-}
-
 export async function POST(req: NextRequest) {
+  if (!scannerKeyOk(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   let body: RegisterBody = {};
   try {
     body = (await req.json()) as RegisterBody;
@@ -103,25 +98,20 @@ export async function POST(req: NextRequest) {
   }
 
   // Persist the device into Convex.
-  const client = getConvexClient();
-  const adminKey = process.env.CONVEX_DEPLOY_KEY;
-  if (client && adminKey) {
-    client.setAuth(adminKey);
-    try {
-      await client.mutation('mutations/operations:registerScannerDevice' as any, {
-        deviceId,
-        name,
-        location,
-        model,
-        ipAddress,
-        apiKey,
-      });
-    } catch (err: any) {
-      return NextResponse.json(
-        { ok: false, error: `Failed to persist: ${err?.message ?? 'unknown'}` },
-        { status: 502 }
-      );
-    }
+  try {
+    await convexAdmin('mutation', 'mutations/operations:registerScannerDevice', {
+      deviceId,
+      name,
+      location,
+      model,
+      ipAddress,
+      apiKey,
+    });
+  } catch (err: any) {
+    return NextResponse.json(
+      { ok: false, error: `Failed to persist: ${err?.message ?? 'unknown'}` },
+      { status: 502 }
+    );
   }
 
   const base = getBaseUrl(req);

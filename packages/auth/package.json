@@ -7,20 +7,23 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./server": "./src/server.ts"
+    "./roles": "./src/roles.ts",
+    "./server": "./src/server.ts",
+    "./env": "./src/env.ts",
+    "./convex-admin": "./src/convex-admin.ts"
   },
   "dependencies": {
-    "@better-auth/expo": "1.7.5",
-    "@better-auth/kysely-adapter": "^1.7.4",
-    "@queenix/types": "*",
-    "better-auth": "1.7.5",
-    "better-sqlite3": "^11.5.0",
-    "expo-network": "8.0.8",
-    "kysely": "0.29.5",
-    "zod": "^3.24.1"
+    "@better-auth/expo": "1.7.6",
+    "better-auth": "1.7.6",
+    "better-sqlite3": "^13.0.3",
+    "kysely": "0.29.6",
+    "nodemailer": "^10.0.12",
+    "pg": "^8.23.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "9.6.0",
-    "typescript": "^5.7.2"
+    "@types/nodemailer": "^8.0.2",
+    "@types/pg": "^8.23.1",
+    "typescript": "~6.0.3"
   }
 }

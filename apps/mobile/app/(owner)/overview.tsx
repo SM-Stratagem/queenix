@@ -5,19 +5,22 @@ import {
   Screen,
   Text,
   Card,
-  Badge,
-  Button,
   Logo,
-  Skeleton,
-  useToast,
 } from '@queenix/ui';
 import { useAuth } from '@/lib/auth';
 import { useConvexQuery } from '@/lib/convex';
 import { api } from '@queenix/convex';
-import { KPICard, QuickAction } from '@/components/owner-overview/Cards';
+import { QuickAction } from '@/components/owner-overview/Cards';
 import {
-  TrendingUp,
-  TrendingDown,
+  RangeSelector,
+  KpiGrid,
+  RevenueChart,
+  AlertsSection,
+  type DateRange,
+  type Kpi,
+  type Alert,
+} from '@/components/owner-overview/Sections';
+import {
   Users,
   DollarSign,
   Activity,
@@ -27,21 +30,7 @@ import {
   FileBarChart,
   AlertTriangle,
   Calendar,
-  Award,
-  UserPlus,
-  Clock,
-  ArrowRight,
-} from '@tamagui/lucide-icons';
-
-type DateRange = 'today' | 'week' | 'month';
-
-interface Kpi {
-  key: string;
-  label: string;
-  value: string;
-  trend: 'up' | 'down';
-  icon: React.ReactNode;
-}
+} from '@tamagui/lucide-icons-2';
 
 export default function FinanceOverview() {
   const router = useRouter();
@@ -117,7 +106,7 @@ export default function FinanceOverview() {
   }, []);
 
   const alerts = useMemo(() => {
-    const out: Array<{ severity: 'danger' | 'warning'; title: string; subtitle: string }> = [];
+    const out: Alert[] = [];
     if (openIncidents > 0) {
       out.push({
         severity: 'danger',
@@ -154,119 +143,13 @@ export default function FinanceOverview() {
         </XStack>
 
         {/* Date range selector */}
-        <XStack paddingHorizontal="$4" gap="$2" marginTop="$2">
-          {(['today', 'week', 'month'] as DateRange[]).map((r) => (
-            <YStack
-              key={r}
-              flex={1}
-              paddingVertical="$2.5"
-              alignItems="center"
-              borderRadius="$lg"
-              backgroundColor={range === r ? '$brand' : '$surfaceMuted'}
-              onPress={() => setRange(r)}
-              accessibilityRole="button"
-              accessibilityLabel={`View ${r}`}
-              pressStyle={{ opacity: 0.85 }}
-            >
-              <Text
-                variant="bodySmall"
-                weight="600"
-                color={range === r ? '$textOnBrand' : '$textSecondary'}
-                textTransform="capitalize"
-              >
-                {r}
-              </Text>
-            </YStack>
-          ))}
-        </XStack>
+        <RangeSelector range={range} onChange={setRange} />
 
         {/* KPI grid 2x2 */}
-        <YStack paddingHorizontal="$4" marginTop="$4" gap="$3">
-          {isLoading ? (
-            <>
-              <XStack gap="$3">
-                <Skeleton flex={1} height={130} borderRadius="$lg" />
-                <Skeleton flex={1} height={130} borderRadius="$lg" />
-              </XStack>
-              <XStack gap="$3">
-                <Skeleton flex={1} height={130} borderRadius="$lg" />
-                <Skeleton flex={1} height={130} borderRadius="$lg" />
-              </XStack>
-            </>
-          ) : (
-            <>
-              <XStack gap="$3">
-                <KPICard
-                  label={kpis[0].label}
-                  value={kpis[0].value}
-                  trend={kpis[0].trend}
-                  icon={kpis[0].icon}
-                  flex={1}
-                />
-                <KPICard
-                  label={kpis[1].label}
-                  value={kpis[1].value}
-                  trend={kpis[1].trend}
-                  icon={kpis[1].icon}
-                  flex={1}
-                />
-              </XStack>
-              <XStack gap="$3">
-                <KPICard
-                  label={kpis[2].label}
-                  value={kpis[2].value}
-                  trend={kpis[2].trend}
-                  icon={kpis[2].icon}
-                  flex={1}
-                />
-                <KPICard
-                  label={kpis[3].label}
-                  value={kpis[3].value}
-                  trend={kpis[3].trend}
-                  icon={kpis[3].icon}
-                  flex={1}
-                />
-              </XStack>
-            </>
-          )}
-        </YStack>
+        <KpiGrid isLoading={isLoading} kpis={kpis} />
 
         {/* Revenue chart */}
-        <YStack paddingHorizontal="$4" marginTop="$4">
-          <Card variant="outlined">
-            <XStack justifyContent="space-between" alignItems="center" marginBottom="$3">
-              <YStack>
-                <Text variant="label">Revenue this week</Text>
-                <Text variant="caption" color="muted">
-                  AED {(kpisQuery?.todaysRevenueCents ? kpisQuery.todaysRevenueCents / 100 : 0).toLocaleString()} today
-                </Text>
-              </YStack>
-            </XStack>
-            <XStack alignItems="flex-end" justifyContent="space-between" height={120} gap="$2">
-              {revenueData.map((d) => (
-                <YStack
-                  key={d.day}
-                  flex={1}
-                  alignItems="center"
-                  gap="$1"
-                  height="100%"
-                  justifyContent="flex-end"
-                >
-                  <YStack
-                    width="100%"
-                    height={`${d.value * 100}%`}
-                    backgroundColor="$brand"
-                    borderRadius="$sm"
-                    accessibilityLabel={`${d.day} revenue`}
-                  />
-                  <Text variant="caption" color="muted">
-                    {d.day}
-                  </Text>
-                </YStack>
-              ))}
-            </XStack>
-          </Card>
-        </YStack>
+        <RevenueChart todaysRevenueCents={kpisQuery?.todaysRevenueCents} data={revenueData} />
 
         {/* Quick actions */}
         <YStack paddingHorizontal="$4" marginTop="$4">
@@ -298,46 +181,7 @@ export default function FinanceOverview() {
 
         {/* Alerts */}
         {alerts.length > 0 && (
-          <YStack paddingHorizontal="$4" marginTop="$4">
-            <XStack alignItems="center" gap="$2" marginBottom="$3">
-              <AlertTriangle size={18} color="$danger500" />
-              <Text variant="h4">Alerts</Text>
-              <Badge label={alerts.length.toString()} variant="danger" />
-            </XStack>
-            <YStack gap="$2">
-              {alerts.map((a, i) => (
-                <Card
-                  key={i}
-                  variant="outlined"
-                  padding="sm"
-                  borderColor={a.severity === 'danger' ? '$danger500' : '$warning500'}
-                  onPress={() => router.push('/(owner)/operations')}
-                >
-                  <XStack alignItems="center" gap="$3">
-                    <YStack
-                      backgroundColor={a.severity === 'danger' ? '$danger50' : '$warning50'}
-                      padding="$2.5"
-                      borderRadius="$md"
-                    >
-                      <AlertTriangle
-                        size={18}
-                        color={a.severity === 'danger' ? '$danger500' : '$warning500'}
-                      />
-                    </YStack>
-                    <YStack flex={1}>
-                      <Text variant="body" weight="500">
-                        {a.title}
-                      </Text>
-                      <Text variant="caption" color="muted">
-                        {a.subtitle}
-                      </Text>
-                    </YStack>
-                    <ChevronRight size={18} color="$textMuted" />
-                  </XStack>
-                </Card>
-              ))}
-            </YStack>
-          </YStack>
+          <AlertsSection alerts={alerts} onPress={() => router.push('/(owner)/operations')} />
         )}
 
         {/* See all link */}

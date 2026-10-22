@@ -8,7 +8,7 @@
 ## Prereqs
 
 - Docker Desktop 4.x (or Docker Engine + compose v2 plugin)
-- Node 20+ and pnpm 9 on the host (for seed scripts + mobile)
+- Node 24 LTS+ and npm 10+ on the host (for seed scripts + mobile)
 - Expo Go on a phone on the same Wi-Fi as the host (mobile only)
 
 ## One-command run

@@ -6,54 +6,22 @@ import {
   Text,
   Card,
   Button,
-  Badge,
-  Divider,
-  Skeleton,
-  EmptyState,
-  ErrorState,
   useToast,
 } from '@queenix/ui';
 import { Share } from 'react-native';
 import { useConvexQuery, useConvexMutation } from '@/lib/convex';
-import { StatChip, ToggleButton, LegendDot, DayView } from '@/components/trainer-schedule/ScheduleBits';
+import {
+  StatChip,
+  ToggleButton,
+  LegendDot,
+  DayView,
+  WeekSelector,
+} from '@/components/trainer-schedule/ScheduleBits';
+import { WeekGrid, DAYS } from '@/components/trainer-schedule/WeekGrid';
+import type { GridSlot, ViewMode } from '@/components/trainer-schedule/types';
 import { getWeekRange, getDayNumbers } from '@/components/trainer-schedule/format';
 import { api } from '@queenix/convex';
-import {
-  ChevronLeft,
-  ChevronRight,
-  Calendar,
-  Lock,
-  Settings,
-} from '@tamagui/lucide-icons';
-
-type SlotType = 'PT' | 'Class' | 'Free' | 'Blocked';
-type ViewMode = 'week' | 'day';
-
-interface GridSlot {
-  day: number; // 0..6 (Mon..Sun)
-  hour: number; // 6..21
-  type: SlotType;
-  title?: string;
-  sessionId?: string;
-}
-
-const HOURS = Array.from({ length: 16 }, (_, i) => i + 6); // 6:00 - 21:00
-const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-const slotColor: Record<SlotType, { bg: string; border: string; text: string }> = {
-  PT: { bg: '$brand50', border: '$brand', text: '$brand700' },
-  Class: { bg: '$success50', border: '$success500', text: '$success700' },
-  Free: { bg: '$surfaceMuted', border: '$borderColor', text: '$textSecondary' },
-  Blocked: { bg: '$danger50', border: '$danger500', text: '$danger700' },
-};
-
-const slotLabel: Record<SlotType, string> = {
-  PT: 'PT session',
-  Class: 'Class',
-  Free: 'Free slot',
-  Blocked: 'Blocked',
-};
-
+import { Calendar, Lock, Settings } from '@tamagui/lucide-icons-2';
 
 export default function TrainerSchedule() {
   const router = useRouter();
@@ -187,8 +155,8 @@ export default function TrainerSchedule() {
             </YStack>
             <XStack
               onPress={onShareWeek}
-              accessibilityRole="button"
-              accessibilityLabel="Share week"
+              role="button"
+              aria-label="Share week"
               padding="$2"
             >
               <Calendar size={22} color="$brand" />
@@ -198,34 +166,12 @@ export default function TrainerSchedule() {
 
         {/* Week selector */}
         <YStack paddingHorizontal="$4">
-          <Card variant="outlined" padding="sm">
-            <XStack alignItems="center" justifyContent="space-between">
-              <XStack
-                onPress={() => setWeekOffset(weekOffset - 1)}
-                accessibilityRole="button"
-                accessibilityLabel="Previous week"
-                pressStyle={{ opacity: 0.5 }}
-                padding="$2"
-              >
-                <ChevronLeft size={22} color="$textPrimary" />
-              </XStack>
-              <YStack alignItems="center">
-                <Text variant="label">{weekLabel}</Text>
-                <Text variant="caption" color="muted">
-                  {weekRange}
-                </Text>
-              </YStack>
-              <XStack
-                onPress={() => setWeekOffset(weekOffset + 1)}
-                accessibilityRole="button"
-                accessibilityLabel="Next week"
-                pressStyle={{ opacity: 0.5 }}
-                padding="$2"
-              >
-                <ChevronRight size={22} color="$textPrimary" />
-              </XStack>
-            </XStack>
-          </Card>
+          <WeekSelector
+            weekLabel={weekLabel}
+            weekRange={weekRange}
+            onPrev={() => setWeekOffset(weekOffset - 1)}
+            onNext={() => setWeekOffset(weekOffset + 1)}
+          />
         </YStack>
 
         {/* Week stats */}
@@ -269,77 +215,12 @@ export default function TrainerSchedule() {
 
         {/* Calendar grid */}
         {view === 'week' ? (
-          <YStack paddingHorizontal="$4" marginTop="$4">
-            <Card variant="outlined" padding="sm">
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <YStack minWidth={560}>
-                  {/* Day header row */}
-                  <XStack>
-                    <YStack width={48} />
-                    {DAYS.map((d, i) => (
-                      <YStack key={d} width={70} alignItems="center" paddingVertical="$2">
-                        <Text variant="caption" weight="600" color="muted">
-                          {d}
-                        </Text>
-                        <Text variant="label">{dayNumbers[i]}</Text>
-                      </YStack>
-                    ))}
-                  </XStack>
-                  <Divider />
-                  {/* Hours grid */}
-                  {HOURS.map((h) => (
-                    <XStack key={h} alignItems="stretch" minHeight={44}>
-                      <YStack width={48} justifyContent="center" alignItems="center">
-                        <Text variant="caption" color="muted">
-                          {h}:00
-                        </Text>
-                      </YStack>
-                      {DAYS.map((_, dayIdx) => {
-                        const slot = slots.find(
-                          (s) => s.day === dayIdx && s.hour === h
-                        );
-                        return (
-                          <YStack key={`${dayIdx}-${h}`} width={70} padding={3}>
-                            {slot ? (
-                              <XStack
-                                flex={1}
-                                backgroundColor={slotColor[slot.type].bg as any}
-                                borderLeftWidth={3}
-                                borderColor={slotColor[slot.type].border as any}
-                                borderRadius="$sm"
-                                paddingHorizontal="$1.5"
-                                paddingVertical="$1"
-                                onPress={() => handleSlotPress(slot)}
-                                accessibilityRole="button"
-                                accessibilityLabel={`${slotLabel[slot.type]} ${DAYS[dayIdx]} at ${h}:00${slot.title ? `, ${slot.title}` : ''}`}
-                              >
-                                <Text
-                                  fontSize={9}
-                                  fontWeight="600"
-                                  color={slotColor[slot.type].text as any}
-                                  numberOfLines={2}
-                                >
-                                  {slot.title ?? slotLabel[slot.type]}
-                                </Text>
-                              </XStack>
-                            ) : null}
-                          </YStack>
-                        );
-                      })}
-                    </XStack>
-                  ))}
-                </YStack>
-              </ScrollView>
-            </Card>
-            {isLoading ? (
-              <Skeleton height={80} borderRadius="$md" marginTop="$3" />
-            ) : slots.length === 0 ? (
-              <EmptyState
-                title="Nothing booked this week"
-                message="Your week is clear. Use the actions below to add availability."
-              />
-            ) : null}
-          </YStack>
+          <WeekGrid
+            dayNumbers={dayNumbers}
+            slots={slots}
+            isLoading={isLoading}
+            onSlotPress={handleSlotPress}
+          />
         ) : (
           <DayView slots={slots} isLoading={isLoading} />
         )}

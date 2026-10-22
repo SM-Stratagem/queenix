@@ -4,7 +4,8 @@
 
 import { v } from 'convex/values';
 import { query } from '../_generated/server';
-import { requireUser } from '../_helpers';
+import { requireRole, requireUser } from '../_helpers';
+import { requireCapability, userHasCapability, type Role } from '../permissions';
 
 export const getMyAccessCredential = query({
   args: {},
@@ -21,6 +22,7 @@ export const getMyAccessCredential = query({
 export const getCurrentOccupancy = query({
   args: { accessPointId: v.optional(v.string()) },
   handler: async (ctx, { accessPointId }) => {
+    await requireUser(ctx);
     // Get most recent snapshot
     if (accessPointId) {
       return await ctx.db
@@ -33,14 +35,27 @@ export const getCurrentOccupancy = query({
   },
 });
 
+/**
+ * Last-24h check-ins. Staff (anyone who can scan) see everyone's; a member
+ * sees only their own — other members' visits are private.
+ */
 export const getRecentAccessEvents = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, { limit = 20 }) => {
-    const events = await ctx.db
-      .query('accessEvents')
-      .withIndex('by_timestamp', (q) => q.gt('timestamp', Date.now() - 24 * 60 * 60 * 1000))
-      .order('desc')
-      .take(limit);
+    const user = await requireUser(ctx);
+    const since = Date.now() - 24 * 60 * 60 * 1000;
+    const events = userHasCapability(user.roles as Role[], 'bookings.scan')
+      ? await ctx.db
+          .query('accessEvents')
+          .withIndex('by_timestamp', (q) => q.gt('timestamp', since))
+          .order('desc')
+          .take(limit)
+      : await ctx.db
+          .query('accessEvents')
+          .withIndex('by_user', (q) => q.eq('userId', user._id))
+          .order('desc')
+          .filter((q) => q.gt(q.field('timestamp'), since))
+          .take(limit);
     const enriched = await Promise.all(
       events.map(async (e) => {
         const user = await ctx.db.get(e.userId);
@@ -67,6 +82,7 @@ export const getRecentAccessEvents = query({
 export const getScannerHealth = query({
   args: {},
   handler: async (ctx) => {
+    await requireCapability(ctx, 'bookings.scan');
     const devices = await ctx.db.query('scannerDevices').withIndex('by_active', (q) => q.eq('isActive', true)).collect();
     const now = Date.now();
     const twoMin = 2 * 60 * 1000;
@@ -105,7 +121,8 @@ export const getScannerHealth = query({
 export const getOperationsLiveStatus = query({
   args: {},
   handler: async (ctx) => {
-    await requireUser(ctx);
+    // Staff floor view (web dashboard + mobile owner app) — never members.
+    await requireRole(ctx, ['owner', 'operations', 'trainer', 'salon', 'coffee']);
 
     // Current occupancy
     const latestSnapshot = await ctx.db
@@ -149,7 +166,7 @@ export const getOperationsLiveStatus = query({
     const shiftsWithUser = await Promise.all(
       currentlyOnShift.map(async (s) => {
         const user = await ctx.db.get(s.userId);
-        return { ...s, user };
+        return { ...s, user: user ? { _id: user._id, fullName: user.fullName, avatarUrl: user.avatarUrl, activeRole: user.activeRole } : null };
       })
     );
 

@@ -85,10 +85,20 @@ export const salonQueue = query({
   args: {},
   handler: async (ctx) => {
     await staff(ctx, STAFF_SALON);
-    const rows = await ctx.db.query('salonBookings').collect();
-    return rows
+    // ponytail: full-table scan; add a by_status index when bookings grow.
+    const rows = (await ctx.db.query('salonBookings').collect())
       .filter((b: any) => b.status === 'pending' || b.status === 'confirmed')
       .sort((a: any, b: any) => a.startAt - b.startAt);
+    return Promise.all(
+      rows.map(async (b: any) => {
+        const [user, service] = await Promise.all([ctx.db.get(b.userId), ctx.db.get(b.serviceId)]);
+        return {
+          ...b,
+          customerName: (user as any)?.fullName ?? 'Guest',
+          serviceName: (service as any)?.name ?? 'Service',
+        };
+      }),
+    );
   },
 });
 
@@ -117,15 +127,25 @@ export const myCoffeeOrders = query({
   },
 });
 
-/** Open coffee queue for staff (queued + preparing, oldest first). */
+/** Open coffee queue for staff (queued + preparing + ready, oldest first). */
 export const coffeeQueue = query({
   args: {},
   handler: async (ctx) => {
     await staff(ctx, STAFF_COFFEE);
-    const rows = await ctx.db.query('coffeeOrders').collect();
-    return rows
-      .filter((o: any) => o.status === 'queued' || o.status === 'preparing')
+    // 'ready' stays in the queue until handed over (served) or cancelled.
+    // ponytail: full-table scan; add a by_status index when orders grow.
+    const rows = (await ctx.db.query('coffeeOrders').collect())
+      .filter((o: any) => o.status === 'queued' || o.status === 'preparing' || o.status === 'ready')
       .sort((a: any, b: any) => a.createdAt - b.createdAt);
+    return Promise.all(
+      rows.map(async (o: any) => {
+        const user = await ctx.db.get(o.userId);
+        const names = await Promise.all(
+          o.items.map(async (l: any) => `${l.qty}× ${((await ctx.db.get(l.itemId)) as any)?.name ?? 'item'}`),
+        );
+        return { ...o, customerName: (user as any)?.fullName ?? 'Guest', itemsLabel: names.join(', ') };
+      }),
+    );
   },
 });
 
@@ -163,7 +183,9 @@ export const getOrderForPayment = internalQuery({
   },
   handler: async (ctx, args) => {
     const table = args.venue === 'coffee' ? 'coffeeOrders' : 'salonBookings';
-    const row = await ctx.db.get(args.orderId as any);
+    // normalizeId: the id must belong to this venue's table (the route gates staff by venue).
+    const id = ctx.db.normalizeId(table, args.orderId);
+    const row = id ? await ctx.db.get(id) : null;
     if (!row) return null;
     const amountCents =
       args.venue === 'coffee'
@@ -176,6 +198,7 @@ export const getOrderForPayment = internalQuery({
       status: (row as any).status,
       paidAt: (row as any).paidAt ?? null,
       paymentLink: (row as any).paymentLink ?? null,
+      paymentProvider: (row as any).paymentProvider ?? null,
       table,
     };
   },

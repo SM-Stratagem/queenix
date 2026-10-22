@@ -3,7 +3,7 @@
  */
 
 import { v } from 'convex/values';
-import { mutation } from '../_generated/server';
+import { internalMutation, mutation } from '../_generated/server';
 import { requireUser } from '../_helpers';
 
 export const switchRole = mutation({
@@ -28,28 +28,34 @@ export const switchRole = mutation({
 /**
  * Mirror a BetterAuth user into the Convex `users` table.
  * Called server-side by BetterAuth `databaseHooks.user.create.after`
- * (packages/auth/src/server.ts) via the Convex HTTP API at the
- * `mutations/users:syncFromBetterAuth` path, so this must stay a public
- * mutation. (The internal `mutations/sync:syncFromBetterAuth` variant is
- * for use by other Convex functions and is not reachable over HTTP.)
+ * (packages/auth/src/server.ts) via convexAdmin (admin key) at the
+ * `mutations/users:syncFromBetterAuth` path. Internal: a public version
+ * let anyone create users / grant themselves any role.
  * Roles are validated loosely because BetterAuth is the source of truth.
  */
-export const syncFromBetterAuth = mutation({
+export const syncFromBetterAuth = internalMutation({
   args: {
     betterAuthUserId: v.string(),
     email: v.string(),
     fullName: v.string(),
     roles: v.array(v.string()),
+    activeRole: v.optional(v.string()),
+    // Self-heal on login: create the row if missing, never overwrite roles
+    // (Team → Permissions edits roles in Convex first).
+    createOnly: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db
       .query('users')
       .withIndex('by_betterAuthUserId', (q) => q.eq('betterAuthUserId', args.betterAuthUserId))
       .first();
+    const activeRole = (args.activeRole ?? args.roles[0] ?? 'member') as 'member' | 'trainer' | 'finance' | 'owner' | 'operations';
     if (existing) {
+      if (args.createOnly) return { ok: true, created: false };
       await ctx.db.patch(existing._id, {
         fullName: args.fullName,
         roles: args.roles as ('member' | 'trainer' | 'finance' | 'owner' | 'operations')[],
+        activeRole,
         updatedAt: Date.now(),
       });
       return { ok: true, created: false };
@@ -58,7 +64,7 @@ export const syncFromBetterAuth = mutation({
       betterAuthUserId: args.betterAuthUserId,
       email: args.email,
       fullName: args.fullName,
-      activeRole: (args.roles[0] ?? 'member') as 'member' | 'trainer' | 'finance' | 'owner' | 'operations',
+      activeRole,
       roles: args.roles as ('member' | 'trainer' | 'finance' | 'owner' | 'operations')[],
       emailVerified: true,
       phoneVerified: false,
@@ -276,9 +282,9 @@ export const recordPunch = mutation({
   },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
-    if (!['operations', 'owner'].includes(user.activeRole)) {
-      throw new Error('Only staff/ops/owner can record punches');
-    }
+    // Any staff member clocks in/out; members never punch.
+    const roles = ((user.roles ?? [user.activeRole]) as string[]).filter((r) => r !== 'member');
+    if (roles.length === 0) throw new Error('Only staff can record punches');
     const ts = args.timestamp ?? Date.now();
     const eventId = await ctx.db.insert('punchEvents', {
       userId: user._id,
@@ -298,7 +304,7 @@ export const recordPunch = mutation({
  * hardware webhook (which authenticates via deviceId allowlist, not
  * via the user session). Caller must provide the target userId.
  */
-export const recordPunchForUser = mutation({
+export const recordPunchForUser = internalMutation({
   args: {
     userId: v.id('users'),
     method: v.union(v.literal('fingerprint'), v.literal('app'), v.literal('manual')),
@@ -308,16 +314,13 @@ export const recordPunchForUser = mutation({
     location: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // NOTE: this mutation is intended to be called from the
-    // /api/scanner/fingerprint HTTP webhook after it has validated the
-    // deviceId against the FINGERPRINT_DEVICE_IDS allowlist. We still
-    // require an authenticated session for safety, but in production
-    // the webhook uses a server-to-server token verified upstream.
+    // Internal: only the /api/scanner/fingerprint route reaches this (admin
+    // key), after SCANNER_API_KEY + FINGERPRINT_DEVICE_IDS checks.
     const user = await ctx.db.get(args.userId);
     if (!user) throw new Error('User not found');
-    if (!['operations', 'owner'].includes(user.activeRole)) {
-      throw new Error('Only staff/ops/owner can record punches');
-    }
+    // Any staff member clocks in/out; members never punch.
+    const roles = ((user.roles ?? [user.activeRole]) as string[]).filter((r) => r !== 'member');
+    if (roles.length === 0) throw new Error('Only staff can record punches');
     return await ctx.db.insert('punchEvents', {
       userId: args.userId,
       method: args.method,

@@ -74,3 +74,19 @@ export const listActiveTemplates = query({
     });
   },
 });
+
+/** One member's signatures (e-signed and scanned paper copies), with template titles. */
+export const listMemberSignatures = query({
+  args: { userId: v.id('users') },
+  handler: async (ctx, { userId }) => {
+    await requireRole(ctx as any, ['finance', 'operations']);
+    const sigs = await ctx.db
+      .query('signatures')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .order('desc')
+      .collect();
+    return await Promise.all(
+      sigs.map(async (s) => ({ ...s, templateTitle: (await ctx.db.get(s.templateId))?.title ?? 'Document' }))
+    );
+  },
+});

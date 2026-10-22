@@ -3,6 +3,7 @@ import { YStack, ScrollView } from 'tamagui';
 import { Screen, Text, Card, Button, Input, Header, useToast } from '@queenix/ui';
 import { useAuth } from '@/lib/auth';
 import { authClient } from '@queenix/auth';
+import { EmailVerifyCard, PhoneCard } from '@/components/security/VerifyCards';
 
 export default function MemberSecurityScreen() {
   const toast = useToast();
@@ -49,14 +50,16 @@ export default function MemberSecurityScreen() {
       <Header title="Privacy & security" subtitle={session?.email ?? 'Your account'} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
         <YStack paddingHorizontal="$4" marginTop="$2" gap="$3">
+          <EmailVerifyCard />
+          <PhoneCard />
           <Card padded>
             <Text variant="h4">Change password</Text>
             <Text color="$muted" marginTop="$2">Current password</Text>
-            <Input value={current} onChangeText={setCurrent} isPassword accessibilityLabel="Current password" />
+            <Input value={current} onChangeText={setCurrent} isPassword aria-label="Current password" />
             <Text color="$muted" marginTop="$2">New password (8+ characters)</Text>
-            <Input value={next} onChangeText={setNext} isPassword accessibilityLabel="New password" />
+            <Input value={next} onChangeText={setNext} isPassword aria-label="New password" />
             <Text color="$muted" marginTop="$2">Confirm new password</Text>
-            <Input value={confirm} onChangeText={setConfirm} isPassword accessibilityLabel="Confirm new password" />
+            <Input value={confirm} onChangeText={setConfirm} isPassword aria-label="Confirm new password" />
             <Button marginTop="$3" onPress={onChangePassword} disabled={busy}>
               {busy ? 'Changing…' : 'Change password'}
             </Button>

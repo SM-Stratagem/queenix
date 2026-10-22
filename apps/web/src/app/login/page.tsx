@@ -4,18 +4,29 @@
  * Web admin login. Email + password via BetterAuth; the session cookie
  * is then used by /api/convex/token to authorize live Convex queries.
  */
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { authClient } from '@/lib/auth-client';
+import { ResetPassword } from '@/components/auth/ResetPassword';
+import { isPureMember, landingFor, sessionRoles } from '@/lib/access';
 
+/**
+ * Staff-only demo accounts. Members are mobile-app only and can NOT sign
+ * in here — RequireAuth bounces pure-member sessions back to /login.
+ * Each block one-click signs in with the shared demo password.
+ */
 const DEMOS = [
+  { role: 'Superadmin', email: 'superadmin@queenix.test' },
   { role: 'Finance', email: 'owner@queenix.test' },
   { role: 'Operations', email: 'ops@queenix.test' },
   { role: 'Trainer', email: 'trainer@queenix.test' },
-  { role: 'Member', email: 'member@queenix.test' },
+  { role: 'Salon', email: 'salon@queenix.test' },
+  { role: 'Coffee', email: 'coffee@queenix.test' },
 ];
 
 const PASSWORD_HINT = 'QueenixDemo123!';
+// One-tap demo sign-in: dev builds only — never ship the shared password on a real login page.
+const SHOW_DEMOS = process.env.NODE_ENV !== 'production';
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
@@ -33,10 +44,33 @@ function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const next = params.get('next') || '/';
+  const blockedNote =
+    params.get('error') === 'members-mobile-only'
+      ? 'Member accounts work in the mobile app — sign in here with a staff demo account.'
+      : '';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const { data: session, isPending: sessionPending } = authClient.useSession();
+
+  // Safety net for the sign-in race: if this page ever renders with an
+  // active session (e.g. bounced back before the client session cache
+  // updated), forward to the right home instead of idling on the form.
+  // Pure members are signed straight back out — web is staff only.
+  useEffect(() => {
+    if (sessionPending || !session?.user) return;
+    const roles = sessionRoles(session.user);
+    if (isPureMember(roles)) {
+      void authClient.signOut().finally(() => {
+        setError('Member accounts work in the mobile app — sign in here with a staff demo account.');
+      });
+      return;
+    }
+    router.replace(landingFor(roles, next));
+  }, [session, sessionPending, router, next]);
 
   async function doSignIn(addr: string, pw: string) {
     setError('');
@@ -54,7 +88,13 @@ function LoginForm() {
         setError(res.error.message || 'Sign in failed.');
         return;
       }
-      router.replace(next);
+      const roles = sessionRoles((res.data as { user?: unknown } | undefined)?.user);
+      if (isPureMember(roles)) {
+        await authClient.signOut();
+        setError('Member accounts work in the mobile app — sign in here with a staff demo account.');
+        return;
+      }
+      router.replace(landingFor(roles, next));
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Sign in failed.');
     } finally {
@@ -139,6 +179,15 @@ function LoginForm() {
               Sign in to the admin panel.
             </p>
           </div>
+          {resetting ? (
+            <ResetPassword
+              initialEmail={email}
+              onDone={(msg) => {
+                setResetting(false);
+                setNotice(msg);
+              }}
+            />
+          ) : (
           <form onSubmit={onSubmit} style={{ display: 'grid', gap: 10 }}>
             <label style={{ display: 'grid', gap: 6, fontSize: 13, fontWeight: 600 }}>
               Email
@@ -162,6 +211,22 @@ function LoginForm() {
                 style={inputStyle}
               />
             </label>
+            {blockedNote ? (
+              <p
+                role="note"
+                style={{
+                  margin: 0,
+                  fontSize: 13,
+                  color: '#f59e0b',
+                  background: 'color-mix(in srgb, #f59e0b 10%, transparent)',
+                  border: '1px solid color-mix(in srgb, #f59e0b 35%, transparent)',
+                  borderRadius: 10,
+                  padding: '10px 12px',
+                }}
+              >
+                {blockedNote}
+              </p>
+            ) : null}
             {error ? (
               <p
                 role="alert"
@@ -194,11 +259,28 @@ function LoginForm() {
             >
               {busy ? 'Signing in…' : 'Sign in'}
             </button>
+            <button
+              type="button"
+              onClick={() => setResetting(true)}
+              style={{ background: 'none', border: 'none', color: 'var(--brand)', fontSize: 13, fontWeight: 600, cursor: 'pointer', justifySelf: 'end', padding: 0 }}
+            >
+              Forgot password?
+            </button>
           </form>
+          )}
+          {notice && !resetting ? (
+            <p role="status" style={{ margin: 0, fontSize: 13, color: 'var(--success, #30a46c)' }}>
+              {notice}
+            </p>
+          ) : null}
+          {SHOW_DEMOS && (
           <div>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 8 }}>
-              DEMO ACCOUNTS · PASSWORD {PASSWORD_HINT}
+              DEMO ACCOUNTS · TAP TO SIGN IN · PASSWORD {PASSWORD_HINT}
             </div>
+            <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 8px' }}>
+              Staff only — member accounts work in the mobile app, not here.
+            </p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               {DEMOS.map((d) => (
                 <button
@@ -230,6 +312,7 @@ function LoginForm() {
               ))}
             </div>
           </div>
+          )}
         </div>
       </section>
     </main>

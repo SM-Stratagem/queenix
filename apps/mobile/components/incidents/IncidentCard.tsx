@@ -1,7 +1,7 @@
 import React from "react"
 import { XStack, YStack } from "tamagui"
 import { Card, Text, Badge } from "@queenix/ui"
-import { ChevronRight, User, Clock } from "@tamagui/lucide-icons"
+import { ChevronRight, User, Clock } from "@tamagui/lucide-icons-2"
 import { TYPE_META, SEVERITY_META, STATUS_META, type Incident } from "./meta"
 
 export function IncidentCard({
@@ -19,7 +19,7 @@ export function IncidentCard({
       variant="outlined"
       padding="sm"
       onPress={onPress}
-      accessibilityLabel={`${incident.severity} severity ${incident.type.replace("_", " ")} incident: ${incident.title}`}
+      aria-label={`${incident.severity} severity ${incident.type.replace("_", " ")} incident: ${incident.title}`}
     >
       <XStack alignItems="flex-start" gap="$3">
         <YStack

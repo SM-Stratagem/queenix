@@ -1,7 +1,7 @@
 import React from "react"
 import { YStack, XStack } from "tamagui"
 import { Card, Text, Badge } from "@queenix/ui"
-import { Wifi } from "@tamagui/lucide-icons"
+import { Wifi } from "@tamagui/lucide-icons-2"
 
 const ACCESS_POINTS = [
   { id: "front-door", label: "Front door", status: "Online" as const },
@@ -65,8 +65,8 @@ export function TabChip({
       borderRadius="$lg"
       backgroundColor={active ? "$brand" : "$surfaceMuted"}
       onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={label}
+      role="button"
+      aria-label={label}
       pressStyle={{ opacity: 0.85 }}
     >
       <XStack alignItems="center" gap="$1.5">

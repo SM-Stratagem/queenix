@@ -1,7 +1,7 @@
 import React from "react"
 import { XStack, YStack } from "tamagui"
 import { Text } from "@queenix/ui"
-import { Check } from "@tamagui/lucide-icons"
+import { Check } from "@tamagui/lucide-icons-2"
 
 export function PlanBenefit({ text }: { text: string }) {
   return (

@@ -5,12 +5,7 @@ import {
   Screen,
   Text,
   Card,
-  Button,
-  Badge,
   Logo,
-  Progress,
-  Skeleton,
-  EmptyState,
 } from '@queenix/ui';
 import { useAuth } from '@/lib/auth';
 import { useConvexQuery } from '@/lib/convex';
@@ -23,9 +18,14 @@ import {
   Award,
   Calendar,
   ChevronRight,
-  Sparkles,
-} from '@tamagui/lucide-icons';
-import { formatDate, formatTime } from '@queenix/types';
+} from '@tamagui/lucide-icons-2';
+import {
+  MembershipHeroCard,
+  OccupancyCard,
+  NextClassCard,
+  QuickAction,
+  StatCard,
+} from '@/components/member-home/Cards';
 
 export default function MemberHome() {
   const router = useRouter();
@@ -76,58 +76,27 @@ export default function MemberHome() {
           <Logo size="sm" />
         </XStack>
 
+        {session && !session.emailVerified && (
+          <YStack paddingHorizontal="$4" marginBottom="$2">
+            <Card variant="outlined" padding="md" onPress={() => router.push('/(member)/security')} accessibilityLabel="Verify your email">
+              <Text variant="label">Verify your email</Text>
+              <Text variant="caption" color="secondary">
+                We sent a 6-digit code to {session.email}. Tap to enter it.
+              </Text>
+            </Card>
+          </YStack>
+        )}
+
         {/* Hero membership card */}
         <YStack paddingHorizontal="$4">
-          <Card variant="elevated" padding="lg">
-            <YStack gap="$3">
-              {isLoading ? (
-                <YStack gap="$2">
-                  <Skeleton width="40%" height={14} />
-                  <Skeleton width="60%" height={28} />
-                  <Skeleton width="80%" height={8} borderRadius={4} />
-                </YStack>
-              ) : membership ? (
-                <>
-                  <XStack justifyContent="space-between" alignItems="flex-start">
-                    <YStack>
-                      <Text variant="caption" color="secondary" textTransform="uppercase">
-                        {membership.plan?.name ?? 'Membership'} Membership
-                      </Text>
-                      <Text variant="h2" marginTop="$1">
-                        {daysRemaining} days
-                      </Text>
-                      <Text variant="bodySmall" color="secondary">
-                        remaining on your plan
-                      </Text>
-                    </YStack>
-                    <Badge label={membership.status} variant="success" />
-                  </XStack>
-                  <Progress value={progressPct} size="sm" />
-                </>
-              ) : (
-                <YStack gap="$2">
-                  <Text variant="label">No active membership</Text>
-                  <Text variant="bodySmall" color="secondary">
-                    Pick a plan to start training
-                  </Text>
-                </YStack>
-              )}
-              <XStack gap="$2" marginTop="$2">
-                <Button
-                  label="View membership"
-                  variant="outline"
-                  size="sm"
-                  onPress={() => router.push('/(member)/profile')}
-                />
-                <Button
-                  label="Renew"
-                  variant="primary"
-                  size="sm"
-                  onPress={() => router.push('/(member)/payments')}
-                />
-              </XStack>
-            </YStack>
-          </Card>
+          <MembershipHeroCard
+            isLoading={isLoading}
+            membership={membership}
+            daysRemaining={daysRemaining}
+            progressPct={progressPct}
+            onViewMembership={() => router.push('/(member)/profile')}
+            onRenew={() => router.push('/(member)/payments')}
+          />
         </YStack>
 
         {/* Quick actions */}
@@ -157,27 +126,7 @@ export default function MemberHome() {
 
         {/* Live occupancy */}
         <YStack paddingHorizontal="$4" marginTop="$4">
-          <Card variant="outlined">
-            <XStack alignItems="center" justifyContent="space-between" marginBottom="$2">
-              <YStack>
-                <Text variant="label">Live occupancy</Text>
-                <Text variant="bodySmall" color="muted">Updated just now</Text>
-              </YStack>
-              <Badge
-                label={`${liveOccupancy}/${maxOccupancy}`}
-                variant={liveOccupancy > maxOccupancy * 0.8 ? 'warning' : 'success'}
-              />
-            </XStack>
-            <Progress
-              value={(liveOccupancy / maxOccupancy) * 100}
-              color={liveOccupancy > maxOccupancy * 0.8 ? '$warning' : '$brand'}
-            />
-            <Text variant="caption" color="muted" marginTop="$2">
-              {liveOccupancy < maxOccupancy * 0.6
-                ? 'Plenty of space — perfect time to train'
-                : 'Getting busy — consider a quieter time slot'}
-            </Text>
-          </Card>
+          <OccupancyCard liveOccupancy={liveOccupancy} maxOccupancy={maxOccupancy} />
         </YStack>
 
         {/* Next booking */}
@@ -188,57 +137,12 @@ export default function MemberHome() {
               See all
             </Text>
           </XStack>
-          {isLoading ? (
-            <Card variant="elevated">
-              <XStack alignItems="center" gap="$3">
-                <Skeleton width={56} height={56} borderRadius={16} />
-                <YStack flex={1} gap="$1">
-                  <Skeleton width="60%" height={18} />
-                  <Skeleton width="40%" height={12} />
-                  <Skeleton width="30%" height={12} />
-                </YStack>
-              </XStack>
-            </Card>
-          ) : nextClass ? (
-            <Card
-              variant="elevated"
-              onPress={() => router.push(`/(member)/classes/${nextClass._id}`)}
-              accessibilityLabel="Open next class"
-            >
-              <XStack alignItems="center" gap="$3">
-                <YStack
-                  backgroundColor="$brand50"
-                  padding="$3"
-                  borderRadius="$lg"
-                  alignItems="center"
-                  justifyContent="center"
-                  width={56}
-                  height={56}
-                >
-                  <Sparkles size={24} color="$brand" />
-                </YStack>
-                <YStack flex={1} gap="$1">
-                  <Text variant="h4">Class at {formatTime(nextClass.startsAt)}</Text>
-                  <Text variant="bodySmall" color="secondary">
-                    {formatDate(nextClass.startsAt)} • {nextClass.roomId ?? 'Studio'}
-                  </Text>
-                  <Text variant="caption" color="brand" fontWeight="600">
-                    {nextClass.bookedCount}/{nextClass.capacity} booked
-                  </Text>
-                </YStack>
-                <ChevronRight size={20} color="$textMuted" />
-              </XStack>
-            </Card>
-          ) : (
-            <Card variant="outlined">
-              <EmptyState
-                title="No upcoming classes"
-                message="Browse the schedule and book your next session."
-                actionLabel="Browse classes"
-                onAction={() => router.push('/(member)/book')}
-              />
-            </Card>
-          )}
+          <NextClassCard
+            isLoading={isLoading}
+            nextClass={nextClass}
+            onOpenClass={() => nextClass && router.push(`/(member)/classes/${nextClass._id}`)}
+            onBrowse={() => router.push('/(member)/book')}
+          />
         </YStack>
 
         {/* Stats */}
@@ -287,64 +191,5 @@ export default function MemberHome() {
         </YStack>
       </ScrollView>
     </Screen>
-  );
-}
-
-function QuickAction({
-  icon,
-  label,
-  onPress,
-  flex,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  onPress: () => void;
-  flex?: number;
-}) {
-  return (
-    <YStack
-      flex={flex}
-      alignItems="center"
-      gap="$2"
-      onPress={onPress}
-      pressStyle={{ opacity: 0.7, scale: 0.97 }}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-    >
-      <YStack
-        backgroundColor="$brand"
-        padding="$3"
-        borderRadius="$xl"
-        alignItems="center"
-        justifyContent="center"
-        width={56}
-        height={56}
-      >
-        {icon}
-      </YStack>
-      <Text variant="caption" weight="600">{label}</Text>
-    </YStack>
-  );
-}
-
-function StatCard({
-  icon,
-  value,
-  label,
-  flex,
-}: {
-  icon: React.ReactNode;
-  value: string;
-  label: string;
-  flex?: number;
-}) {
-  return (
-    <Card variant="outlined" padding="sm" flex={flex}>
-      <YStack gap="$1">
-        {icon}
-        <Text variant="h3">{value}</Text>
-        <Text variant="caption" color="muted">{label}</Text>
-      </YStack>
-    </Card>
   );
 }

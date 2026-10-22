@@ -4,7 +4,7 @@
  */
 
 import { v } from 'convex/values';
-import { mutation } from '../_generated/server';
+import { internalMutation, mutation } from '../_generated/server';
 import { requireRole, requireUser, audit } from '../_helpers';
 import { ConvexError } from 'convex/values';
 
@@ -202,7 +202,7 @@ export const endShift = mutation({
  * Register or update a physical scanner device.
  * Called by the Next.js /api/scanner/register webhook after env-var validation.
  */
-export const registerScannerDevice = mutation({
+export const registerScannerDevice = internalMutation({
   args: {
     deviceId: v.string(),
     name: v.string(),
@@ -248,7 +248,7 @@ export const registerScannerDevice = mutation({
  * Heartbeat from the physical scanner — called by the Next.js
  * /api/scanner/health route after every successful scan.
  */
-export const recordScannerHeartbeat = mutation({
+export const recordScannerHeartbeat = internalMutation({
   args: {
     deviceId: v.string(),
     lastScanAt: v.optional(v.number()),

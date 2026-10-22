@@ -14,7 +14,7 @@ import {
   ErrorState,
   EmptyState,
 } from '@queenix/ui';
-import { Star, Award, Dumbbell } from '@tamagui/lucide-icons';
+import { Star, Award, Dumbbell } from '@tamagui/lucide-icons-2';
 import { useConvexQuery } from '@/lib/convex';
 import { api } from '@queenix/convex';
 

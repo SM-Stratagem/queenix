@@ -76,6 +76,7 @@ export const recordJournalEntry = mutation({
     currency: v.optional(v.string()),
     note: v.optional(v.string()),
     entryDate: v.optional(v.number()),
+    receiptStorageId: v.optional(v.id('_storage')),
   },
   handler: async (ctx, args) => {
     const staff = await requireRole(ctx, STAFF_ROLES);
@@ -93,6 +94,7 @@ export const recordJournalEntry = mutation({
       amountCents: Math.round(args.amountCents),
       currency: args.currency ?? 'AED',
       note: args.note,
+      receiptStorageId: args.receiptStorageId,
       createdBy: staff._id,
       createdAt: now,
     });

@@ -6,7 +6,7 @@ import {
   AlertTriangle,
   Info,
   CheckCircle2,
-} from "@tamagui/lucide-icons"
+} from "@tamagui/lucide-icons-2"
 import type { SeverityTone } from "./meta"
 
 const COLOR_MAP: Record<SeverityTone, string> = {
@@ -45,7 +45,7 @@ export function SeverityStat({
       variant="outlined"
       padding="sm"
       flex={flex}
-      accessibilityLabel={`${count} ${label} open incidents`}
+      aria-label={`${count} ${label} open incidents`}
     >
       <YStack gap="$1">
         {ICON[tone]}

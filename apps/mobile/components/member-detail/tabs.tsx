@@ -1,8 +1,9 @@
 import React from "react"
 import { YStack, XStack } from "tamagui"
 import { Card, Text, Divider, Badge, EmptyState } from "@queenix/ui"
-import { Mail, Phone, Calendar, Car, AlertCircle } from "@tamagui/lucide-icons"
+import { Mail, Phone, Calendar, Car, AlertCircle, CreditCard, FileText } from "@tamagui/lucide-icons-2"
 import { Section, KeyValue } from "./primitives"
+import { formatCents } from "./format"
 
 export function OverviewTab({
   member,
@@ -189,4 +190,122 @@ export function MembershipTab({ memberships }: { memberships: any[] }) {
       ))}
     </YStack>
   )
+}
+
+export function PaymentsTab({ payments }: { payments: any[] }) {
+  return (
+    <YStack paddingHorizontal="$4" gap="$2">
+      <Text variant="h4">Recent payments</Text>
+      {payments.length === 0 ? (
+        <EmptyState
+          icon={<CreditCard size={32} color="$textMuted" />}
+          title="No payments yet"
+          message="Payment history will appear here."
+        />
+      ) : (
+        payments.map((p: any) => (
+          <Card key={p._id} variant="outlined" padding="sm">
+            <XStack alignItems="center" gap="$3">
+              <YStack
+                backgroundColor={
+                  p.status === 'succeeded'
+                    ? '$success50'
+                    : p.status === 'refunded'
+                      ? '$info50'
+                      : p.status === 'failed'
+                        ? '$danger50'
+                        : '$warning50'
+                }
+                padding="$2.5"
+                borderRadius="$md"
+              >
+                <CreditCard
+                  size={18}
+                  color={
+                    p.status === 'succeeded'
+                      ? '$success500'
+                      : p.status === 'refunded'
+                        ? '$info500'
+                        : p.status === 'failed'
+                          ? '$danger500'
+                          : '$warning500'
+                  }
+                />
+              </YStack>
+              <YStack flex={1}>
+                <Text variant="bodySmall" weight="600">
+                  {p.description ?? p.type}
+                </Text>
+                <Text variant="caption" color="muted">
+                  {new Date(p.createdAt).toLocaleDateString('en-GB', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                  })}
+                </Text>
+              </YStack>
+              <YStack alignItems="flex-end">
+                <Text
+                  variant="label"
+                  color={p.status === 'refunded' ? 'muted' : 'primary'}
+                >
+                  {formatCents(p.amountCents, p.currency)}
+                </Text>
+                <Badge
+                  label={p.status}
+                  variant={
+                    p.status === 'succeeded'
+                      ? 'success'
+                      : p.status === 'refunded'
+                        ? 'info'
+                        : p.status === 'failed'
+                          ? 'danger'
+                          : 'warning'
+                  }
+                  size="sm"
+                />
+              </YStack>
+            </XStack>
+          </Card>
+        ))
+      )}
+    </YStack>
+  );
+}
+
+export function NotesTab({ notes }: { notes: any[] }) {
+  return (
+    <YStack paddingHorizontal="$4" gap="$2">
+      {notes.length === 0 ? (
+        <EmptyState
+          icon={<FileText size={32} color="$textMuted" />}
+          title="No notes"
+          message="No trainer notes for this member yet."
+        />
+      ) : (
+        notes.map((n: any) => (
+          <Card key={n._id} variant="outlined" padding="sm">
+            <XStack alignItems="flex-start" gap="$2">
+              <FileText size={16} color="$textMuted" />
+              <YStack flex={1} gap="$0.5">
+                <Text variant="caption" color="muted">
+                  {new Date(n.createdAt).toLocaleDateString('en-GB', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                  })}
+                </Text>
+                <Text variant="bodySmall" color="secondary">
+                  {n.note}
+                </Text>
+              </YStack>
+            </XStack>
+          </Card>
+        ))
+      )}
+      <Text variant="caption" color="muted" align="center">
+        Notes are written by trainers and shown here read-only.
+      </Text>
+    </YStack>
+  );
 }

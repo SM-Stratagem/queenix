@@ -26,7 +26,7 @@ import {
   Clock,
   Check,
   Fingerprint,
-} from '@tamagui/lucide-icons';
+} from '@tamagui/lucide-icons-2';
 import {
   IdentityCard,
   type ProfileIdentity,
@@ -288,7 +288,7 @@ export default function OpsProfileScreen() {
             fullWidth
             icon={<LogOut size={18} color="$danger500" />}
             onPress={() => signOut()}
-            accessibilityLabel="Sign out of operations account"
+            aria-label="Sign out of operations account"
           />
           <Text variant="caption" color="muted" textAlign="center" marginTop="$3">
             Queenix Operations • v1.0.0

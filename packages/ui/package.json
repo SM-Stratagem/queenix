@@ -10,18 +10,18 @@
     "./components/*": "./src/components/*.tsx"
   },
   "dependencies": {
-    "@queenix/theme": "*",
-    "@queenix/types": "*",
-    "tamagui": "^1.130.0",
-    "lucide-react-native": "^0.469.0",
-    "react-native-svg": "^15.10.1"
+    "tamagui": "2.7.7"
   },
   "peerDependencies": {
-    "react": "^19.0.0",
-    "react-native": "^0.79.0"
+    "@tamagui/lucide-icons-2": "*",
+    "expo-status-bar": "*",
+    "react": "^19.2.3",
+    "react-native": ">=0.79.0",
+    "react-native-reanimated": "*",
+    "react-native-safe-area-context": "*"
   },
   "devDependencies": {
-    "@types/react": "^19.0.2",
-    "typescript": "^5.7.2"
+    "@types/react": "~19.2.4",
+    "typescript": "~6.0.3"
   }
 }

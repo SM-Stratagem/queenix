@@ -51,3 +51,4 @@ coverage/
 # Playwright
 test-results/
 playwright-report/
+.env.production

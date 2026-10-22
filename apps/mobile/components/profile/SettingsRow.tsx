@@ -1,7 +1,7 @@
 import React from "react"
 import { XStack, YStack } from "tamagui"
 import { Card, Text } from "@queenix/ui"
-import { ChevronRight } from "@tamagui/lucide-icons"
+import { ChevronRight } from "@tamagui/lucide-icons-2"
 
 export function SettingsRow({
   icon,
@@ -21,7 +21,7 @@ export function SettingsRow({
       variant="outlined"
       padding="sm"
       onPress={onPress}
-      accessibilityLabel={label}
+      aria-label={label}
     >
       <XStack alignItems="center" gap="$3">
         <YStack

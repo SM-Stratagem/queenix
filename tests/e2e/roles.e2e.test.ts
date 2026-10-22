@@ -59,14 +59,14 @@ describe("web gating: one landing per role", () => {
 
   it("web landings match the committed contract", () => {
     expect(WEB_LANDING).toMatchObject({
-      superadmin: "/admin/platform",
-      admin: "/admin",
+      superadmin: "/dashboard",
+      admin: "/dashboard",
       finance: "/finance",
-      operations: "/ops",
+      operations: "/dashboard",
       salon: "/salon",
       coffee: "/coffee",
       trainer: "/trainer",
-      member: "/app",
+      member: "/login",
     });
   });
 

@@ -40,7 +40,7 @@ export const Avatar: React.FC<AvatarProps> = ({
       borderWidth={0}
     >
       {src ? (
-        <TamaguiAvatar.Image src={src} accessibilityLabel={name} />
+        <TamaguiAvatar.Image src={src} aria-label={name} />
       ) : (
         <Text color="$textOnBrand" fontSize={fontSize} fontWeight="600">
           {initials || '?'}

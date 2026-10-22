@@ -1,7 +1,7 @@
 import React from "react"
 import { XStack, YStack } from "tamagui"
 import { Text, Button } from "@queenix/ui"
-import { Check, Clock, Users, PlayCircle } from "@tamagui/lucide-icons"
+import { Check, Clock, Users, PlayCircle } from "@tamagui/lucide-icons-2"
 import { SummaryStat } from "./SummaryStat"
 import { RosterRow } from "./RosterRow"
 import type { ClassInstance } from "./ClassCard"
@@ -62,7 +62,7 @@ export function RosterDetail({ cls }: { cls: ClassInstance }) {
           fullWidth
           icon={<PlayCircle size={18} color="$textOnBrand" />}
           onPress={() => {}}
-          accessibilityLabel="Open scanner for this class"
+          aria-label="Open scanner for this class"
         />
       </YStack>
     </YStack>

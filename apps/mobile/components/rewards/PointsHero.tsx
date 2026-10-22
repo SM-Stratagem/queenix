@@ -1,7 +1,7 @@
 import React from "react"
 import { YStack, XStack, Progress as TProgress } from "tamagui"
 import { Text, Badge, Button, Skeleton } from "@queenix/ui"
-import { Award } from "@tamagui/lucide-icons"
+import { Award } from "@tamagui/lucide-icons-2"
 
 export function PointsHeroCard({
   tier,

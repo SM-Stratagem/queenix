@@ -1,7 +1,7 @@
 import React from "react"
 import { YStack, XStack } from "tamagui"
 import { Card, Text, Button, Sheet } from "@queenix/ui"
-import { Check, X } from "@tamagui/lucide-icons"
+import { Check, X } from "@tamagui/lucide-icons-2"
 
 export function HandoverSheet({
   open,
@@ -64,7 +64,7 @@ export function HandoverSheet({
             flex={1}
             icon={<X size={16} color="$textPrimary" />}
             onPress={() => onOpenChange(false)}
-            accessibilityLabel="Discard handover note"
+            aria-label="Discard handover note"
           />
           <Button
             label="Save note"
@@ -73,7 +73,7 @@ export function HandoverSheet({
             flex={1}
             icon={<Check size={16} color="$textOnBrand" />}
             onPress={onSave}
-            accessibilityLabel="Save handover note"
+            aria-label="Save handover note"
           />
         </XStack>
       </YStack>
@@ -122,8 +122,8 @@ export function RoleSwitcherSheet({
               padding="md"
               backgroundColor={active ? "$brand50" : undefined}
               onPress={() => hasRole && onSwitch(r.key)}
-              accessibilityLabel={`Switch to ${r.label} role`}
-              accessibilityState={{ disabled: !hasRole }}
+              aria-label={`Switch to ${r.label} role`}
+              aria-disabled={!hasRole}
             >
               <XStack alignItems="center" gap="$3">
                 <YStack

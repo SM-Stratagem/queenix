@@ -1,5 +1,5 @@
 /**
- * Booking screen types + pure helpers.
+ * Booking screen types.
  */
 
 export type Level = "Beginner" | "Intermediate" | "Advanced"
@@ -16,52 +16,29 @@ export interface ClassView {
   name: string
   category: ClassCategory
   level: Level
-  room: string
-  icon: React.ReactNode
-  hue: string
   startsAt: number
   durationMin: number
-  bookedCount: number
+  room: string
   capacity: number
+  bookedCount: number
+  waitlistCount: number
   trainerName?: string
+  hue: string
+  icon: React.ReactNode
+  /** The signed-in member's live booking on this class, if any. */
+  myStatus?: 'confirmed' | 'waitlisted'
 }
 
 export interface TrainerView {
   id: string
   name: string
+  avatarUrl?: string
   specialty: string
-  bio?: string
   rating: number
   reviewCount: number
   hourlyRate: number
-}
-
-export function categoryFromString(
-  raw: string | undefined,
-): Exclude<ClassCategory, "All"> {
-  const valid: Exclude<ClassCategory, "All">[] = [
-    "HIIT",
-    "Yoga",
-    "Strength",
-    "Cardio",
-    "Pilates",
-  ]
-  return (valid.find((c) => c === raw) ?? "HIIT")
-}
-
-export function levelFromString(raw: string | undefined): Level {
-  return raw === "Intermediate" || raw === "Advanced" ? raw : "Beginner"
-}
-
-export function categoryStyle(
-  category: Exclude<ClassCategory, "All">,
-): { label: string; icon: string } {
-  const styles: Record<Exclude<ClassCategory, "All">, { label: string; icon: string }> = {
-    HIIT: { label: "HIIT", icon: "🔥" },
-    Yoga: { label: "Yoga", icon: "🧘" },
-    Strength: { label: "Strength", icon: "💪" },
-    Cardio: { label: "Cardio", icon: "🏃" },
-    Pilates: { label: "Pilates", icon: "🤸" },
-  }
-  return styles[category] ?? { label: "Class", icon: "📋" }
+  bio?: string
+  certifications: string[]
+  years?: number
+  nextAvailable?: string
 }

@@ -9,30 +9,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyTapWebhook } from '@queenix/payments';
+import { convexAdmin } from '@queenix/auth/convex-admin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-async function callConvexMutation(path: string, args: Record<string, unknown>) {
-  const siteUrl = process.env.CONVEX_SITE_URL;
-  const deployKey = process.env.CONVEX_DEPLOY_KEY;
-  if (!siteUrl || !deployKey) {
-    throw new Error('CONVEX_SITE_URL and CONVEX_DEPLOY_KEY must be set');
-  }
-  const res = await fetch(`${siteUrl}/api/mutation`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Convex ${deployKey}`,
-    },
-    body: JSON.stringify({ path, args }),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Convex ${path} failed: ${res.status} ${text}`);
-  }
-  return res.json();
-}
 
 interface TapWebhookBody {
   id?: string;
@@ -84,7 +64,7 @@ export async function POST(req: NextRequest) {
     switch (status) {
       case 'CAPTURED':
       case 'PAID':
-        await callConvexMutation('mutations/payments:recordPaymentSuccess', {
+        await convexAdmin('mutation', 'mutations/payments:recordPaymentSuccess', {
           tapChargeId: payload.id,
           amountCents,
           currency,
@@ -97,13 +77,13 @@ export async function POST(req: NextRequest) {
       case 'CANCELLED':
       case 'EXPIRED':
       case 'ABANDONED':
-        await callConvexMutation('mutations/payments:recordPaymentFailure', {
+        await convexAdmin('mutation', 'mutations/payments:recordPaymentFailure', {
           tapChargeId: payload.id,
           failureReason: status,
         });
         break;
       case 'REFUNDED':
-        await callConvexMutation('mutations/payments:recordRefund', {
+        await convexAdmin('mutation', 'mutations/payments:recordRefund', {
           tapChargeId: payload.id,
           amountCents,
           reason: 'requested_by_customer',

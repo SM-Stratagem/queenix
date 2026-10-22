@@ -1,7 +1,7 @@
 import React from "react"
 import { YStack, XStack } from "tamagui"
 import { Card, Text, Badge, Chip, Skeleton, Divider, Input, Button, Sheet } from "@queenix/ui"
-import { ShieldCheck, Plus, X } from "@tamagui/lucide-icons"
+import { ShieldCheck, Plus, X } from "@tamagui/lucide-icons-2"
 
 export type Certification = {
   name: string
@@ -51,7 +51,7 @@ export function CertificationsSection({
                 alignItems="center"
                 gap="$3"
                 paddingVertical="$3"
-                accessibilityLabel={`${c.name} from ${c.issuer}`}
+                aria-label={`${c.name} from ${c.issuer}`}
               >
                 <YStack backgroundColor="$success50" padding="$2.5" borderRadius="$md">
                   <ShieldCheck size={20} color="$success500" />
@@ -85,8 +85,8 @@ export function CertificationsSection({
           gap="$3"
           paddingVertical="$3"
           onPress={onAdd}
-          accessibilityRole="button"
-          accessibilityLabel="Add a new certification"
+          role="button"
+          aria-label="Add a new certification"
         >
           <YStack backgroundColor="$brand50" padding="$2.5" borderRadius="$md">
             <Plus size={20} color="$brand" />
@@ -100,7 +100,7 @@ export function CertificationsSection({
   )
 }
 
-export const SUGGESTED_SPECIALTIES = [
+const SUGGESTED_SPECIALTIES = [
   "Strength training",
   "Pre/postnatal",
   "Fat loss",
@@ -144,8 +144,8 @@ export function EditProfileSheet({
           <XStack
             onPress={onClose}
             padding="$2"
-            accessibilityRole="button"
-            accessibilityLabel="Close"
+            role="button"
+            aria-label="Close"
           >
             <X size={20} color="$textMuted" />
           </XStack>
@@ -168,7 +168,7 @@ export function EditProfileSheet({
                 onChangeText={onBioChange}
                 multiline
                 numberOfLines={4}
-                accessibilityLabel="Bio"
+                aria-label="Bio"
               />
             </YStack>
           </YStack>
@@ -179,7 +179,7 @@ export function EditProfileSheet({
               value={rateDraft}
               onChangeText={onRateChange}
               keyboardType="numeric"
-              accessibilityLabel="Hourly rate"
+              aria-label="Hourly rate"
             />
           </YStack>
           <YStack gap="$1">
@@ -231,13 +231,13 @@ export function AddCertificationSheet({
           placeholder="e.g. NASM CPT"
           value={name}
           onChangeText={onNameChange}
-          accessibilityLabel="Certification name"
+          aria-label="Certification name"
         />
         <Input
           placeholder="Issuing body"
           value={issuer}
           onChangeText={onIssuerChange}
-          accessibilityLabel="Issuing body"
+          aria-label="Issuing body"
         />
         <Button label="Add certification" variant="primary" onPress={onSave} fullWidth />
       </YStack>

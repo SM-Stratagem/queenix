@@ -1,7 +1,7 @@
 import React from "react"
 import { XStack, YStack } from "tamagui"
 import { Card, Text, Badge } from "@queenix/ui"
-import { Clock } from "@tamagui/lucide-icons"
+import { Clock } from "@tamagui/lucide-icons-2"
 import type { Shift } from "./ContactRow"
 
 export function ShiftRow({ shift }: { shift: Shift }) {
@@ -9,7 +9,7 @@ export function ShiftRow({ shift }: { shift: Shift }) {
     <Card
       variant="outlined"
       padding="sm"
-      accessibilityLabel={`${shift.date}, ${shift.start} to ${shift.end}, ${shift.hoursLogged}`}
+      aria-label={`${shift.date}, ${shift.start} to ${shift.end}, ${shift.hoursLogged}`}
     >
       <XStack alignItems="center" gap="$3">
         <YStack

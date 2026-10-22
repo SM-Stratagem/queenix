@@ -1,6 +1,9 @@
 import { Tabs } from 'expo-router';
-import { Home, Calendar, QrCode, Gift, User } from '@tamagui/lucide-icons';
+import { Home, Calendar, QrCode, Gift, User } from '@tamagui/lucide-icons-2';
 import { StatusBar } from '@queenix/ui';
+
+/** Routes in this group that are pushed to, not tabs — hidden from the tab bar. */
+const HIDDEN = ['classes/[id]', 'coffee', 'documents', 'health', 'notifications', 'payments', 'plans', 'salon', 'security', 'support', 'tiers', 'trainers', 'valet', 'vehicles'];
 
 export default function MemberLayout() {
   return (
@@ -10,10 +13,10 @@ export default function MemberLayout() {
         screenOptions={{
           headerShown: false,
           tabBarActiveTintColor: '#0081cc',
-          tabBarInactiveTintColor: '#71717a',
+          tabBarInactiveTintColor: '#a1a1aa',
           tabBarStyle: {
-            backgroundColor: 'white',
-            borderTopColor: '#e4e4e7',
+            backgroundColor: '#18181b',
+            borderTopColor: '#27272a',
             borderTopWidth: 1,
             paddingTop: 8,
             paddingBottom: 8,
@@ -60,6 +63,9 @@ export default function MemberLayout() {
             tabBarIcon: ({ color, size }) => <User size={size} color={color as any} />,
           }}
         />
+        {HIDDEN.map((name) => (
+          <Tabs.Screen key={name} name={name} options={{ href: null }} />
+        ))}
       </Tabs>
     </>
   );

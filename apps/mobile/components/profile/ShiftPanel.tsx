@@ -1,7 +1,7 @@
 import React from "react"
 import { YStack, XStack } from "tamagui"
 import { Card, Text, Button } from "@queenix/ui"
-import { Clock, Play, StopCircle, ShieldCheck } from "@tamagui/lucide-icons"
+import { Clock, Play, StopCircle, ShieldCheck } from "@tamagui/lucide-icons-2"
 import { formatElapsed, formatTime } from "./format"
 
 export function ShiftPanel({
@@ -51,7 +51,7 @@ export function ShiftPanel({
             alignItems="center"
             justifyContent="center"
             backgroundColor={active ? "$danger" : "$brand"}
-            accessibilityLabel={active ? "Shift in progress" : "Shift not started"}
+            aria-label={active ? "Shift in progress" : "Shift not started"}
           >
             {active ? (
               <StopCircle size={24} color="$textOnBrand" />
@@ -67,7 +67,7 @@ export function ShiftPanel({
             size="lg"
             fullWidth
             onPress={active ? onEnd : onStart}
-            accessibilityLabel={active ? "End current shift" : "Start a new shift"}
+            aria-label={active ? "End current shift" : "Start a new shift"}
           />
         </YStack>
         <XStack alignItems="center" gap="$2" marginTop="$3">

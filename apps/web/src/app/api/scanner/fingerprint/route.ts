@@ -31,8 +31,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { ConvexHttpClient } from 'convex/browser';
-import { getConvexApiUrl } from '@/lib/convex-env';
+import { convexAdmin } from '@queenix/auth/convex-admin';
+import { scannerKeyOk } from '@/lib/scanner-auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -56,13 +56,8 @@ function isDeviceAllowed(deviceId: string): boolean {
   return ALLOWED_DEVICES.includes(deviceId);
 }
 
-function getConvexClient(): ConvexHttpClient | null {
-  const url = getConvexApiUrl();
-  if (!url) return null;
-  return new ConvexHttpClient(url);
-}
-
 export async function POST(req: NextRequest) {
+  if (!scannerKeyOk(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   let body: PunchBody = {};
   try {
     body = (await req.json()) as PunchBody;
@@ -96,31 +91,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const client = getConvexClient();
-  if (!client) {
-    return NextResponse.json(
-      { ok: false, reason: 'Convex not configured' },
-      { status: 500 }
-    );
-  }
-
-  const adminKey = process.env.CONVEX_DEPLOY_KEY;
-  if (adminKey) {
-    client.setAuth(adminKey);
-  }
-
   try {
-    const eventId = await client.mutation(
-      'mutations/users:recordPunchForUser' as any,
-      {
-        userId,
-        method: 'fingerprint',
-        punchType,
-        timestamp,
-        deviceId,
-        location,
-      }
-    );
+    const eventId = await convexAdmin('mutation', 'mutations/users:recordPunchForUser', {
+      userId,
+      method: 'fingerprint',
+      punchType,
+      timestamp,
+      deviceId,
+      location,
+    });
 
     return NextResponse.json({
       ok: true,

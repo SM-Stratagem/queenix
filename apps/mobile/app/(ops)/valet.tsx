@@ -11,6 +11,7 @@ import {
   useToast,
 } from '@queenix/ui';
 import { useConvexQuery, useConvexMutation, api } from '@/lib/convex';
+import { PlateScanCard } from '@/components/valet/PlateScanCard';
 
 type Tab = 'reserved' | 'checked_in' | 'completed' | 'cancelled';
 const TABS: Tab[] = ['reserved', 'checked_in', 'completed', 'cancelled'];
@@ -43,6 +44,7 @@ export default function OpsValetScreen() {
       />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
         <YStack paddingHorizontal="$4" marginTop="$2" gap="$3">
+          <PlateScanCard />
           <XStack backgroundColor="$surfaceMuted" padding="$1" borderRadius="$lg" gap="$1">
             {TABS.map((t) => (
               <YStack

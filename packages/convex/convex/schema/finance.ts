@@ -50,6 +50,7 @@ export const journalEntries = defineTable({
   amountCents: v.number(),
   currency: v.string(),
   note: v.optional(v.string()),
+  receiptStorageId: v.optional(v.id('_storage')), // scanned receipt image
   createdBy: v.id('users'),
   createdAt: v.number(),
 })

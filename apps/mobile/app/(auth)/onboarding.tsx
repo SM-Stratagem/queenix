@@ -3,7 +3,7 @@ import { YStack, XStack, ScrollView } from 'tamagui';
 import { useRouter } from 'expo-router';
 import { Screen, Text, Button, Input, Spacer, Progress, Card } from '@queenix/ui';
 import { useAuth } from '@/lib/auth';
-import { Calendar, Heart, Users, Activity } from '@tamagui/lucide-icons';
+import { Calendar, Heart, Users, Activity } from '@tamagui/lucide-icons-2';
 
 type Step = 'dob' | 'health' | 'goals' | 'done';
 

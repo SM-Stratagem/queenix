@@ -36,7 +36,7 @@ import {
   CalendarPlus,
   Plane,
   CheckCircle2,
-} from '@tamagui/lucide-icons';
+} from '@tamagui/lucide-icons-2';
 
 export default function TrainerToday() {
   const router = useRouter();

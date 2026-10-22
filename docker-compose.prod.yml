@@ -1,0 +1,138 @@
+# Production images, run locally — the exact services you deploy to Railway/AWS.
+#   ./scripts/prod-local.sh            (generates .env.prod.local, admin key, then up)
+#   ./scripts/prod-local.sh --demo     (also seeds demo accounts + dataset)
+# Ports avoid the dev stack: web 4000 · Convex 4210/4211 · inbox 8026.
+# Mailpit stands in for your SMTP provider and (ALLOW_DEV_SMS_INBOX) for Twilio.
+name: queenix-prod
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: queenix
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run scripts/prod-local.sh}
+      POSTGRES_DB: queenix_auth
+    volumes:
+      - prod_pg:/var/lib/postgresql
+      - ./deploy/postgres/init.sql:/docker-entrypoint-initdb.d/10-convex.sql:ro
+    healthcheck:
+      # TCP check: the image's first-boot init server is socket-only, so this
+      # only passes once the real server is up (not mid-initialization).
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U queenix -d queenix_auth"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  convex-backend:
+    # Pinned (not :latest) — upgrade deliberately, see Convex self-hosted upgrading.md.
+    image: ghcr.io/get-convex/convex-backend:849a6fc605b5a910c9834b61a77c5475cc24d189
+    restart: unless-stopped
+    stop_grace_period: 10s
+    stop_signal: SIGINT
+    environment:
+      INSTANCE_NAME: convex-self-hosted
+      INSTANCE_SECRET: ${CONVEX_INSTANCE_SECRET:?run scripts/prod-local.sh}
+      POSTGRES_URL: postgres://queenix:${POSTGRES_PASSWORD}@postgres:5432
+      DO_NOT_REQUIRE_SSL: "1"
+      CONVEX_CLOUD_ORIGIN: ${PUBLIC_CONVEX_URL}
+      CONVEX_SITE_ORIGIN: ${PUBLIC_CONVEX_SITE_URL}
+    ports:
+      - "4210:3210"
+      - "4211:3211"
+    volumes:
+      - prod_convex:/convex/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: curl -f http://localhost:3210/version
+      interval: 5s
+      start_period: 10s
+      retries: 30
+
+  convex-deploy:
+    build:
+      context: .
+      dockerfile: deploy/convex/Dockerfile
+    restart: "no"
+    environment:
+      CONVEX_SELF_HOSTED_URL: http://convex-backend:3210
+      CONVEX_SELF_HOSTED_ADMIN_KEY: ${CONVEX_DEPLOY_KEY}
+      AUTH_BASE_URL: ${AUTH_BASE_URL}
+      APP_URL: ${AUTH_BASE_URL}
+    depends_on:
+      convex-backend:
+        condition: service_healthy
+
+  ocr:
+    build:
+      context: services/ocr
+    restart: unless-stopped
+    environment:
+      OCR_API_KEY: ${OCR_API_KEY}
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "8026:8025"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_CONVEX_URL: ${PUBLIC_CONVEX_URL}
+    restart: unless-stopped
+    environment:
+      AUTH_BASE_URL: ${AUTH_BASE_URL}
+      AUTH_SECRET: ${AUTH_SECRET}
+      AUTH_JWKS: ${AUTH_JWKS}
+      DATABASE_URL: postgres://queenix:${POSTGRES_PASSWORD}@postgres:5432/queenix_auth
+      QUEENIX_ADMIN_TOKEN: ${QUEENIX_ADMIN_TOKEN}
+      SCANNER_API_KEY: ${SCANNER_API_KEY}
+      CONVEX_SELF_HOSTED_URL: http://convex-backend:3210
+      NEXT_PUBLIC_CONVEX_URL: ${PUBLIC_CONVEX_URL}
+      CONVEX_DEPLOY_KEY: ${CONVEX_DEPLOY_KEY}
+      OCR_URL: http://ocr:8000
+      OCR_API_KEY: ${OCR_API_KEY}
+      SMTP_URL: smtp://mailpit:1025
+      EMAIL_FROM: Queenix Gym <no-reply@queenix.local>
+      SMS_PROVIDER: dev-inbox
+      ALLOW_DEV_SMS_INBOX: "1"
+      PAYMENTS_PROVIDER: ${PAYMENTS_PROVIDER:-mock}
+    ports:
+      - "4000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      convex-deploy:
+        condition: service_completed_successfully
+      ocr:
+        condition: service_started
+      mailpit:
+        condition: service_started
+
+  seed:
+    # Demo accounts + dataset — local testing only, never in production.
+    profiles: ["demo"]
+    image: node:24-bookworm-slim
+    restart: "no"
+    working_dir: /app
+    command: ["node", "scripts/seed-demo-users.mjs"]
+    volumes:
+      - ./scripts:/app/scripts:ro
+    environment:
+      # Public URL like any client: production only trusts its own origin.
+      AUTH_BASE_URL: ${AUTH_BASE_URL}
+      EXPO_PUBLIC_CONVEX_URL: http://convex-backend:3210
+      QUEENIX_ADMIN_TOKEN: ${QUEENIX_ADMIN_TOKEN}
+      CONVEX_DEPLOY_KEY: ${CONVEX_DEPLOY_KEY}
+    depends_on:
+      web:
+        condition: service_healthy
+
+volumes:
+  prod_pg:
+  prod_convex:

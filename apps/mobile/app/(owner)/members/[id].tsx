@@ -4,43 +4,24 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import {
   Screen,
   Header,
-  Text,
-  Card,
-  Avatar,
-  Button,
-  Badge,
   Chip,
-  Divider,
   Skeleton,
   EmptyState,
-  Input,
-  Sheet,
   useToast,
 } from '@queenix/ui';
 import { useConvexQuery, useConvexMutation } from '@/lib/convex';
 import { api } from '@queenix/convex';
-import { Section, KeyValue, Stat } from '@/components/member-detail/primitives';
+import { Stat } from '@/components/member-detail/primitives';
 import { formatCents } from '@/components/member-detail/format';
 import {
   OverviewTab,
   ActivityTab,
   MembershipTab,
+  PaymentsTab,
+  NotesTab,
 } from '@/components/member-detail/tabs';
-import {
-  MessageCircle,
-  Snowflake,
-  CreditCard,
-  Mail,
-  Phone,
-  Calendar,
-  AlertCircle,
-  Car,
-  Activity,
-  TrendingUp,
-  CalendarCheck,
-  Dumbbell,
-  FileText,
-} from '@tamagui/lucide-icons';
+import { FreezeSheet } from '@/components/member-detail/FreezeSheet';
+import { MemberProfileCard } from '@/components/member-detail/ProfileCard';
 import { Linking } from 'react-native';
 
 type Tab = 'overview' | 'activity' | 'membership' | 'payments' | 'notes';
@@ -124,6 +105,47 @@ export default function OwnerMemberDetail() {
       })
     : 'Never';
 
+  const onWhatsApp = () => {
+    const digits = (member.phone ?? '').replace(/\D/g, '');
+    if (!digits) {
+      toast.show('No phone number on file', 'warning');
+      return;
+    }
+    Linking.openURL(`https://wa.me/${digits}?text=${encodeURIComponent(`Hi ${fullName}! This is Queenix Gym — how can we help?`)}`);
+  };
+
+  const onUnfreeze = async () => {
+    if (!activeMembership) return;
+    try {
+      await unfreezeMembership({ membershipId: activeMembership._id as any });
+      toast.show('Membership reactivated', 'success');
+    } catch (err: any) {
+      toast.show(err?.data?.message ?? err?.message ?? 'Could not unfreeze', 'error');
+    }
+  };
+
+  const onConfirmFreeze = async () => {
+    const days = Math.round(Number(freezeDays));
+    if (!activeMembership || !Number.isFinite(days) || days <= 0) {
+      toast.show('Enter a positive number of days', 'warning');
+      return;
+    }
+    setFreezeBusy(true);
+    try {
+      await freezeMembership({
+        membershipId: activeMembership._id as any,
+        days,
+        reason: freezeReason.trim() || undefined,
+      });
+      toast.show(`Frozen for ${days} days`, 'success');
+      setFreezeOpen(false);
+    } catch (err: any) {
+      toast.show(err?.data?.message ?? err?.message ?? 'Could not freeze', 'error');
+    } finally {
+      setFreezeBusy(false);
+    }
+  };
+
   return (
     <Screen padded={false}>
       <Header
@@ -135,77 +157,14 @@ export default function OwnerMemberDetail() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
         {/* Profile header */}
         <YStack paddingHorizontal="$4" paddingTop="$3">
-          <Card variant="elevated" padding="lg">
-            <XStack gap="$3" alignItems="flex-start">
-              <Avatar name={fullName} size="xl" />
-              <YStack flex={1} gap="$1.5">
-                <Text variant="h2" numberOfLines={1}>
-                  {fullName}
-                </Text>
-                <XStack gap="$2" flexWrap="wrap">
-                  {activeMembership ? (
-                    <Badge label={activeMembership.status} variant="success" />
-                  ) : (
-                    <Badge label="No membership" variant="warning" />
-                  )}
-                </XStack>
-                <Text variant="caption" color="muted">
-                  Member since{' '}
-                  {new Date(member.createdAt).toLocaleDateString('en-GB', {
-                    month: 'short',
-                    year: 'numeric',
-                  })}
-                </Text>
-              </YStack>
-            </XStack>
-            <XStack gap="$2" marginTop="$3">
-              <Button
-                label="WhatsApp"
-                variant="primary"
-                size="sm"
-                icon={<MessageCircle size={16} color="$textOnBrand" />}
-                onPress={() => {
-                  const digits = (member.phone ?? '').replace(/\D/g, '');
-                  if (!digits) {
-                    toast.show('No phone number on file', 'warning');
-                    return;
-                  }
-                  Linking.openURL(`https://wa.me/${digits}?text=${encodeURIComponent(`Hi ${fullName}! This is Queenix Gym — how can we help?`)}`);
-                }}
-                accessibilityLabel="Message member on WhatsApp"
-                flex={1}
-              />
-              {activeMembership?.status === 'frozen' ? (
-                <Button
-                  label="Unfreeze"
-                  variant="outline"
-                  size="sm"
-                  icon={<Snowflake size={16} color="$brand" />}
-                  onPress={async () => {
-                    try {
-                      await unfreezeMembership({ membershipId: activeMembership._id as any });
-                      toast.show('Membership reactivated', 'success');
-                    } catch (err: any) {
-                      toast.show(err?.data?.message ?? err?.message ?? 'Could not unfreeze', 'error');
-                    }
-                  }}
-                  accessibilityLabel="Unfreeze membership"
-                  flex={1}
-                />
-              ) : (
-                <Button
-                  label="Freeze"
-                  variant="outline"
-                  size="sm"
-                  icon={<Snowflake size={16} color="$brand" />}
-                  onPress={() => setFreezeOpen(true)}
-                  accessibilityLabel="Freeze membership"
-                  disabled={!activeMembership}
-                  flex={1}
-                />
-              )}
-            </XStack>
-          </Card>
+          <MemberProfileCard
+            fullName={fullName}
+            createdAt={member.createdAt}
+            activeMembership={activeMembership}
+            onWhatsApp={onWhatsApp}
+            onUnfreeze={onUnfreeze}
+            onFreeze={() => setFreezeOpen(true)}
+          />
         </YStack>
 
         {/* Quick stats */}
@@ -243,166 +202,22 @@ export default function OwnerMemberDetail() {
           <MembershipTab memberships={memberships} />
         )}
 
-        {tab === 'payments' && (
-          <YStack paddingHorizontal="$4" gap="$2">
-            <Text variant="h4">Recent payments</Text>
-            {payments.length === 0 ? (
-              <EmptyState
-                icon={<CreditCard size={32} color="$textMuted" />}
-                title="No payments yet"
-                message="Payment history will appear here."
-              />
-            ) : (
-              payments.map((p: any) => (
-                <Card key={p._id} variant="outlined" padding="sm">
-                  <XStack alignItems="center" gap="$3">
-                    <YStack
-                      backgroundColor={
-                        p.status === 'succeeded'
-                          ? '$success50'
-                          : p.status === 'refunded'
-                            ? '$info50'
-                            : p.status === 'failed'
-                              ? '$danger50'
-                              : '$warning50'
-                      }
-                      padding="$2.5"
-                      borderRadius="$md"
-                    >
-                      <CreditCard
-                        size={18}
-                        color={
-                          p.status === 'succeeded'
-                            ? '$success500'
-                            : p.status === 'refunded'
-                              ? '$info500'
-                              : p.status === 'failed'
-                                ? '$danger500'
-                                : '$warning500'
-                        }
-                      />
-                    </YStack>
-                    <YStack flex={1}>
-                      <Text variant="bodySmall" weight="600">
-                        {p.description ?? p.type}
-                      </Text>
-                      <Text variant="caption" color="muted">
-                        {new Date(p.createdAt).toLocaleDateString('en-GB', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric',
-                        })}
-                      </Text>
-                    </YStack>
-                    <YStack alignItems="flex-end">
-                      <Text
-                        variant="label"
-                        color={p.status === 'refunded' ? 'muted' : 'primary'}
-                      >
-                        {formatCents(p.amountCents, p.currency)}
-                      </Text>
-                      <Badge
-                        label={p.status}
-                        variant={
-                          p.status === 'succeeded'
-                            ? 'success'
-                            : p.status === 'refunded'
-                              ? 'info'
-                              : p.status === 'failed'
-                                ? 'danger'
-                                : 'warning'
-                        }
-                        size="sm"
-                      />
-                    </YStack>
-                  </XStack>
-                </Card>
-              ))
-            )}
-          </YStack>
-        )}
+        {tab === 'payments' && <PaymentsTab payments={payments} />}
 
-        {tab === 'notes' && (
-          <YStack paddingHorizontal="$4" gap="$2">
-            {notes.length === 0 ? (
-              <EmptyState
-                icon={<FileText size={32} color="$textMuted" />}
-                title="No notes"
-                message="No trainer notes for this member yet."
-              />
-            ) : (
-              notes.map((n: any) => (
-                <Card key={n._id} variant="outlined" padding="sm">
-                  <XStack alignItems="flex-start" gap="$2">
-                    <FileText size={16} color="$textMuted" />
-                    <YStack flex={1} gap="$0.5">
-                      <Text variant="caption" color="muted">
-                        {new Date(n.createdAt).toLocaleDateString('en-GB', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric',
-                        })}
-                      </Text>
-                      <Text variant="bodySmall" color="secondary">
-                        {n.note}
-                      </Text>
-                    </YStack>
-                  </XStack>
-                </Card>
-              ))
-            )}
-            <Text variant="caption" color="muted" align="center">
-              Notes are written by trainers and shown here read-only.
-            </Text>
-          </YStack>
-        )}
+        {tab === 'notes' && <NotesTab notes={notes} />}
       </ScrollView>
 
-      <Sheet open={freezeOpen} onOpenChange={setFreezeOpen} snapPoints={[60]}>
-        <YStack gap="$3" flex={1}>
-          <Text variant="h3">Freeze membership</Text>
-          <Text variant="caption" color="muted">
-            {activeMembership ? `Freezing the ${activeMembership.status} membership.` : 'No active membership.'}
-          </Text>
-          <YStack gap="$1">
-            <Text variant="label">Days</Text>
-            <Input value={freezeDays} onChangeText={setFreezeDays} placeholder="30" accessibilityLabel="Freeze days" />
-          </YStack>
-          <YStack gap="$1">
-            <Text variant="label">Reason (optional)</Text>
-            <Input value={freezeReason} onChangeText={setFreezeReason} placeholder="e.g. travel" accessibilityLabel="Freeze reason" />
-          </YStack>
-          <Button
-            label={freezeBusy ? 'Freezing…' : 'Confirm freeze'}
-            onPress={async () => {
-              const days = Math.round(Number(freezeDays));
-              if (!activeMembership || !Number.isFinite(days) || days <= 0) {
-                toast.show('Enter a positive number of days', 'warning');
-                return;
-              }
-              setFreezeBusy(true);
-              try {
-                await freezeMembership({
-                  membershipId: activeMembership._id as any,
-                  days,
-                  reason: freezeReason.trim() || undefined,
-                });
-                toast.show(`Frozen for ${days} days`, 'success');
-                setFreezeOpen(false);
-              } catch (err: any) {
-                toast.show(err?.data?.message ?? err?.message ?? 'Could not freeze', 'error');
-              } finally {
-                setFreezeBusy(false);
-              }
-            }}
-            variant="primary"
-            size="lg"
-            fullWidth
-            disabled={freezeBusy}
-          />
-          <YStack flex={1} />
-        </YStack>
-      </Sheet>
+      <FreezeSheet
+        open={freezeOpen}
+        onOpenChange={setFreezeOpen}
+        activeMembership={activeMembership}
+        days={freezeDays}
+        setDays={setFreezeDays}
+        reason={freezeReason}
+        setReason={setFreezeReason}
+        busy={freezeBusy}
+        onConfirm={onConfirmFreeze}
+      />
     </Screen>
   );
 }

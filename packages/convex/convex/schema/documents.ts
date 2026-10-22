@@ -33,6 +33,10 @@ export const signatures = defineTable({
     ipAddress: v.optional(v.string()),
     userAgent: v.optional(v.string()),
     signatureData: v.string(),
+    // Signed paper form scanned by staff (mutations/scans.ts attachPaperForm).
+    paperScanStorageId: v.optional(v.id('_storage')),
+    paperText: v.optional(v.string()),
+    uploadedBy: v.optional(v.id('users')),
   })
     .index('by_user', ['userId'])
     .index('by_template', ['templateId'])

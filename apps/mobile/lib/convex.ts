@@ -3,13 +3,11 @@
  * Use this for typed access to Convex functions from React Native.
  */
 
-import { useQuery, useMutation, useAction } from 'convex/react';
-import { api } from '@queenix/convex';
+import { useQuery, useMutation } from 'convex/react';
 import type { FunctionReference } from 'convex/server';
 
 // Re-export for convenience
 export { api } from '@queenix/convex';
-export { useQuery, useMutation, useAction } from 'convex/react';
 
 /**
  * Type-safe query hook wrapper.

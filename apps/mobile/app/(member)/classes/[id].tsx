@@ -4,43 +4,34 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Screen,
   Text,
-  Card,
-  Avatar,
   Button,
   Badge,
-  Progress,
   Skeleton,
   ErrorState,
-  EmptyState,
   useToast,
 } from '@queenix/ui';
 import {
   ArrowLeft,
-  Calendar,
-  Clock,
   Heart,
   Flame,
   Dumbbell,
   Zap,
   Sparkles,
-  MapPin,
-  Award,
   CheckCircle2,
-} from '@tamagui/lucide-icons';
+} from '@tamagui/lucide-icons-2';
 import { useConvexQuery, useConvexMutation } from '@/lib/convex';
 import { api } from '@queenix/convex';
+import { categoryFromString, levelFromString, makeIdempotencyKey } from '@/components/class-detail/format';
 import {
-  categoryFromString,
-  levelFromString,
-  formatDay,
-  formatHour,
-  makeIdempotencyKey,
-} from '@/components/class-detail/format';
+  ClassHero,
+  QuickInfoCard,
+  CapacityCard,
+  TrainerSection,
+  type CategoryIcon,
+} from '@/components/class-detail/Sections';
 
 type ClassCategory = 'HIIT' | 'Yoga' | 'Strength' | 'Cardio' | 'Pilates';
 type Level = 'Beginner' | 'Intermediate' | 'Advanced';
-
-type CategoryIcon = React.ComponentType<{ size?: number | string; color?: string }>;
 
 function categoryStyle(category: ClassCategory): { hue: string; iconColor: string; Icon: CategoryIcon } {
   switch (category) {
@@ -57,7 +48,6 @@ function categoryStyle(category: ClassCategory): { hue: string; iconColor: strin
       return { hue: '$brand50', iconColor: '$brand', Icon: Heart };
   }
 }
-
 
 export default function ClassDetailScreen() {
   const router = useRouter();
@@ -147,33 +137,15 @@ export default function ClassDetailScreen() {
     <Screen scroll padded={false}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
         {/* Hero */}
-        <YStack
-          height={240}
-          backgroundColor={hue as any}
-          alignItems="center"
-          justifyContent="center"
-          paddingTop="$6"
-        >
-          <YStack
-            backgroundColor="$surface"
-            padding="$4"
-            borderRadius="$xl"
-            marginBottom="$3"
-            borderWidth={1}
-            borderColor="$borderColor"
-          >
-            <Icon size={48} color={iconColor as any} />
-          </YStack>
-          <Badge label={cat} variant="brand" />
-        </YStack>
+        <ClassHero hue={hue} iconColor={iconColor} Icon={Icon} cat={cat} />
 
         {/* Back / Title */}
         <YStack paddingHorizontal="$4" marginTop="$4" gap="$2">
           <XStack alignItems="center" gap="$2">
             <YStack
               onPress={() => router.back()}
-              accessibilityRole="button"
-              accessibilityLabel="Go back"
+              role="button"
+              aria-label="Go back"
               pressStyle={{ opacity: 0.7 }}
               padding="$2"
               borderRadius="$full"
@@ -190,53 +162,19 @@ export default function ClassDetailScreen() {
         </YStack>
 
         {/* Quick info row */}
-        <YStack paddingHorizontal="$4" marginTop="$4">
-          <Card variant="outlined" padding="md">
-            <XStack gap="$3" flexWrap="wrap">
-              <InfoItem
-                icon={<Calendar size={18} color="$brand" />}
-                label={formatDay(cls.startsAt)}
-                sub={formatHour(cls.startsAt)}
-              />
-              <InfoItem
-                icon={<Clock size={18} color="$brand" />}
-                label={`${cls.classType?.durationMinutes ?? 60} min`}
-                sub="Duration"
-              />
-              <InfoItem
-                icon={<MapPin size={18} color="$brand" />}
-                label={cls.roomId ?? 'Studio'}
-                sub="Location"
-              />
-            </XStack>
-          </Card>
-        </YStack>
+        <QuickInfoCard
+          startsAt={cls.startsAt}
+          durationMinutes={cls.classType?.durationMinutes}
+          roomId={cls.roomId}
+        />
 
         {/* Capacity */}
-        <YStack paddingHorizontal="$4" marginTop="$3">
-          <Card variant="outlined" padding="md">
-            <XStack justifyContent="space-between" alignItems="center" marginBottom="$2">
-              <YStack>
-                <Text variant="label">Capacity</Text>
-                <Text variant="caption" color="muted">
-                  {cls.bookedCount} of {cls.capacity} booked
-                </Text>
-              </YStack>
-              <Text
-                variant="caption"
-                weight="600"
-                color={isFull ? 'danger' : fillPct > 80 ? 'warning' : 'success'}
-              >
-                {isFull ? 'Full' : `${cls.capacity - cls.bookedCount} spots left`}
-              </Text>
-            </XStack>
-            <Progress
-              value={fillPct}
-              size="md"
-              color={isFull ? '$danger' : fillPct > 80 ? '$warning' : '$brand'}
-            />
-          </Card>
-        </YStack>
+        <CapacityCard
+          bookedCount={cls.bookedCount}
+          capacity={cls.capacity}
+          fillPct={fillPct}
+          isFull={isFull}
+        />
 
         {/* About */}
         {cls.classType?.description && (
@@ -249,42 +187,7 @@ export default function ClassDetailScreen() {
         )}
 
         {/* Trainer */}
-        {trainerName && (
-          <YStack paddingHorizontal="$4" marginTop="$4" gap="$3">
-            <Text variant="h3">About the trainer</Text>
-            <Card
-              variant="outlined"
-              padding="md"
-              onPress={() => router.push('/(member)/trainers')}
-              accessibilityLabel={`View ${trainerName} profile`}
-            >
-              <XStack gap="$3" alignItems="flex-start">
-                <Avatar name={trainerName} size="lg" />
-                <YStack flex={1} gap="$1">
-                  <XStack alignItems="center" justifyContent="space-between" gap="$2">
-                    <Text variant="h4">{trainerName}</Text>
-                    <XStack alignItems="center" gap="$1">
-                      <Award size={14} color="$brand" />
-                      <Text variant="caption" color="brand" weight="600">
-                        Coach
-                      </Text>
-                    </XStack>
-                  </XStack>
-                  <Text variant="caption" color="muted">Certified instructor</Text>
-                </YStack>
-              </XStack>
-            </Card>
-          </YStack>
-        )}
-
-        {!trainerName && (
-          <YStack paddingHorizontal="$4" marginTop="$4">
-            <EmptyState
-              title="Trainer TBA"
-              message="Your coach for this session will be announced soon."
-            />
-          </YStack>
-        )}
+        <TrainerSection trainerName={trainerName} onPress={() => router.push('/(member)/trainers')} />
       </ScrollView>
 
       {/* Sticky CTA */}
@@ -326,31 +229,5 @@ export default function ClassDetailScreen() {
         />
       </YStack>
     </Screen>
-  );
-}
-
-function InfoItem({
-  icon,
-  label,
-  sub,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  sub: string;
-}) {
-  return (
-    <XStack flex={1} minWidth={88} alignItems="center" gap="$2">
-      <YStack backgroundColor="$brand50" padding="$2" borderRadius="$md">
-        {icon}
-      </YStack>
-      <YStack flex={1}>
-        <Text variant="label" numberOfLines={1}>
-          {label}
-        </Text>
-        <Text variant="caption" color="muted">
-          {sub}
-        </Text>
-      </YStack>
-    </XStack>
   );
 }

@@ -1,6 +1,6 @@
 import React, { forwardRef } from 'react';
 import { Input as TamaguiInput, View, XStack, YStack, Label, Text } from 'tamagui';
-import { Eye, EyeOff } from '@tamagui/lucide-icons';
+import { Eye, EyeOff } from '@tamagui/lucide-icons-2';
 
 type TamaguiInputProps = React.ComponentProps<typeof TamaguiInput>;
 
@@ -62,7 +62,9 @@ export const Input = forwardRef<React.ElementRef<typeof TamaguiInput>, InputProp
           fontSize={fontSizeMap[size]}
           color="$textPrimary"
           placeholderTextColor="$placeholderColor"
-          secureTextEntry={isSecure}
+          // Tamagui 2: `type` works on web AND native (secureTextEntry is native-only now).
+          {...(isPassword ? { type: isSecure ? 'password' : 'text' } : {})}
+          aria-label={label}
           autoCapitalize={isPassword ? 'none' : props.autoCapitalize}
           autoCorrect={isPassword ? false : props.autoCorrect}
           {...props}
@@ -70,8 +72,8 @@ export const Input = forwardRef<React.ElementRef<typeof TamaguiInput>, InputProp
         {isPassword && (
           <View
             onPress={() => setShowPassword((s) => !s)}
-            accessibilityRole="button"
-            accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+            role="button"
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
           >
             {showPassword ? <EyeOff size={20} color="$textSecondary" /> : <Eye size={20} color="$textSecondary" />}
           </View>

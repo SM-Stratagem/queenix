@@ -15,25 +15,25 @@
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
-    "lint": "npm run lint --workspaces --if-present",
-    "db:migrate": "AUTH_DB_PATH=apps/web/.data/queenix-auth-testing.db better-auth migrate --config packages/auth/src/server.ts -y",
     "seed": "node scripts/seed-demo-users.mjs",
     "compose:up": "docker compose up -d",
     "compose:down": "docker compose down",
     "compose:logs": "docker compose logs -f",
-    "postinstall": "node scripts/init-env.mjs && node scripts/patch-tamagui-react19.mjs",
+    "postinstall": "node scripts/init-env.mjs",
     "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules .expo .turbo .data/*.db* *.tsbuildinfo"
   },
   "devDependencies": {
-    "@better-auth/cli": "1.4.21",
-    "@types/node": "^22.10.5",
-    "@vitest/coverage-v8": "5.0.0",
-    "concurrently": "^9.1.0",
-    "typescript": "^5.7.2",
-    "vitest": "4.1.11"
+    "@types/node": "^24.0.0",
+    "@vitest/coverage-v8": "5.0.2",
+    "concurrently": "^10.0.5",
+    "railway": "^3.12.0",
+    "typescript": "~6.0.3",
+    "vite": "^8.3.1",
+    "vitest": "5.0.2",
+    "zod": "^4.6.5"
   },
   "engines": {
-    "node": ">=20.0.0",
+    "node": ">=24.0.0",
     "npm": ">=10.0.0"
   }
 }

@@ -12,30 +12,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { verifyStripeWebhook } from '@queenix/payments';
+import { convexAdmin } from '@queenix/auth/convex-admin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-async function callConvexMutation(path: string, args: Record<string, unknown>) {
-  const siteUrl = process.env.CONVEX_SITE_URL;
-  const deployKey = process.env.CONVEX_DEPLOY_KEY;
-  if (!siteUrl || !deployKey) {
-    throw new Error('CONVEX_SITE_URL and CONVEX_DEPLOY_KEY must be set');
-  }
-  const res = await fetch(`${siteUrl}/api/mutation`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Convex ${deployKey}`,
-    },
-    body: JSON.stringify({ path, args }),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Convex ${path} failed: ${res.status} ${text}`);
-  }
-  return res.json();
-}
 
 export async function POST(req: NextRequest) {
   const signature = req.headers.get('stripe-signature');
@@ -62,7 +42,7 @@ export async function POST(req: NextRequest) {
     switch (event.type) {
       case 'payment_intent.succeeded': {
         const pi = event.data.object as Stripe.PaymentIntent;
-        await callConvexMutation('mutations/payments:recordPaymentSuccess', {
+        await convexAdmin('mutation', 'mutations/payments:recordPaymentSuccess', {
           stripePaymentIntentId: pi.id,
           amountCents: pi.amount,
           currency: pi.currency.toUpperCase(),
@@ -75,7 +55,7 @@ export async function POST(req: NextRequest) {
       }
       case 'payment_intent.payment_failed': {
         const pi = event.data.object as Stripe.PaymentIntent;
-        await callConvexMutation('mutations/payments:recordPaymentFailure', {
+        await convexAdmin('mutation', 'mutations/payments:recordPaymentFailure', {
           stripePaymentIntentId: pi.id,
           failureReason: pi.last_payment_error?.message ?? 'Unknown error',
         });
@@ -84,10 +64,11 @@ export async function POST(req: NextRequest) {
       case 'charge.refunded': {
         const charge = event.data.object as Stripe.Charge;
         if (charge.payment_intent) {
-          await callConvexMutation('mutations/payments:recordRefund', {
+          await convexAdmin('mutation', 'mutations/payments:recordRefund', {
             stripePaymentIntentId: charge.payment_intent as string,
             amountCents: charge.amount_refunded,
-            reason: (charge as any).reason ?? undefined,
+            // The reason lives on the Refund, not the Charge (present when Stripe includes the refunds list).
+            reason: charge.refunds?.data[0]?.reason ?? undefined,
           });
         }
         break;

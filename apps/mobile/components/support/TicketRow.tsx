@@ -1,9 +1,9 @@
 import React from "react"
 import { XStack, YStack } from "tamagui"
 import { Card, Text, Avatar, Badge } from "@queenix/ui"
-import { ChevronRight, Clock, Ticket as TicketIcon } from "@tamagui/lucide-icons"
+import { ChevronRight, Clock, Ticket as TicketIcon } from "@tamagui/lucide-icons-2"
 
-export type Priority = "low" | "medium" | "high" | "critical"
+type Priority = "low" | "medium" | "high" | "critical"
 
 export type Ticket = {
   id?: string
@@ -36,7 +36,7 @@ export function TicketRow({ ticket }: { ticket: Ticket }) {
     <Card
       variant="outlined"
       padding="sm"
-      accessibilityLabel={`Ticket ${ticket.ticketCode}, ${ticket.priority} priority, ${STATUS_LABEL[ticket.status]}`}
+      aria-label={`Ticket ${ticket.ticketCode}, ${ticket.priority} priority, ${STATUS_LABEL[ticket.status]}`}
     >
       <XStack alignItems="flex-start" gap="$3">
         <Avatar name={ticket.memberName} size="md" fallbackColor="$info" />

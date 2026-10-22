@@ -1,7 +1,7 @@
 import React from "react"
 import { YStack, XStack } from "tamagui"
 import { Card, Text, Badge, Button } from "@queenix/ui"
-import { Play, FileText } from "@tamagui/lucide-icons"
+import { Play, FileText } from "@tamagui/lucide-icons-2"
 import {
   formatTime,
   getStatusVariant,
@@ -56,8 +56,8 @@ export function QuickAction({
       gap="$2"
       onPress={onPress}
       pressStyle={{ opacity: 0.7, scale: 0.97 }}
-      accessibilityRole="button"
-      accessibilityLabel={label}
+      role="button"
+      aria-label={label}
     >
       <YStack
         backgroundColor="$brand"
@@ -111,7 +111,7 @@ export function SessionRow({
       variant="outlined"
       padding="sm"
       onPress={active ? onStart : onViewNotes}
-      accessibilityLabel={`PT with ${memberName} at ${startTime}, ${statusLabel}`}
+      aria-label={`PT with ${memberName} at ${startTime}, ${statusLabel}`}
     >
       <XStack alignItems="center" gap="$3">
         <YStack alignItems="center" width={56} gap="$0.5">
@@ -165,8 +165,8 @@ export function SessionRow({
             <XStack
               onPress={onViewNotes}
               pressStyle={{ opacity: 0.6 }}
-              accessibilityRole="button"
-              accessibilityLabel="View client detail"
+              role="button"
+              aria-label="View client detail"
               padding="$2"
             >
               <FileText size={20} color="$textMuted" />

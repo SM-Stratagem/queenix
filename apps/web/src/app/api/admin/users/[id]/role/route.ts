@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
-import Database from "better-sqlite3"
-import path from "node:path"
+import { auth, syncUserToConvex } from "@queenix/auth/server"
+import { safeEqual, secret } from "@queenix/auth/env"
 
 // Canonical roles plus the deprecated 'owner' alias (normalized to 'finance').
 const VALID_ROLES = [
@@ -24,17 +24,15 @@ const DEMO_TOKEN_HEADER = "x-queenix-admin-token"
 
 function isAdminAuthorized(req: Request): boolean {
   const token = req.headers.get(DEMO_TOKEN_HEADER) ?? ""
-  return token === (process.env.QUEENIX_ADMIN_TOKEN ?? "queenix-dev-admin-token")
+  return safeEqual(token ?? "", secret("QUEENIX_ADMIN_TOKEN", "queenix-dev-admin-token"))
 }
 
 /**
  * POST /api/admin/users/{id}/role
  * Body: { activeRole: Role, roles: Role[] }
- * Sets the role fields on a single demo user by writing directly to the
- * shared SQLite file. Bypasses BetterAuth's auth.api.updateUser (which
- * requires an admin session) — fine for the dev-only token check.
- *
- * For a real deploy, replace with an OIDC role-assignment endpoint.
+ * Sets the role fields on one user through BetterAuth's internal adapter
+ * (works on Postgres and SQLite; serializes the roles array correctly).
+ * Guarded by QUEENIX_ADMIN_TOKEN — a required, strong secret in production.
  */
 export async function POST(
   req: Request,
@@ -53,6 +51,11 @@ export async function POST(
 
   const activeRole: Role = body.activeRole
   const roles: Role[] = Array.isArray(body.roles) ? body.roles : []
+  // Optional: attach a verified phone (E.164) — used to seed SMS sign-in.
+  const phoneNumber: string | undefined = typeof body.phoneNumber === "string" ? body.phoneNumber : undefined
+  if (phoneNumber !== undefined && !/^\+[1-9]\d{7,14}$/.test(phoneNumber)) {
+    return NextResponse.json({ error: "phoneNumber must be E.164, e.g. +971501234567" }, { status: 400 })
+  }
 
   if (!VALID_ROLES.includes(activeRole) || roles.some((r) => !VALID_ROLES.includes(r))) {
     return NextResponse.json(
@@ -61,29 +64,19 @@ export async function POST(
     )
   }
 
-  const dbPath =
-    process.env.AUTH_DB_PATH ||
-    path.join(process.cwd(), "apps/web/.data/queenix-auth.db")
-
   try {
-    const db = new Database(dbPath)
-    db.pragma("journal_mode = WAL")
-    const result = db
-      .prepare(
-        `UPDATE "user"
-         SET "activeRole" = ?, "roles" = ?, "updatedAt" = ?
-         WHERE "id" = ?`
-      )
-      .run(
-        canonicalRole(activeRole),
-        JSON.stringify(roles.map(canonicalRole)),
-        Date.now(),
-        userId
-      )
-    db.close()
-    if (result.changes === 0) {
+    const ctx = await auth.$context
+    const existing = await ctx.internalAdapter.findUserById(userId)
+    if (!existing) {
       return NextResponse.json({ error: "user not found" }, { status: 404 })
     }
+    const updated = await ctx.internalAdapter.updateUser(userId, {
+      activeRole: canonicalRole(activeRole),
+      roles: roles.map(canonicalRole),
+      ...(phoneNumber ? { phoneNumber, phoneNumberVerified: true } : {}),
+    })
+    // Convex enforces roles too — push them now, not at the user's next login.
+    await syncUserToConvex({ ...existing, ...updated, roles: roles.map(canonicalRole) } as any)
     return NextResponse.json({
       ok: true,
       activeRole: canonicalRole(activeRole),

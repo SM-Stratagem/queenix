@@ -1,10 +1,11 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { useQuery } from 'convex/react';
+import { useConvexAuth, useQuery } from 'convex/react';
 import { api } from '@queenix/convex';
 import { Building2 } from 'lucide-react';
 import { QueryBoundary, EmptyState } from './QueryBoundary';
+import { canOpen, useSessionRoles } from '@/lib/access';
 
 const STORAGE_KEY = 'qx-branch-scope';
 const ALL = 'all';
@@ -15,7 +16,7 @@ const BranchContext = createContext<{ scope: string; setScope: (s: string) => vo
   setScope: () => {},
 });
 
-export function useBranch() {
+function useBranch() {
   return useContext(BranchContext);
 }
 
@@ -112,15 +113,18 @@ function SwitcherInner() {
 }
 
 export function BranchSwitcher() {
+  const fixed = (
+    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-muted)' }}>
+      <Building2 size={16} />
+      Main Branch — Queenix Gym
+    </label>
+  );
+  // staffDirectory is finance/operations-only (same set as /team); venue staff + trainers get the fixed label.
+  const roles = useSessionRoles();
+  const { isAuthenticated } = useConvexAuth();
+  if (!isAuthenticated || !canOpen(roles, '/team')) return fixed;
   return (
-    <QueryBoundary
-      fallback={
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-muted)' }}>
-          <Building2 size={16} />
-          Main Branch — Queenix Gym
-        </label>
-      }
-    >
+    <QueryBoundary fallback={fixed}>
       <SwitcherInner />
     </QueryBoundary>
   );

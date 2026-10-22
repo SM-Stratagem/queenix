@@ -10,6 +10,7 @@
 import React, { useEffect, useState } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '@queenix/convex';
+import { errMsg } from '@/lib/errors';
 
 type Venue = 'coffee' | 'salon';
 
@@ -69,7 +70,7 @@ export function VenueGatewayCard({ venue, title }: { venue: Venue; title: string
       await save({ venue, provider, currency, enabled });
       setMsg('Gateway saved.');
     } catch (e: any) {
-      setMsg(e?.data?.message ?? e?.message ?? 'Save failed.');
+      setMsg(errMsg(e, 'Save failed.'));
     }
   }
 
@@ -142,7 +143,7 @@ export function OrderPay({
       else await markSalonCash({ bookingId: orderId as any });
       setMsg('Marked cash paid.');
     } catch (e: any) {
-      setMsg(e?.data?.message ?? e?.message ?? 'Failed.');
+      setMsg(errMsg(e, 'Failed.'));
     } finally {
       setBusy(false);
     }

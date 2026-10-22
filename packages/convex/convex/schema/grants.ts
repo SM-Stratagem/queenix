@@ -23,7 +23,9 @@ const capabilityLiteral = v.union(
   v.literal('salon.serve'),
   v.literal('coffee.serve'),
   v.literal('training.coach'),
-  v.literal('member.self')
+  v.literal('member.self'),
+  v.literal('content.manage'),
+  v.literal('notifications.push')
 )
 
 export const capabilityGrants = defineTable({

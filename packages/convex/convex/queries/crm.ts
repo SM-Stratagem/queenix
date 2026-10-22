@@ -1,5 +1,6 @@
 /**
- * Queenix Gym — CRM queries (staff only: admin / superadmin / owner).
+ * Queenix Gym — CRM queries (admin / superadmin / owner + operations:
+ * front desk owns the pipeline — leads and tasks are assigned to ops).
  *
  * Requires new tables (see SCHEMA ADDS in delivery notes):
  *   crmLeads, crmInteractions, crmTasks
@@ -9,7 +10,7 @@ import { v } from 'convex/values';
 import { query } from '../_generated/server';
 import { requireRole } from '../_helpers';
 
-const STAFF_ROLES = ['admin', 'superadmin', 'owner'] as any;
+const STAFF_ROLES = ['admin', 'superadmin', 'owner', 'operations'] as any;
 
 const leadStage = v.union(
   v.literal('new'),

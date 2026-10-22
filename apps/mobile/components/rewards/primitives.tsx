@@ -1,7 +1,7 @@
 import React from "react"
 import { XStack, YStack } from "tamagui"
 import { Text, Badge } from "@queenix/ui"
-import { Award, Crown, Sparkles } from "@tamagui/lucide-icons"
+import { Award, Crown, Sparkles } from "@tamagui/lucide-icons-2"
 
 export function TabPill({
   label,
@@ -24,9 +24,9 @@ export function TabPill({
       backgroundColor={active ? "$surface" : "transparent"}
       onPress={onPress}
       pressStyle={{ opacity: 0.85 }}
-      accessibilityRole="tab"
-      accessibilityLabel={label}
-      accessibilityState={{ selected: active }}
+      role="tab"
+      aria-label={label}
+      aria-selected={active}
       shadowColor={active ? "$shadowColor" : "transparent"}
       shadowOffset={{ width: 0, height: 1 }}
       shadowOpacity={active ? 0.1 : 0}

@@ -92,9 +92,9 @@ export const Button: React.FC<ButtonProps> = ({
       disabled={isDisabled}
       onPress={onPress}
       testID={testID}
-      accessibilityLabel={accessibilityLabel || label}
-      accessibilityRole="button"
-      accessibilityState={{ disabled: isDisabled, busy: loading }}
+      aria-label={accessibilityLabel || label}
+      role="button"
+      aria-disabled={isDisabled} aria-busy={loading}
       flex={flex}
       marginTop={marginTop}
     >

@@ -1,7 +1,7 @@
 import React from "react"
 import { YStack, XStack } from "tamagui"
 import { Text, Card } from "@queenix/ui"
-import { Wifi, WifiOff, AlertTriangle } from "@tamagui/lucide-icons"
+import { Wifi, WifiOff, AlertTriangle } from "@tamagui/lucide-icons-2"
 
 export type ScannerStatus = "online" | "offline" | "unknown"
 
@@ -25,7 +25,7 @@ export function ScannerStatusBanner({ status }: { status: ScannerStatus }) {
         variant="outlined"
         padding="sm"
         backgroundColor={bg}
-        accessibilityLabel={`Hardware scanner ${status}`}
+        aria-label={`Hardware scanner ${status}`}
       >
         <XStack alignItems="center" gap="$2">
           {status === "online" ? (

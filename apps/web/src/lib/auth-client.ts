@@ -1,6 +1,7 @@
 'use client';
 
 import { createAuthClient } from 'better-auth/react';
+import { emailOTPClient } from 'better-auth/client/plugins';
 
 /**
  * Browser BetterAuth client for the web admin.
@@ -12,6 +13,7 @@ export const authClient = createAuthClient({
     typeof window !== 'undefined'
       ? window.location.origin
       : process.env.AUTH_BASE_URL || 'http://localhost:3000',
+  // Staff use email codes for password reset (phone sign-in is a member/mobile feature).
+  plugins: [emailOTPClient()],
 });
 
-export const { signIn, signUp, signOut, useSession } = authClient;

@@ -3,18 +3,7 @@
 import React from 'react';
 import { YStack, XStack, Text } from 'tamagui';
 import { formatAed } from './OverviewCards';
-
-export type StaffRole =
-  | 'superadmin'
-  | 'admin'
-  | 'finance'
-  /** @deprecated Renamed to 'finance'. */
-  | 'owner'
-  | 'operations'
-  | 'salon'
-  | 'coffee'
-  | 'trainer'
-  | 'member';
+import { btn } from './ui';
 
 export interface LedgerRow {
   _id: string;
@@ -40,9 +29,12 @@ const STATUS_COLORS: Record<string, string> = {
 export function TransactionsTable({
   rows,
   onExport,
+  onVoid,
 }: {
   rows: LedgerRow[];
   onExport: () => void;
+  /** Offered on pending/failed rows only (succeeded ones must be refunded). */
+  onVoid?: (row: LedgerRow) => void;
 }) {
   return (
     <YStack gap={12}>
@@ -92,6 +84,19 @@ export function TransactionsTable({
               <Text fontSize={14} fontWeight="700" minWidth={110} textAlign="right">
                 {formatAed(row.amountCents)}
               </Text>
+              {onVoid && (
+                <XStack width={64} justifyContent="flex-end">
+                  {(row.status === 'pending' || row.status === 'failed') && (
+                    <button
+                      onClick={() => onVoid(row)}
+                      aria-label={`Void ${row.description}${row.memberName ? ` for ${row.memberName}` : ''}`}
+                      style={{ ...btn.danger, padding: '4px 10px', fontSize: 12 }}
+                    >
+                      Void
+                    </button>
+                  )}
+                </XStack>
+              )}
             </XStack>
           ))}
         </YStack>

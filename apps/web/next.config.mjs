@@ -1,6 +1,17 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Dev-only: dev-up.sh serves the console on the LAN IP (phones, other laptops).
+  // Without this Next blocks its dev chunks there, the login page never hydrates
+  // and the form falls back to a native GET. Ignored by `next build`/`start`.
+  allowedDevOrigins: ['10.*.*.*', '192.168.*.*', '172.*.*.*', '*.local'],
+  // Production image runs `node apps/web/server.js` from a self-contained
+  // bundle (only the files the server actually uses, traced from the monorepo).
+  output: 'standalone',
+  outputFileTracingRoot: path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'),
   transpilePackages: [
     '@queenix/ui',
     '@queenix/theme',

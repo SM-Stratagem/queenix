@@ -4,8 +4,6 @@ import React, { useState } from 'react';
 import { useQuery } from 'convex/react';
 import { YStack, XStack, Text, Input } from 'tamagui';
 import { api } from '@queenix/convex';
-import { AdminShell } from '@/components/admin/AdminShell';
-import { RequireAuth } from '@/components/RequireAuth';
 import { downloadCsv } from '../../components/finance/CsvExport';
 
 const card: React.CSSProperties = {
@@ -66,153 +64,149 @@ export default function TrainersPage() {
   );
 
   return (
-    <RequireAuth>
-      <AdminShell>
-        <YStack gap={20} padding={24}>
-          <YStack gap={4}>
-            <Text fontSize={28} fontWeight="800">
-              Trainers
-            </Text>
-            <Text fontSize={13} opacity={0.6}>
-              Internal &amp; external coaches · clients · classes · inflows
-            </Text>
-          </YStack>
+    <YStack gap={20} padding={24}>
+      <YStack gap={4}>
+        <Text fontSize={28} fontWeight="800">
+          Trainers
+        </Text>
+        <Text fontSize={13} opacity={0.6}>
+          Internal &amp; external coaches · clients · classes · inflows
+        </Text>
+      </YStack>
 
-          <XStack gap={8} flexWrap="wrap" alignItems="center">
-            <Input
-              placeholder="Search trainers…"
-              value={search}
-              onChangeText={setSearch}
-              width={200}
-            />
-            <select
-              value={availability}
-              onChange={(e) => setAvailability(e.target.value as any)}
-              style={{ ...btnGhost }}
-            >
-              <option value="all">Any availability</option>
-              <option value="available">Available</option>
-              <option value="unavailable">Unavailable</option>
-            </select>
-            <select
-              value={employment}
-              onChange={(e) => setEmployment(e.target.value as any)}
-              style={{ ...btnGhost }}
-            >
-              <option value="all">Internal + external</option>
-              <option value="internal">Internal</option>
-              <option value="external">External</option>
-            </select>
-            {(dir ?? []).length > 0 && (
-              <button
-                onClick={() =>
-                  downloadCsv(
-                    'trainers',
-                    ((dir ?? []) as any[]).map((t: any) => ({
-                      name: t.user.fullName,
-                      email: t.user.email,
-                      employment: t.employment,
-                      available: t.trainerProfile ? (t.trainerProfile.isAvailable ? 'yes' : 'no') : '',
-                      clients: t.clientCount ?? 0,
-                      ptSessions: t.sessionCount ?? 0,
-                      upcomingClasses: t.upcomingClassCount ?? 0,
-                    }))
-                  )
-                }
-                style={{ ...btnGhost, fontWeight: 700, cursor: 'pointer' }}
+      <XStack gap={8} flexWrap="wrap" alignItems="center">
+        <Input
+          placeholder="Search trainers…"
+          value={search}
+          onChangeText={setSearch}
+          width={200}
+        />
+        <select
+          value={availability}
+          onChange={(e) => setAvailability(e.target.value as any)}
+          style={{ ...btnGhost }}
+        >
+          <option value="all">Any availability</option>
+          <option value="available">Available</option>
+          <option value="unavailable">Unavailable</option>
+        </select>
+        <select
+          value={employment}
+          onChange={(e) => setEmployment(e.target.value as any)}
+          style={{ ...btnGhost }}
+        >
+          <option value="all">Internal + external</option>
+          <option value="internal">Internal</option>
+          <option value="external">External</option>
+        </select>
+        {(dir ?? []).length > 0 && (
+          <button
+            onClick={() =>
+              downloadCsv(
+                'trainers',
+                ((dir ?? []) as any[]).map((t: any) => ({
+                  name: t.user.fullName,
+                  email: t.user.email,
+                  employment: t.employment,
+                  available: t.trainerProfile ? (t.trainerProfile.isAvailable ? 'yes' : 'no') : '',
+                  clients: t.clientCount ?? 0,
+                  ptSessions: t.sessionCount ?? 0,
+                  upcomingClasses: t.upcomingClassCount ?? 0,
+                }))
+              )
+            }
+            style={{ ...btnGhost, fontWeight: 700, cursor: 'pointer' }}
+          >
+            Export CSV
+          </button>
+        )}
+      </XStack>
+
+      {dir === undefined ? (
+        <Text opacity={0.6}>Loading trainers…</Text>
+      ) : dir.length === 0 ? (
+        <div style={card}>
+          <Text fontSize={14} fontWeight="700">
+            No trainers found
+          </Text>
+          <Text fontSize={13} opacity={0.6}>
+            No users hold the trainer role with these filters. Grant the trainer
+            role under Team → Roles &amp; permissions.
+          </Text>
+        </div>
+      ) : (
+        <XStack gap={16} flexWrap="wrap" alignItems="flex-start">
+          <div style={{ flex: 1, minWidth: 280, display: 'grid', gap: 10 }}>
+            {(dir as any[]).map((t) => (
+              <div
+                key={String(t.user._id)}
+                onClick={() => setSelectedId(String(t.user._id))}
+                style={{
+                  ...card,
+                  cursor: 'pointer',
+                  borderColor:
+                    selectedId === String(t.user._id) ? 'var(--brand)' : 'var(--border)',
+                }}
               >
-                Export CSV
-              </button>
+                <XStack gap={8} alignItems="center" justifyContent="space-between">
+                  <Text fontSize={15} fontWeight="700">
+                    {t.user.fullName}
+                  </Text>
+                  <XStack gap={6}>
+                    <span style={pill(t.employment === 'internal' ? 'blue' : 'gray')}>
+                      {t.employment}
+                    </span>
+                    {t.trainerProfile && (
+                      <span
+                        style={pill(t.trainerProfile.isAvailable ? 'green' : 'gray')}
+                      >
+                        {t.trainerProfile.isAvailable ? 'available' : 'unavailable'}
+                      </span>
+                    )}
+                  </XStack>
+                </XStack>
+                <Text fontSize={12} opacity={0.6}>
+                  {[t.title, t.trainerProfile?.specialties?.slice(0, 3).join(', ')]
+                    .filter(Boolean)
+                    .join(' · ') || t.user.email}
+                </Text>
+                <XStack gap={12} marginTop={6}>
+                  <Text fontSize={12} opacity={0.7}>
+                    {t.clientCount} clients
+                  </Text>
+                  <Text fontSize={12} opacity={0.7}>
+                    {t.sessionCount} PT sessions
+                  </Text>
+                  <Text fontSize={12} opacity={0.7}>
+                    {t.upcomingClassCount} upcoming classes
+                  </Text>
+                </XStack>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ flex: 1, minWidth: 300 }}>
+            {!selectedId ? (
+              <div style={card}>
+                <Text fontSize={13} opacity={0.6}>
+                  Select a trainer to see clients, classes and inflows.
+                </Text>
+              </div>
+            ) : detail === undefined ? (
+              <Text opacity={0.6}>Loading detail…</Text>
+            ) : !detail ? (
+              <div style={card}>
+                <Text fontSize={13} opacity={0.6}>
+                  Trainer not found.
+                </Text>
+              </div>
+            ) : (
+              <TrainerDetail d={detail as any} />
             )}
-          </XStack>
-
-          {dir === undefined ? (
-            <Text opacity={0.6}>Loading trainers…</Text>
-          ) : dir.length === 0 ? (
-            <div style={card}>
-              <Text fontSize={14} fontWeight="700">
-                No trainers found
-              </Text>
-              <Text fontSize={13} opacity={0.6}>
-                No users hold the trainer role with these filters. Grant the trainer
-                role under Team → Roles &amp; permissions.
-              </Text>
-            </div>
-          ) : (
-            <XStack gap={16} flexWrap="wrap" alignItems="flex-start">
-              <div style={{ flex: 1, minWidth: 280, display: 'grid', gap: 10 }}>
-                {(dir as any[]).map((t) => (
-                  <div
-                    key={String(t.user._id)}
-                    onClick={() => setSelectedId(String(t.user._id))}
-                    style={{
-                      ...card,
-                      cursor: 'pointer',
-                      borderColor:
-                        selectedId === String(t.user._id) ? 'var(--brand)' : 'var(--border)',
-                    }}
-                  >
-                    <XStack gap={8} alignItems="center" justifyContent="space-between">
-                      <Text fontSize={15} fontWeight="700">
-                        {t.user.fullName}
-                      </Text>
-                      <XStack gap={6}>
-                        <span style={pill(t.employment === 'internal' ? 'blue' : 'gray')}>
-                          {t.employment}
-                        </span>
-                        {t.trainerProfile && (
-                          <span
-                            style={pill(t.trainerProfile.isAvailable ? 'green' : 'gray')}
-                          >
-                            {t.trainerProfile.isAvailable ? 'available' : 'unavailable'}
-                          </span>
-                        )}
-                      </XStack>
-                    </XStack>
-                    <Text fontSize={12} opacity={0.6}>
-                      {[t.title, t.trainerProfile?.specialties?.slice(0, 3).join(', ')]
-                        .filter(Boolean)
-                        .join(' · ') || t.user.email}
-                    </Text>
-                    <XStack gap={12} marginTop={6}>
-                      <Text fontSize={12} opacity={0.7}>
-                        {t.clientCount} clients
-                      </Text>
-                      <Text fontSize={12} opacity={0.7}>
-                        {t.sessionCount} PT sessions
-                      </Text>
-                      <Text fontSize={12} opacity={0.7}>
-                        {t.upcomingClassCount} upcoming classes
-                      </Text>
-                    </XStack>
-                  </div>
-                ))}
-              </div>
-
-              <div style={{ flex: 1, minWidth: 300 }}>
-                {!selectedId ? (
-                  <div style={card}>
-                    <Text fontSize={13} opacity={0.6}>
-                      Select a trainer to see clients, classes and inflows.
-                    </Text>
-                  </div>
-                ) : detail === undefined ? (
-                  <Text opacity={0.6}>Loading detail…</Text>
-                ) : !detail ? (
-                  <div style={card}>
-                    <Text fontSize={13} opacity={0.6}>
-                      Trainer not found.
-                    </Text>
-                  </div>
-                ) : (
-                  <TrainerDetail d={detail as any} />
-                )}
-              </div>
-            </XStack>
-          )}
-        </YStack>
-      </AdminShell>
-    </RequireAuth>
+          </div>
+        </XStack>
+      )}
+    </YStack>
   );
 }
 

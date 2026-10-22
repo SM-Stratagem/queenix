@@ -17,7 +17,7 @@ import {
 } from '@queenix/ui';
 import { useConvexQuery } from '@/lib/convex';
 import { api } from '@queenix/convex';
-import { Search, ChevronRight, Users } from '@tamagui/lucide-icons';
+import { Search, ChevronRight, Users } from '@tamagui/lucide-icons-2';
 
 type ClientStatus = 'active' | 'new' | 'attention';
 
@@ -147,7 +147,7 @@ export default function TrainerClients() {
           value={search}
           onChangeText={setSearch}
           leftIcon={<Search size={18} color="$textMuted" />}
-          accessibilityLabel="Search clients"
+          aria-label="Search clients"
         />
       </YStack>
 

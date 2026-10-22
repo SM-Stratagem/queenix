@@ -4,19 +4,23 @@
  * Persists to the EXISTING `notifications` table (one row per recipient with
  * `data.broadcast == true` + a `batchId`) and appends one row to the
  * EXISTING `auditEvents` table per send, so the mobile app can consume
- * broadcasts through its normal notifications feed later. No push provider
- * is called here — delivery beyond the in-app feed is out of scope.
+ * broadcasts through its normal notifications feed. With `push: true`
+ * (requires the `notifications.push` capability) `sendBroadcastNotification`
+ * also schedules `internal.push.sendToUsers` to deliver to phones via Expo.
  *
  * Fan-out is capped at 500 recipients per call; the caller pages with
- * `offset` for larger audiences. Returns `{ sent, batchId, capped }`.
+ * `offset` for larger audiences. Returns `{ sent, batchId, capped }`
+ * (+ `pushQueued` for broadcast sends).
  *
  * Role contract: 'superadmin' | 'admin' | 'owner' | 'operations'.
  */
 
 import { ConvexError, v } from 'convex/values';
 
+import { internal } from '../_generated/api';
 import { mutation } from '../_generated/server';
 import { requireRole } from '../_helpers';
+import { requireCapability } from '../permissions';
 
 const STAFF = ['superadmin', 'admin', 'owner', 'operations'] as any;
 
@@ -57,8 +61,11 @@ export const sendBroadcastNotification = mutation({
     type: v.optional(notificationType),
     audience: v.optional(audienceArg),
     offset: v.optional(v.number()),
+    /** Also deliver to recipients' phones (Expo Push). Needs `notifications.push`. */
+    push: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    if (args.push) await requireCapability(ctx, 'notifications.push');
     const actor = await requireRole(ctx as any, STAFF);
     if (!args.title.trim()) throw new ConvexError('title is required');
     if (!args.body.trim()) throw new ConvexError('body is required');
@@ -90,10 +97,22 @@ export const sendBroadcastNotification = mutation({
         audience,
         offset,
         sent: recipients.length,
+        push: !!args.push,
       },
       timestamp: now,
     });
-    return { sent: recipients.length, batchId, capped };
+    const pushQueued = args.push ? recipients.length : 0;
+    if (pushQueued) {
+      await ctx.scheduler.runAfter(0, internal.push.sendToUsers, {
+        actorId: actor._id,
+        userIds: recipients.map((u: any) => u._id),
+        title: args.title.trim(),
+        body: args.body.trim(),
+        type: args.type ?? 'system',
+        batchId,
+      });
+    }
+    return { sent: recipients.length, batchId, capped, pushQueued };
   },
 });
 

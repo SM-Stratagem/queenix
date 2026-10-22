@@ -7,6 +7,7 @@
 
 import { createAuthClient } from 'better-auth/react';
 import { expoClient } from '@better-auth/expo/client';
+import { emailOTPClient, phoneNumberClient } from 'better-auth/client/plugins';
 import * as SecureStore from 'expo-secure-store';
 
 export type { Role } from './roles';
@@ -38,17 +39,20 @@ export const isOperations = (userRoles: import('./roles').Role[]): boolean =>
 export const isMember = (userRoles: import('./roles').Role[]): boolean =>
   _hasRole(userRoles, 'member');
 
+/** Web app origin serving /api/auth/* and /api/convex/token. */
+export const AUTH_BASE_URL =
+  process.env.EXPO_PUBLIC_AUTH_BASE_URL || process.env.AUTH_BASE_URL || 'http://localhost:3000';
+
 export const authClient = createAuthClient({
-  baseURL:
-    process.env.EXPO_PUBLIC_AUTH_BASE_URL ||
-    process.env.AUTH_BASE_URL ||
-    'http://localhost:3000',
+  baseURL: AUTH_BASE_URL,
   plugins: [
     expoClient({
       scheme: 'queenix',
       storagePrefix: 'queenix',
       storage: SecureStore,
     }),
+    emailOTPClient(),
+    phoneNumberClient(),
   ],
 });
 

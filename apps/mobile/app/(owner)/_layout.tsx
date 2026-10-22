@@ -1,6 +1,9 @@
 import { Tabs } from 'expo-router';
-import { BarChart3, Activity, Users, CheckCircle, User } from '@tamagui/lucide-icons';
+import { BarChart3, Activity, Users, CheckCircle, User } from '@tamagui/lucide-icons-2';
 import { StatusBar } from '@queenix/ui';
+
+/** Routes in this group that are pushed to, not tabs — hidden from the tab bar. */
+const HIDDEN = ['announce', 'branch', 'members/[id]', 'staff', 'support'];
 
 export default function OwnerLayout() {
   return (
@@ -10,10 +13,10 @@ export default function OwnerLayout() {
         screenOptions={{
           headerShown: false,
           tabBarActiveTintColor: '#0081cc',
-          tabBarInactiveTintColor: '#71717a',
+          tabBarInactiveTintColor: '#a1a1aa',
           tabBarStyle: {
-            backgroundColor: 'white',
-            borderTopColor: '#e4e4e7',
+            backgroundColor: '#18181b',
+            borderTopColor: '#27272a',
             borderTopWidth: 1,
             paddingTop: 8,
             paddingBottom: 8,
@@ -57,6 +60,9 @@ export default function OwnerLayout() {
             tabBarIcon: ({ color, size }) => <User size={size} color={color as any} />,
           }}
         />
+        {HIDDEN.map((name) => (
+          <Tabs.Screen key={name} name={name} options={{ href: null }} />
+        ))}
       </Tabs>
     </>
   );

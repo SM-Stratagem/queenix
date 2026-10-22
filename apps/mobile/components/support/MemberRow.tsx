@@ -6,10 +6,10 @@ import {
   Sparkles,
   MessageSquare,
   Phone,
-} from "@tamagui/lucide-icons"
+} from "@tamagui/lucide-icons-2"
 
-export type MemberStatus = "active" | "frozen" | "lapsed"
-export type Tier = "Premium" | "Elite" | "Standard"
+type MemberStatus = "active" | "frozen" | "lapsed"
+type Tier = "Premium" | "Elite" | "Standard"
 
 export type Member = {
   id?: string
@@ -38,7 +38,7 @@ export function MemberRow({ member }: { member: Member }) {
     <Card
       variant="outlined"
       padding="sm"
-      accessibilityLabel={`${member.name}, ${member.tier}, last visit ${member.lastVisit}`}
+      aria-label={`${member.name}, ${member.tier}, last visit ${member.lastVisit}`}
     >
       <XStack alignItems="center" gap="$3">
         <Avatar name={member.name} size="md" fallbackColor="$brand" />
@@ -64,7 +64,7 @@ export function MemberRow({ member }: { member: Member }) {
               padding="$1.5"
               borderRadius="$full"
               backgroundColor="$surfaceMuted"
-              accessibilityLabel={`Message ${member.name}`}
+              aria-label={`Message ${member.name}`}
             >
               <MessageSquare size={14} color="$textPrimary" />
             </YStack>
@@ -73,7 +73,7 @@ export function MemberRow({ member }: { member: Member }) {
               padding="$1.5"
               borderRadius="$full"
               backgroundColor="$surfaceMuted"
-              accessibilityLabel={`Call ${member.name}`}
+              aria-label={`Call ${member.name}`}
             >
               <Phone size={14} color="$textPrimary" />
             </YStack>

@@ -9,14 +9,17 @@
  *   POST /api/commerce/payment-link
  *   { "venue": "coffee" | "salon", "orderId": "<id>" }
  *
- * Uses the raw Convex HTTP API with CONVEX_DEPLOY_KEY (same pattern as
- * /api/payments/create-intent). Without provider keys configured the
- * route reports which gateway is missing instead of failing silently.
+ * Staff only (BetterAuth session): coffee → coffee/operations/finance,
+ * salon → salon/operations/finance; superadmin/admin always. Convex is
+ * reached with the admin key (internal functions). Without provider keys
+ * configured the route reports which gateway is missing instead of failing
+ * silently.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createPayment } from '@queenix/payments';
-import { getConvexApiUrl } from '@/lib/convex-env';
+import { convexAdmin } from '@queenix/auth/convex-admin';
+import { hasStaffRole, sessionUser } from '@/lib/session-user';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -26,20 +29,10 @@ interface PaymentLinkRequest {
   orderId?: string;
 }
 
-async function convexCall(siteUrl: string, headers: Record<string, string>, kind: 'query' | 'mutation', path: string, args: Record<string, unknown>) {
-  const r = await fetch(`${siteUrl}/api/${kind}`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ path, args }),
-  });
-  if (!r.ok) {
-    throw new Error(`Convex ${kind} ${path} failed: ${r.status}`);
-  }
-  const data = await r.json();
-  return data.value;
-}
-
 export async function POST(req: NextRequest) {
+  const user = await sessionUser(req);
+  if (!user) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+
   let body: PaymentLinkRequest;
   try {
     body = await req.json();
@@ -51,17 +44,12 @@ export async function POST(req: NextRequest) {
   if (!venue || !body.orderId) {
     return NextResponse.json({ error: 'venue (coffee|salon) and orderId are required' }, { status: 400 });
   }
-
-  const siteUrl = getConvexApiUrl();
-  const deployKey = process.env.CONVEX_DEPLOY_KEY;
-  if (!siteUrl) {
-    return NextResponse.json({ error: 'CONVEX_SITE_URL not configured' }, { status: 500 });
+  if (!hasStaffRole(user, ['finance', 'operations', venue])) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (deployKey) headers.Authorization = `Convex ${deployKey}`;
 
   try {
-    const settings = await convexCall(siteUrl, headers, 'query', 'queries/commerce:getVenueSettingsInternal', { venue });
+    const settings = await convexAdmin<any>('query', 'queries/commerce:getVenueSettingsInternal', { venue });
     if (!settings?.enabled) {
       return NextResponse.json({ error: `Online payments are disabled for ${venue}` }, { status: 409 });
     }
@@ -71,14 +59,15 @@ export async function POST(req: NextRequest) {
         { status: 409 }
       );
     }
-    if (settings.provider === 'tap' && !process.env.TAP_SECRET_KEY) {
+    const mock = process.env.PAYMENTS_PROVIDER === 'mock'; // createPayment fakes the charge
+    if (!mock && settings.provider === 'tap' && !process.env.TAP_SECRET_KEY) {
       return NextResponse.json({ error: 'TAP_SECRET_KEY is not configured' }, { status: 409 });
     }
-    if (settings.provider === 'stripe' && !process.env.STRIPE_SECRET_KEY) {
+    if (!mock && settings.provider === 'stripe' && !process.env.STRIPE_SECRET_KEY) {
       return NextResponse.json({ error: 'STRIPE_SECRET_KEY is not configured' }, { status: 409 });
     }
 
-    const order = await convexCall(siteUrl, headers, 'query', 'queries/commerce:getOrderForPayment', {
+    const order = await convexAdmin<any>('query', 'queries/commerce:getOrderForPayment', {
       venue,
       orderId: body.orderId,
     });
@@ -114,7 +103,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Provider returned no shareable link' }, { status: 502 });
     }
 
-    await convexCall(siteUrl, headers, 'mutation', 'mutations/commerce:setOrderPaymentLink', {
+    await convexAdmin('mutation', 'mutations/commerce:setOrderPaymentLink', {
       venue,
       orderId: String(order.id),
       provider: intent.provider,

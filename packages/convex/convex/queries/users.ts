@@ -3,8 +3,9 @@
  */
 
 import { v } from 'convex/values';
-import { query } from '../_generated/server';
+import { internalQuery, query } from '../_generated/server';
 import { requireRole, requireUser } from '../_helpers';
+import { REWARDS } from '../mutations/loyalty';
 
 export const getCurrentUser = query({
   args: {},
@@ -19,6 +20,22 @@ export const getCurrentUser = query({
   },
 });
 
+/**
+ * Internal (admin key): the Convex user behind a BetterAuth session id.
+ * Web API routes authenticate the session, then call this to get the
+ * user's Convex _id + roles for ownership/role checks.
+ */
+export const getByBetterAuthUserId = internalQuery({
+  args: { betterAuthUserId: v.string() },
+  handler: async (ctx, { betterAuthUserId }) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_betterAuthUserId', (q) => q.eq('betterAuthUserId', betterAuthUserId))
+      .first();
+    return user ? { _id: user._id, roles: user.roles, fullName: user.fullName, email: user.email } : null;
+  },
+});
+
 export const getMemberProfile = query({
   args: {},
   handler: async (ctx) => {
@@ -27,6 +44,15 @@ export const getMemberProfile = query({
       .query('memberProfiles')
       .withIndex('by_user', (q) => q.eq('userId', user._id))
       .first();
+  },
+});
+
+/** Redeemable perks (server-priced catalogue) for the member rewards screen. */
+export const listRewards = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireUser(ctx);
+    return REWARDS;
   },
 });
 
@@ -341,7 +367,9 @@ export const getMembersDirectory = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, { search, status = 'all', limit = 50 }) => {
-    await requireUser(ctx);
+    // Member PII (names, emails, membership status): staff who work with
+    // members only — never other members. superadmin/admin always pass.
+    await requireRole(ctx, ['finance', 'operations', 'trainer']);
     const members = await ctx.db
       .query('users')
       .filter((q) => q.eq(q.field('activeRole'), 'member'))
@@ -387,7 +415,8 @@ export const getMembersDirectory = query({
 export const getOwnerMemberDetail = query({
   args: { memberId: v.id('users') },
   handler: async (ctx, { memberId }) => {
-    await requireUser(ctx);
+    // Profile carries ID-document data (identity): staff only, like the directory.
+    await requireRole(ctx, ['finance', 'operations', 'trainer']);
     const member = await ctx.db.get(memberId);
     const profile = await ctx.db
       .query('memberProfiles')
@@ -539,7 +568,8 @@ export const getAvailableTrainers = query({
     const enriched = await Promise.all(
       profiles.map(async (p) => {
         const user = await ctx.db.get(p.userId);
-        return { ...p, user };
+        // Public catalog: the trainer's public card only, never the user row (email/phone/roles).
+        return { ...p, user: user ? { _id: user._id, fullName: user.fullName, avatarUrl: user.avatarUrl } : null };
       })
     );
     return enriched;
@@ -606,5 +636,14 @@ export const getSupportQueue = query({
         };
       })
     );
+  },
+});
+
+/** Internal (admin key): a user's roles, for copying Team → Permissions edits into BetterAuth. */
+export const rolesForSync = internalQuery({
+  args: { userId: v.id('users') },
+  handler: async (ctx, { userId }) => {
+    const u = await ctx.db.get(userId);
+    return u ? { betterAuthUserId: u.betterAuthUserId, roles: u.roles, activeRole: u.activeRole } : null;
   },
 });

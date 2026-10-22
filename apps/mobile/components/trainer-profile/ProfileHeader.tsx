@@ -1,7 +1,7 @@
 import React from "react"
 import { YStack, XStack } from "tamagui"
 import { Card, Text, Avatar, Badge, Skeleton, Chip } from "@queenix/ui"
-import { Star } from "@tamagui/lucide-icons"
+import { Star } from "@tamagui/lucide-icons-2"
 
 export function ProfileHeader({
   fullName,
@@ -95,7 +95,7 @@ export function SpecialtiesSection({
           variant="bodySmall"
           color="brand"
           onPress={onEdit}
-          accessibilityLabel="Edit specialties"
+          aria-label="Edit specialties"
         >
           Edit
         </Text>

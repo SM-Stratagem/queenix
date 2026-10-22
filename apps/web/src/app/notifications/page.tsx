@@ -3,13 +3,17 @@
  * Web — Notification composer: custom in-app broadcasts to members.
  * Persists via `mutations/engagement:sendBroadcastNotification` into the
  * existing `notifications` table (+ `auditEvents`), so the mobile app can
- * consume sends through its normal notifications feed later.
+ * consume sends through its normal notifications feed. Holders of
+ * `notifications.push` can also deliver to members' phones (Expo Push).
  */
 import { useState } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '@queenix/convex';
-import { RequireAuth } from '@/components/RequireAuth';
-import { AdminShell } from '@/components/admin/AdminShell';
+import { useSessionRoles } from '@/lib/access';
+
+// ponytail: mirrors the role half of `notifications.push` in convex/permissions.ts;
+// capability grants aren't reflected here (the mutation still enforces them).
+const PUSH_ROLES = ['superadmin', 'admin', 'operations'];
 
 
 const card: React.CSSProperties = {
@@ -53,6 +57,8 @@ export default function WebNotificationsPage() {
   const [status, setStatus] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const canPush = useSessionRoles().some((r) => PUSH_ROLES.includes(r));
+  const [push, setPush] = useState(false);
 
   async function onSend() {
     setErr(null);
@@ -63,10 +69,18 @@ export default function WebNotificationsPage() {
     }
     setBusy(true);
     try {
-      const res = await send({ title: title.trim(), body: body.trim(), type, audience: 'members' });
-      setStatus(`Sent to ${res.sent} member${res.sent === 1 ? '' : 's'}${res.capped ? ' (audience larger than one batch — send again with offset to continue)' : ''}. Batch ${res.batchId}.`);
+      const res = await send({
+        title: title.trim(),
+        body: body.trim(),
+        type,
+        audience: 'members',
+        ...(canPush && push ? { push: true } : {}),
+      });
+      const phones = res.pushQueued ? ` Phone push queued for ${res.pushQueued} member${res.pushQueued === 1 ? '' : 's'}.` : '';
+      setStatus(`Sent to ${res.sent} member${res.sent === 1 ? '' : 's'}${res.capped ? ' (audience larger than one batch — send again with offset to continue)' : ''}.${phones} Batch ${res.batchId}.`);
       setTitle('');
       setBody('');
+      setPush(false);
     } catch (e: any) {
       setErr(e?.message ?? 'Failed to send');
     } finally {
@@ -75,64 +89,66 @@ export default function WebNotificationsPage() {
   }
 
   return (
-    <RequireAuth>
-      <AdminShell>
-      <div>
+    <div>
 
-        <h1 style={{ color: 'var(--text)' }}>Notifications</h1>
-        <p style={{ color: 'var(--text-muted)' }}>
-          {audience === undefined
-            ? 'Loading audience…'
-            : `Audience: ${audience.members} member${audience.members === 1 ? '' : 's'} (${audience.total} users total${audience.capped ? ', capped preview' : ''}). Sends land in each member's in-app notifications feed.`}
-        </p>
+      <h1 style={{ color: 'var(--text)' }}>Notifications</h1>
+      <p style={{ color: 'var(--text-muted)' }}>
+        {audience === undefined
+          ? 'Loading audience…'
+          : `Audience: ${audience.members} member${audience.members === 1 ? '' : 's'} (${audience.total} users total${audience.capped ? ', capped preview' : ''}). Sends land in each member's in-app notifications feed.`}
+      </p>
 
-        <section style={card}>
-          <h2 style={{ color: 'var(--text)', marginBottom: 8 }}>Compose broadcast</h2>
-          <div style={{ display: 'grid', gap: 8 }}>
-            <input style={input} placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
-            <textarea
-              style={{ ...input, minHeight: 90 }}
-              placeholder="Message body"
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-            />
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-              <select style={input} value={type} onChange={(e) => setType(e.target.value)}>
-                {TYPES.map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
-              <button style={btnPrimary} disabled={busy} onClick={onSend}>
-                {busy ? 'Sending…' : 'Send to members'}
-              </button>
-            </div>
-            {err && <p style={{ color: 'var(--danger)' }}>{err}</p>}
-            {status && <p style={{ color: 'var(--success)' }}>{status}</p>}
-          </div>
-        </section>
-
-        <section style={card}>
-          <h2 style={{ color: 'var(--text)', marginBottom: 8 }}>Recent sends</h2>
-          {history === undefined ? (
-            <p style={{ color: 'var(--text-muted)' }}>Loading…</p>
-          ) : history.broadcasts.length === 0 ? (
-            <p style={{ color: 'var(--text-muted)' }}>No broadcasts sent yet — compose the first one above.</p>
-          ) : (
-            <div style={{ display: 'grid', gap: 8 }}>
-              {history.broadcasts.map((b: any) => (
-                <div key={b.batchId} style={{ borderBottom: '1px solid var(--border)', paddingBottom: 8 }}>
-                  <div style={{ fontWeight: 700, color: 'var(--text)' }}>{b.title}</div>
-                  <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                    {b.type} · {b.audience ?? 'members'} · {new Date(b.createdAt).toLocaleString()}
-                  </div>
-                  <div style={{ fontSize: 13, color: 'var(--text)' }}>{b.body}</div>
-                </div>
+      <section style={card}>
+        <h2 style={{ color: 'var(--text)', marginBottom: 8 }}>Compose broadcast</h2>
+        <div style={{ display: 'grid', gap: 8 }}>
+          <input style={input} placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <textarea
+            style={{ ...input, minHeight: 90 }}
+            placeholder="Message body"
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+          />
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <select style={input} value={type} onChange={(e) => setType(e.target.value)}>
+              {TYPES.map((t) => (
+                <option key={t} value={t}>{t}</option>
               ))}
-            </div>
-          )}
-        </section>
-      </div>
-    </AdminShell>
-    </RequireAuth>
+            </select>
+            {canPush && (
+              <label style={{ display: 'flex', gap: 6, alignItems: 'center', color: 'var(--text)', fontSize: 14, whiteSpace: 'nowrap' }}>
+                <input type="checkbox" checked={push} onChange={(e) => setPush(e.target.checked)} />
+                Also send to phones
+              </label>
+            )}
+            <button style={btnPrimary} disabled={busy} onClick={onSend}>
+              {busy ? 'Sending…' : 'Send to members'}
+            </button>
+          </div>
+          {err && <p style={{ color: 'var(--danger)' }}>{err}</p>}
+          {status && <p style={{ color: 'var(--success)' }}>{status}</p>}
+        </div>
+      </section>
+
+      <section style={card}>
+        <h2 style={{ color: 'var(--text)', marginBottom: 8 }}>Recent sends</h2>
+        {history === undefined ? (
+          <p style={{ color: 'var(--text-muted)' }}>Loading…</p>
+        ) : history.broadcasts.length === 0 ? (
+          <p style={{ color: 'var(--text-muted)' }}>No broadcasts sent yet — compose the first one above.</p>
+        ) : (
+          <div style={{ display: 'grid', gap: 8 }}>
+            {history.broadcasts.map((b: any) => (
+              <div key={b.batchId} style={{ borderBottom: '1px solid var(--border)', paddingBottom: 8 }}>
+                <div style={{ fontWeight: 700, color: 'var(--text)' }}>{b.title}</div>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                  {b.type} · {b.audience ?? 'members'} · {new Date(b.createdAt).toLocaleString()}
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--text)' }}>{b.body}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
   );
 }

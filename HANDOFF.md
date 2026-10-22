@@ -150,7 +150,7 @@ See `docs/PAYMENTS.md` for full setup, test cards, refund process.
 - [ ] `pnpm install` (current install is broken on `@tamagui/icons` — see issue below)
 - [ ] `npx convex dev` — set up Convex deployment, copy URL
 - [ ] Set all env vars in `apps/mobile/.env` and `apps/web/.env.local`
-- [ ] `npx convex run seed:seedSampleData` to populate plans
+- [ ] Demo data (local only): seeded by `./scripts/dev-up.sh` / `./scripts/prod-local.sh --demo` — see DEPLOY.md
 - [ ] Buy QR scanner, configure webhook target
 - [ ] Buy fingerprint reader, configure webhook target
 - [ ] Set up Stripe account (test mode first) — get test keys
@@ -196,9 +196,7 @@ queenix-gym/
 │   │   ├── lib/
 │   │   │   ├── auth.tsx              Real auth context
 │   │   │   └── convex.ts             Convex client wrappers
-│   │   └── components/
-│   │       ├── ErrorBoundary.tsx
-│   │       └── RoleSwitcher.tsx
+│   │   └── components/<domain>/   Screen sections + sheets (split out of app/ routes)
 │   └── web/                          Next.js admin
 │       ├── src/app/
 │       │   ├── page.tsx              Dashboard

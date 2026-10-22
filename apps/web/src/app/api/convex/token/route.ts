@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@queenix/auth/server';
+import { auth, syncUserToConvex } from '@queenix/auth/server';
 import { signConvexToken } from '@/lib/jwks';
 
 export const dynamic = 'force-dynamic';
+
+const synced = new Set<string>();
 
 /**
  * Mint a short-lived RS256 JWT for the currently logged-in BetterAuth user.
@@ -19,6 +21,16 @@ export async function GET(req: Request) {
   const session = await auth.api.getSession({ headers: req.headers });
   if (!session?.user?.id || !session?.session?.id) {
     return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+  }
+  // Self-heal: make sure this login has its Convex user (the sign-up hook can
+  // miss if Convex was down). Idempotent; once per user per server process.
+  if (!synced.has(session.user.id)) {
+    try {
+      await syncUserToConvex(session.user as any, { createOnly: true });
+      synced.add(session.user.id);
+    } catch (e) {
+      console.error('[convex-token] user sync failed', e);
+    }
   }
   const token = await signConvexToken({
     sub: session.user.id,

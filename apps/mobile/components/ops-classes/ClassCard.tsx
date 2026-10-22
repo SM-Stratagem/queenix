@@ -15,7 +15,7 @@ import {
   MapPin,
   PlayCircle,
   ChevronRight,
-} from "@tamagui/lucide-icons"
+} from "@tamagui/lucide-icons-2"
 
 export type RosterEntry = {
   id: string
@@ -152,7 +152,7 @@ export function ClassCard({
           size="sm"
           icon={<PlayCircle size={14} color="$textOnBrand" />}
           onPress={onOpen}
-          accessibilityLabel={`Start check-in for ${cls.name}`}
+          aria-label={`Start check-in for ${cls.name}`}
         />
       </XStack>
 
@@ -161,7 +161,7 @@ export function ClassCard({
           variant="outlined"
           padding="sm"
           onPress={onOpen}
-          accessibilityLabel={`View full roster for ${cls.name}`}
+          aria-label={`View full roster for ${cls.name}`}
         >
           <XStack alignItems="center" justifyContent="space-between">
             <Text variant="label">View full roster</Text>

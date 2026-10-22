@@ -58,7 +58,9 @@ export type Capability =
   | 'salon.serve'
   | 'coffee.serve'
   | 'training.coach'
-  | 'member.self';
+  | 'member.self'
+  | 'content.manage'
+  | 'notifications.push';
 
 /** The 8 capabilities held by the finance role (owner alias holds the same). */
 const FINANCE_CAPABILITIES: Capability[] = [
@@ -87,6 +89,8 @@ export const ROLE_CAPABILITIES: Record<Role, Capability[]> = {
     'coffee.serve',
     'training.coach',
     'member.self',
+    'content.manage',
+    'notifications.push',
   ],
   admin: [
     'finance.read',
@@ -100,6 +104,8 @@ export const ROLE_CAPABILITIES: Record<Role, Capability[]> = {
     'coffee.serve',
     'training.coach',
     'member.self',
+    'content.manage',
+    'notifications.push',
   ],
   finance: FINANCE_CAPABILITIES,
   /** @deprecated Alias of finance — identical capabilities. */
@@ -110,6 +116,8 @@ export const ROLE_CAPABILITIES: Record<Role, Capability[]> = {
     'bookings.manage',
     'bookings.scan',
     'member.self',
+    'content.manage',
+    'notifications.push',
   ],
   salon: ['salon.serve', 'bookings.scan', 'member.self'],
   coffee: ['coffee.serve', 'bookings.scan', 'member.self'],

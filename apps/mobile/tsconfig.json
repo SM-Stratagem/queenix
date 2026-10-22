@@ -1,11 +1,9 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./*"]
-    },
-    "types": ["expo-router/types"]
+    }
   },
   "include": [
     "**/*.ts",

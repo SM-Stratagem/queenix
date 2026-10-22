@@ -15,7 +15,7 @@ import {
 } from '@queenix/ui';
 import { useConvexQuery, useConvexMutation } from '@/lib/convex';
 import { api } from '@queenix/convex';
-import { Plane } from '@tamagui/lucide-icons';
+import { Plane } from '@tamagui/lucide-icons-2';
 
 export default function TrainerTimeOffScreen() {
   const router = useRouter();
@@ -55,7 +55,7 @@ export default function TrainerTimeOffScreen() {
         <YStack gap="$2">
           <Text variant="h4">Request a day off</Text>
           <Text variant="caption" color="muted">Date (YYYY-MM-DD)</Text>
-          <Input value={date} onChangeText={setDate} placeholder="2026-10-05" accessibilityLabel="Day off date" />
+          <Input value={date} onChangeText={setDate} placeholder="2026-10-05" aria-label="Day off date" />
           <XStack gap="$2">
             {(['sick', 'leave'] as const).map((k) => (
               <Button key={k} size="sm" variant={kind === k ? 'primary' : 'secondary'} onPress={() => setKind(k)}>
@@ -67,7 +67,7 @@ export default function TrainerTimeOffScreen() {
             placeholder="Note (optional)"
             value={note}
             onChangeText={setNote}
-            accessibilityLabel="Time off note"
+            aria-label="Time off note"
           />
           <Button
             label={busy ? 'Filing…' : 'File request'}

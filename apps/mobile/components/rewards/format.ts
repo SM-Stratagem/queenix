@@ -20,10 +20,3 @@ export function tierForBalance(balance: number): Tier {
   return "Silver"
 }
 
-export function tierVariant(tier: Tier): "neutral" | "warning" | "brand" {
-  if (tier === "Platinum") return "brand"
-  if (tier === "Gold") return "warning"
-  return "neutral"
-}
-
-export const NEXT_TIER_COST = 5000

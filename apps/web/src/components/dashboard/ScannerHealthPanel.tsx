@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react"
 import { Wifi, WifiOff, RefreshCw } from "lucide-react"
 
-export interface ScannerDevice {
+interface ScannerDevice {
   _id: string
   deviceId: string
   name: string

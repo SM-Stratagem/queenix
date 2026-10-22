@@ -9,24 +9,34 @@
  */
 
 import type * as _helpers from "../_helpers.js";
+import type * as _scanFields from "../_scanFields.js";
+import type * as _site from "../_site.js";
 import type * as api_ from "../api.js";
+import type * as demoDataset from "../demoDataset.js";
 import type * as mutations_access from "../mutations/access.js";
 import type * as mutations_bookings from "../mutations/bookings.js";
 import type * as mutations_branches from "../mutations/branches.js";
 import type * as mutations_commerce from "../mutations/commerce.js";
 import type * as mutations_crm from "../mutations/crm.js";
-import type * as mutations_demoAccounts from "../mutations/demoAccounts.js";
+import type * as mutations_documents from "../mutations/documents.js";
 import type * as mutations_engagement from "../mutations/engagement.js";
 import type * as mutations_finance from "../mutations/finance.js";
+import type * as mutations_grants from "../mutations/grants.js";
 import type * as mutations_loyalty from "../mutations/loyalty.js";
 import type * as mutations_membershipAdmin from "../mutations/membershipAdmin.js";
 import type * as mutations_operations from "../mutations/operations.js";
 import type * as mutations_payments from "../mutations/payments.js";
-import type * as mutations_sync from "../mutations/sync.js";
+import type * as mutations_publicLeads from "../mutations/publicLeads.js";
+import type * as mutations_push from "../mutations/push.js";
+import type * as mutations_scans from "../mutations/scans.js";
+import type * as mutations_site from "../mutations/site.js";
 import type * as mutations_teamOrg from "../mutations/teamOrg.js";
+import type * as mutations_training from "../mutations/training.js";
 import type * as mutations_users from "../mutations/users.js";
 import type * as mutations_valet from "../mutations/valet.js";
 import type * as permissions from "../permissions.js";
+import type * as push from "../push.js";
+import type * as pushLogic from "../pushLogic.js";
 import type * as queries_access from "../queries/access.js";
 import type * as queries_branches from "../queries/branches.js";
 import type * as queries_classes from "../queries/classes.js";
@@ -44,6 +54,9 @@ import type * as queries_operations from "../queries/operations.js";
 import type * as queries_org from "../queries/org.js";
 import type * as queries_payments from "../queries/payments.js";
 import type * as queries_promotionsAdmin from "../queries/promotionsAdmin.js";
+import type * as queries_scans from "../queries/scans.js";
+import type * as queries_site from "../queries/site.js";
+import type * as queries_siteAdmin from "../queries/siteAdmin.js";
 import type * as queries_teamOrg from "../queries/teamOrg.js";
 import type * as queries_users from "../queries/users.js";
 import type * as queries_valet from "../queries/valet.js";
@@ -55,6 +68,7 @@ import type * as schema_crm from "../schema/crm.js";
 import type * as schema_documents from "../schema/documents.js";
 import type * as schema_events from "../schema/events.js";
 import type * as schema_finance from "../schema/finance.js";
+import type * as schema_grants from "../schema/grants.js";
 import type * as schema_identity from "../schema/identity.js";
 import type * as schema_member from "../schema/member.js";
 import type * as schema_membership from "../schema/membership.js";
@@ -62,9 +76,11 @@ import type * as schema_operations from "../schema/operations.js";
 import type * as schema_org from "../schema/org.js";
 import type * as schema_payments from "../schema/payments.js";
 import type * as schema_people from "../schema/people.js";
+import type * as schema_site from "../schema/site.js";
 import type * as schema_training from "../schema/training.js";
 import type * as schema_valet from "../schema/valet.js";
 import type * as seed from "../seed.js";
+import type * as siteSeed from "../siteSeed.js";
 
 import type {
   ApiFromModules,
@@ -74,24 +90,34 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   _helpers: typeof _helpers;
+  _scanFields: typeof _scanFields;
+  _site: typeof _site;
   api: typeof api_;
+  demoDataset: typeof demoDataset;
   "mutations/access": typeof mutations_access;
   "mutations/bookings": typeof mutations_bookings;
   "mutations/branches": typeof mutations_branches;
   "mutations/commerce": typeof mutations_commerce;
   "mutations/crm": typeof mutations_crm;
-  "mutations/demoAccounts": typeof mutations_demoAccounts;
+  "mutations/documents": typeof mutations_documents;
   "mutations/engagement": typeof mutations_engagement;
   "mutations/finance": typeof mutations_finance;
+  "mutations/grants": typeof mutations_grants;
   "mutations/loyalty": typeof mutations_loyalty;
   "mutations/membershipAdmin": typeof mutations_membershipAdmin;
   "mutations/operations": typeof mutations_operations;
   "mutations/payments": typeof mutations_payments;
-  "mutations/sync": typeof mutations_sync;
+  "mutations/publicLeads": typeof mutations_publicLeads;
+  "mutations/push": typeof mutations_push;
+  "mutations/scans": typeof mutations_scans;
+  "mutations/site": typeof mutations_site;
   "mutations/teamOrg": typeof mutations_teamOrg;
+  "mutations/training": typeof mutations_training;
   "mutations/users": typeof mutations_users;
   "mutations/valet": typeof mutations_valet;
   permissions: typeof permissions;
+  push: typeof push;
+  pushLogic: typeof pushLogic;
   "queries/access": typeof queries_access;
   "queries/branches": typeof queries_branches;
   "queries/classes": typeof queries_classes;
@@ -109,6 +135,9 @@ declare const fullApi: ApiFromModules<{
   "queries/org": typeof queries_org;
   "queries/payments": typeof queries_payments;
   "queries/promotionsAdmin": typeof queries_promotionsAdmin;
+  "queries/scans": typeof queries_scans;
+  "queries/site": typeof queries_site;
+  "queries/siteAdmin": typeof queries_siteAdmin;
   "queries/teamOrg": typeof queries_teamOrg;
   "queries/users": typeof queries_users;
   "queries/valet": typeof queries_valet;
@@ -120,6 +149,7 @@ declare const fullApi: ApiFromModules<{
   "schema/documents": typeof schema_documents;
   "schema/events": typeof schema_events;
   "schema/finance": typeof schema_finance;
+  "schema/grants": typeof schema_grants;
   "schema/identity": typeof schema_identity;
   "schema/member": typeof schema_member;
   "schema/membership": typeof schema_membership;
@@ -127,9 +157,11 @@ declare const fullApi: ApiFromModules<{
   "schema/org": typeof schema_org;
   "schema/payments": typeof schema_payments;
   "schema/people": typeof schema_people;
+  "schema/site": typeof schema_site;
   "schema/training": typeof schema_training;
   "schema/valet": typeof schema_valet;
   seed: typeof seed;
+  siteSeed: typeof siteSeed;
 }>;
 
 /**

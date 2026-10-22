@@ -17,7 +17,7 @@ import {
   Megaphone,
   Repeat,
   Briefcase,
-} from '@tamagui/lucide-icons';
+} from '@tamagui/lucide-icons-2';
 
 export default function FinanceProfile() {
   const router = useRouter();

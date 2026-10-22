@@ -6,7 +6,7 @@ pnpm monorepo (npm workspaces: apps/*, packages/*)
 |
 +-- apps/mobile (Expo SDK53, expo-router, Tamagui, React 19)
 |     app/(auth) | (member) | (trainer) | (ops) | (owner)
-|     components/<domain> glass primitives + RoleSwitcher
+|     components/<domain> per-screen sections/sheets (profile/sheets.tsx has RoleSwitcherSheet)
 |     lib/ (convex/auth client wiring)
 |     --> Convex backend (packages/convex) + BetterAuth API (apps/web)
 |
@@ -25,7 +25,7 @@ pnpm monorepo (npm workspaces: apps/*, packages/*)
 +-- packages/auth (BetterAuth server + db-pg.ts SQLite fallback, roles.ts)
 +-- packages/{ui, theme, types, i18n, payments, receipts}
 +-- docker/ + docker-compose.{yml,platform.yml} (db, convex, web)
-+-- scripts/{init-env, seed-demo-users, migrate-auth-db, patch-tamagui-react19}
++-- scripts/{init-env, seed-demo-users, migrate-auth-db, dev-up.sh}
 +-- docs/{PAYMENTS, RUNBOOK, SCANNER_SETUP, role-matrix} + HANDOFF.md
 ```
 
@@ -48,13 +48,13 @@ pnpm monorepo (npm workspaces: apps/*, packages/*)
 | owner | (owner) | overview, operations, approvals, members + members/[id], profile | /crm, /finance (new) |
 | salon | (ops) shared | salon-queue (ops); member salon booking | /salon (new) |
 | coffee | (ops) shared | coffee-queue (ops); member coffee order | /coffee (new) |
-| admin/superadmin | — (no dedicated mobile group; via RoleSwitcher + web) | — | /api/admin/users/[id]/role, /team, /crm, /finance |
+| admin/superadmin | — (no dedicated mobile group; via RoleSwitcherSheet + web) | — | /api/admin/users/[id]/role, /team, /crm, /finance |
 | valet (domain, staff) | (ops) | valet (ops queue); member valet request | /valet (new) |
 | unauth | (auth) | login, signup, onboarding, otp | web landing page.tsx |
 
 Canonical def: `packages/auth/src/roles.ts` (ROLES, ROLE_RANK, hasRole/hasAnyRole).
 Enforcement: `packages/convex/convex/_helpers.ts` + `permissions.ts`.
-Matrix doc: `docs/role-matrix.md`. Debug switch: `apps/mobile/components/RoleSwitcher.tsx`.
+Matrix doc: `docs/role-matrix.md`. Role switch: `RoleSwitcherSheet` in `apps/mobile/components/profile/sheets.tsx`.
 
 ## 4. Feature -> files index
 | Feature | Convex queries | Convex mutations | Schema domain | Mobile | Web |
@@ -100,7 +100,8 @@ Never commit real secrets (see .env.platform.example header).
 ## 6. New domain files added in this run (git untracked, `git status --short`)
 - Mobile member: (member)/coffee.tsx, salon.tsx, valet.tsx
 - Mobile ops: (ops)/coffee-queue.tsx, salon-queue.tsx, valet.tsx
-- Mobile shared: components/glass/ (GlassButton/Card/Header/Sheet)
+- Mobile shared: packages/ui (Screen, Stack, Card, Sheet, …) + apps/mobile/components/<domain>/
+- Web console: components/admin/AdminFrame.tsx (auth + role gate for every page) · lib/access.ts (route → roles map, used by nav + gate)
 - Web: src/app/{coffee,salon,valet,crm,finance,team}/ + components/{crm,finance,org}/
 - Convex: mutations/{commerce,crm,finance,valet,demoAccounts}.ts,
   queries/{commerce,crm,finance,org,valet}.ts, schema/commerce.ts, permissions.ts

@@ -11,11 +11,11 @@
     "./tokens": "./src/tokens.ts"
   },
   "dependencies": {
-    "@tamagui/config": "^1.130.0",
-    "@tamagui/core": "^1.130.0",
-    "tamagui": "^1.130.0"
+    "@tamagui/animations-css": "2.7.7",
+    "@tamagui/animations-react-native": "2.7.7",
+    "tamagui": "2.7.7"
   },
   "devDependencies": {
-    "typescript": "^5.7.2"
+    "typescript": "~6.0.3"
   }
 }

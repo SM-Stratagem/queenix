@@ -20,7 +20,7 @@ import {
   FileText,
   Globe,
   LogOut,
-} from "@tamagui/lucide-icons";
+} from "@tamagui/lucide-icons-2";
 import { SettingsItem } from "@/components/trainer-profile/SettingsItem";
 import {
   ProfileHeader,
@@ -167,7 +167,7 @@ export default function TrainerProfile() {
               <Switch
                 value={notifications}
                 onValueChange={setNotifications}
-                accessibilityLabel="Toggle notifications"
+                aria-label="Toggle notifications"
               />
             }
           />

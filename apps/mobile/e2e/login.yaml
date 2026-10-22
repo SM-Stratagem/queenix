@@ -11,9 +11,12 @@ appId: host.exp.Exponent
       # For a deep-link smoke, override here.
       # EXPO_PUBLIC_CONVEX_URL: http://localhost:3210
 
-# Login screen — selectors target testID/accessibility props from the actual UI.
-- assertVisible: "Welcome"
-- tap: "member@queenix.test"
+# Login screen — selectors match the current UI (placeholders + button label).
+- assertVisible: "Welcome back"
+- tapOn: "you@example.com"
+- inputText: "member@queenix.test"
+- tapOn: "Your password"
 - inputText: "QueenixDemo123!"
-- tap: "Sign In"
+- tapOn: "Sign in"
 - assertVisible: "Home"
+- assertVisible: "My QR"

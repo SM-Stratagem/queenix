@@ -3,8 +3,9 @@
  */
 
 import { v } from 'convex/values';
-import { mutation } from '../_generated/server';
-import { requireUser, audit } from '../_helpers';
+import { internalMutation, mutation, type MutationCtx } from '../_generated/server';
+import { requireUser } from '../_helpers';
+import { requireCapability } from '../permissions';
 import { ConvexError } from 'convex/values';
 
 /**
@@ -30,106 +31,122 @@ export const rotateAccessToken = mutation({
   },
 });
 
-/**
- * Process a QR scan (called by the scanner app or hardware bridge).
- * Returns the access decision and the member info (if granted) so the
- * caller can show a personalised result.
- */
+const scanArgs = {
+  token: v.string(),
+  accessPointId: v.string(),
+  direction: v.union(v.literal('in'), v.literal('out')),
+};
+
+/** QR scan from the staff scanner screen (mobile ops). Staff only. */
 export const processAccessScan = mutation({
-  args: {
-    token: v.string(),
-    accessPointId: v.string(),
-    direction: v.union(v.literal('in'), v.literal('out')),
-  },
-  handler: async (ctx, { token, accessPointId, direction }) => {
-    const credential = await ctx.db
-      .query('accessCredentials')
-      .withIndex('by_token', (q) => q.eq('token', token))
-      .first();
-
-    let granted = false;
-    let reason: string | undefined;
-    let userId: any = undefined;
-    let user: any = null;
-
-    if (!credential) {
-      reason = 'Invalid token';
-    } else if (credential.tokenExpiresAt < Date.now()) {
-      reason = 'Token expired';
-    } else if (credential.status !== 'active') {
-      reason = `Credential ${credential.status}`;
-    } else {
-      granted = true;
-      userId = credential.userId;
-      user = await ctx.db.get(credential.userId);
-    }
-
-    // Build the event row. If we have no credential we still log it but
-    // we need a placeholder userId to satisfy the schema. We use a
-    // dedicated "system" user that is created on demand.
-    if (!userId) {
-      const system = await ctx.db
-        .query('users')
-        .withIndex('by_email', (q) => q.eq('email', 'system@queenix.local'))
-        .first();
-      if (system) {
-        userId = system._id;
-      } else {
-        userId = await ctx.db.insert('users', {
-          email: 'system@queenix.local',
-          fullName: 'System',
-          activeRole: 'owner',
-          roles: ['owner'],
-          emailVerified: false,
-          phoneVerified: false,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        });
-      }
-    }
-
-    const credentialId = credential?._id ?? (await ensureSystemCredential(ctx))._id;
-
-    await ctx.db.insert('accessEvents', {
-      userId,
-      credentialId,
-      accessPointId,
-      direction,
-      granted,
-      reason,
-      timestamp: Date.now(),
-    });
-
-    if (granted && credential) {
-      await ctx.db.patch(credential._id, { lastUsedAt: Date.now() });
-      // Update occupancy snapshot
-      const lastSnapshot = await ctx.db
-        .query('occupancySnapshots')
-        .withIndex('by_accessPoint_timestamp', (q) => q.eq('accessPointId', accessPointId))
-        .order('desc')
-        .first();
-      const delta = direction === 'in' ? 1 : -1;
-      const newCount = Math.max(0, (lastSnapshot?.count ?? 0) + delta);
-      await ctx.db.insert('occupancySnapshots', {
-        accessPointId,
-        count: newCount,
-        timestamp: Date.now(),
-      });
-    }
-
-    return {
-      granted,
-      reason,
-      user: user
-        ? {
-            _id: user._id,
-            fullName: user.fullName,
-            avatarUrl: user.avatarUrl,
-          }
-        : null,
-    };
+  args: scanArgs,
+  handler: async (ctx, args) => {
+    await requireCapability(ctx, 'bookings.scan');
+    return scan(ctx, args);
   },
 });
+
+/** Same scan from the hardware bridge (/api/scanner/qr, admin key). */
+export const processAccessScanInternal = internalMutation({
+  args: scanArgs,
+  handler: (ctx, args) => scan(ctx, args),
+});
+
+/**
+ * Decide + log one QR scan. Returns the access decision and the member
+ * info (if granted) so the caller can show a personalised result.
+ */
+async function scan(
+  ctx: MutationCtx,
+  { token, accessPointId, direction }: { token: string; accessPointId: string; direction: 'in' | 'out' },
+) {
+  const credential = await ctx.db
+    .query('accessCredentials')
+    .withIndex('by_token', (q) => q.eq('token', token))
+    .first();
+
+  let granted = false;
+  let reason: string | undefined;
+  let userId: any = undefined;
+  let user: any = null;
+
+  if (!credential) {
+    reason = 'Invalid token';
+  } else if (credential.tokenExpiresAt < Date.now()) {
+    reason = 'Token expired';
+  } else if (credential.status !== 'active') {
+    reason = `Credential ${credential.status}`;
+  } else {
+    granted = true;
+    userId = credential.userId;
+    user = await ctx.db.get(credential.userId);
+  }
+
+  // Build the event row. If we have no credential we still log it but
+  // we need a placeholder userId to satisfy the schema. We use a
+  // dedicated "system" user that is created on demand.
+  if (!userId) {
+    const system = await ctx.db
+      .query('users')
+      .withIndex('by_email', (q) => q.eq('email', 'system@queenix.local'))
+      .first();
+    if (system) {
+      userId = system._id;
+    } else {
+      userId = await ctx.db.insert('users', {
+        email: 'system@queenix.local',
+        fullName: 'System',
+        activeRole: 'owner',
+        roles: ['owner'],
+        emailVerified: false,
+        phoneVerified: false,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+    }
+  }
+
+  const credentialId = credential?._id ?? (await ensureSystemCredential(ctx))._id;
+
+  await ctx.db.insert('accessEvents', {
+    userId,
+    credentialId,
+    accessPointId,
+    direction,
+    granted,
+    reason,
+    timestamp: Date.now(),
+  });
+
+  if (granted && credential) {
+    await ctx.db.patch(credential._id, { lastUsedAt: Date.now() });
+    // Update occupancy snapshot
+    const lastSnapshot = await ctx.db
+      .query('occupancySnapshots')
+      .withIndex('by_accessPoint_timestamp', (q) => q.eq('accessPointId', accessPointId))
+      .order('desc')
+      .first();
+    const delta = direction === 'in' ? 1 : -1;
+    const newCount = Math.max(0, (lastSnapshot?.count ?? 0) + delta);
+    await ctx.db.insert('occupancySnapshots', {
+      accessPointId,
+      count: newCount,
+      timestamp: Date.now(),
+    });
+  }
+
+  return {
+    granted,
+    reason,
+    user: user
+      ? {
+          _id: user._id,
+          fullName: user.fullName,
+          avatarUrl: user.avatarUrl,
+        }
+      : null,
+  };
+}
 
 /**
  * Internal helper — guarantees a system-level credential so we can

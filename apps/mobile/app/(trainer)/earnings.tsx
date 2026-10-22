@@ -31,7 +31,7 @@ import {
   CheckCircle2,
   Clock,
   Download,
-} from '@tamagui/lucide-icons';
+} from '@tamagui/lucide-icons-2';
 
 type EarnStatus = 'pending' | 'paid' | 'cancelled';
 
@@ -237,8 +237,8 @@ export default function TrainerEarnings() {
                         `Session ${r.sessionId} — ${formatMoney(r.amountCents, r.currency)}`
                       )
                     }
-                    accessibilityRole="button"
-                    accessibilityLabel={`Earnings record, ${formatMoney(r.amountCents, r.currency)}, ${r.status}`}
+                    role="button"
+                    aria-label={`Earnings record, ${formatMoney(r.amountCents, r.currency)}, ${r.status}`}
                   >
                     <YStack
                       width={36}
