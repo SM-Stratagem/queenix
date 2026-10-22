@@ -1,27 +1,9 @@
 "use client"
 
-import React, { useEffect, useState } from "react"
-import { Wifi, WifiOff, RefreshCw } from "lucide-react"
-
-interface ScannerDevice {
-  _id: string
-  deviceId: string
-  name: string
-  location: string
-  model?: string
-  lastSeenAt: number | null
-  lastScanAt: number | null
-  totalScans: number
-  online: boolean
-}
-
-export interface ScannerHealth {
-  online: boolean
-  deviceCount?: number
-  onlineCount?: number
-  lastSeenAt?: number | null
-  devices: ScannerDevice[]
-}
+import React from "react"
+import { useQuery } from "convex/react"
+import { api } from "@queenix/convex"
+import { Wifi, WifiOff } from "lucide-react"
 
 function formatRelative(ms: number | null | undefined): string {
   if (!ms) return "—"
@@ -32,40 +14,16 @@ function formatRelative(ms: number | null | undefined): string {
   return `${Math.floor(delta / 86_400_000)}d ago`
 }
 
+/**
+ * Registered scanners + heartbeat status from queries/access:getScannerHealth
+ * (scannerDevices, online = heartbeat in the last 2 min). Live Convex
+ * subscription, so no polling/refresh. Errors go to the caller's QueryBoundary.
+ */
 export function ScannerHealthPanel() {
-  const [health, setHealth] = useState<ScannerHealth | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const fetchHealth = async () => {
-    setError(null)
-    try {
-      const res = await fetch("/api/scanner/health", { cache: "no-store" })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = await res.json()
-      setHealth({
-        online: true,
-        devices: [],
-        deviceCount: 0,
-        onlineCount: 0,
-        lastSeenAt: null,
-        ...data,
-      })
-    } catch (e: any) {
-      setError(e?.message ?? "Bridge unreachable")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchHealth()
-    const id = setInterval(fetchHealth, 30_000)
-    return () => clearInterval(id)
-  }, [])
-
+  const health = useQuery(api.queries.access.getScannerHealth, {})
+  const loading = health === undefined
   const devices = health?.devices ?? []
-  const onlineCount = devices.filter((d) => d.online).length
+  const onlineCount = health?.onlineCount ?? 0
 
   return (
     <div
@@ -88,7 +46,7 @@ export function ScannerHealthPanel() {
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
             Scanner health
           </h2>
-          {!loading && health && (
+          {health && (
             <span
               style={{
                 fontSize: 12,
@@ -103,26 +61,9 @@ export function ScannerHealthPanel() {
             </span>
           )}
         </div>
-        <button
-          onClick={fetchHealth}
-          style={{
-            background: "transparent",
-            border: "1px solid var(--border)",
-            color: "var(--text-muted)",
-            padding: "6px 10px",
-            borderRadius: 8,
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            fontSize: 12,
-          }}
-        >
-          <RefreshCw size={12} /> Refresh
-        </button>
       </div>
 
-      {loading && !health ? (
+      {loading ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {[1, 2].map((i) => (
             <div
@@ -136,11 +77,9 @@ export function ScannerHealthPanel() {
             />
           ))}
         </div>
-      ) : error ? (
-        <div style={{ color: "var(--danger)", fontSize: 13 }}>{error}</div>
       ) : devices.length === 0 ? (
         <div style={{ color: "var(--text-muted)", fontSize: 13 }}>
-          No scanners registered. Visit /api/scanner/register to add one.
+          No scanners registered. Register a device with POST /api/scanner/register.
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

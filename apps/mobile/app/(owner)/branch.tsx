@@ -13,7 +13,8 @@ export default function OwnerBranchScreen() {
   const branches = useConvexQuery(api.queries.branches.branchesList, {});
   const update = useConvexMutation(api.mutations.branches.updateBranch);
 
-  const list: any[] = branches ?? [];
+  // branchesList rows are { branch, staffCount, upcomingEventCount }.
+  const list: any[] = (branches ?? []).map((r: any) => r.branch ?? r);
   const branch = list.find((b) => b.isActive) ?? list[0];
 
   const [name, setName] = useState('');
@@ -82,3 +83,5 @@ export default function OwnerBranchScreen() {
     </Screen>
   );
 }
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

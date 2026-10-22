@@ -58,7 +58,7 @@ export const getRecentAccessEvents = query({
           .take(limit);
     const enriched = await Promise.all(
       events.map(async (e) => {
-        const user = await ctx.db.get(e.userId);
+        const user = e.userId ? await ctx.db.get(e.userId) : null;
         return {
           ...e,
           user: user

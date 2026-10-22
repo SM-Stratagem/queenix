@@ -16,7 +16,7 @@
 
 import { createHmac } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { renderReceiptHtml } from '@queenix/receipts';
+import { computeVat, renderReceiptHtml } from '@queenix/receipts';
 import { convexAdmin } from '@queenix/auth/convex-admin';
 import { safeEqual, secret } from '@queenix/auth/env';
 import { hasStaffRole, sessionUser } from '@/lib/session-user';
@@ -52,7 +52,11 @@ const DENIED: Record<number, [string, string]> = {
   401: ['Sign in required', 'Sign in to view this receipt, or open it again from the app.'],
   403: ['Not allowed', 'You do not have permission to view this receipt.'],
   404: ['Receipt not available', 'This receipt does not exist.'],
+  409: ['Receipt not available yet', 'This payment has not been completed, so there is no receipt.'],
 };
+
+/** Only money actually taken gets a receipt. */
+const RECEIPT_STATUSES = new Set(['succeeded', 'refunded']);
 
 function htmlError(status: number) {
   const [title, text] = DENIED[status] ?? ['Error', 'Something went wrong.'];
@@ -101,6 +105,7 @@ export async function GET(
   const ctx = token ? (tokenOk(id, token) ? ((await loadContext(id)) ?? 404) : 401) : await authorize(req, id);
   if (typeof ctx === 'number') return htmlError(ctx);
   if (!ctx.payment) return htmlError(404);
+  if (!RECEIPT_STATUSES.has(ctx.payment.status)) return htmlError(409);
 
   const { payment, invoice, member } = ctx;
   const lineItems = invoice?.lineItems ?? [
@@ -111,10 +116,11 @@ export async function GET(
       totalCents: payment.amountCents,
     },
   ];
-  const subtotalCents = invoice?.subtotalCents ?? payment.amountCents;
-  const vatRate = invoice?.vatRate ?? (payment.currency === 'AED' ? 0.05 : 0);
-  const vatCents = invoice?.vatCents ?? Math.round(subtotalCents * vatRate);
-  const totalCents = invoice?.totalCents ?? subtotalCents + vatCents;
+  // Prices are VAT-inclusive: recompute the split from the line items (their
+  // totals are the amount charged) so pre-fix invoices that added 5% on top
+  // still render a total equal to what was paid.
+  const vatRate = invoice?.vatRate ?? (String(payment.currency).toUpperCase() === 'AED' ? 0.05 : 0);
+  const { subtotalCents, vatCents, totalCents } = computeVat(lineItems, vatRate);
 
   const html = renderReceiptHtml({
     invoiceNumber: invoice?.invoiceNumber ?? `QNX-${payment._id.slice(-6).toUpperCase()}`,

@@ -82,7 +82,10 @@ export function SessionRow({
   durationMinutes,
   memberName,
   dbStatus,
+  started,
   onStart,
+  onComplete,
+  onNoShow,
   onCancel,
   onViewNotes,
 }: {
@@ -91,31 +94,30 @@ export function SessionRow({
   memberName: string
   memberId: string
   dbStatus: string
+  started: boolean
   onStart: () => void
+  onComplete: () => void
+  onNoShow: () => void
   onCancel?: () => void
   onViewNotes: () => void
 }) {
-  // Local compatibility shim — original screen used 'in-progress' which is
-  // actually SessionStatus 'active'. We map at the boundary.
-  const composableStatus =
-    dbStatus === "in-progress" ? "active" : (dbStatus as SessionStatus)
-  const status = deriveStatus(scheduledAt, durationMinutes, composableStatus)
+  const status: SessionStatus = deriveStatus(scheduledAt, durationMinutes, dbStatus, started)
   const variant = getStatusVariant(status)
   const statusLabel = getStatusLabel(status)
   const startTime = formatTime(scheduledAt)
   const endTime = formatTime(scheduledAt + durationMinutes * 60 * 1000)
-  const active = status === "upcoming" || status === "active"
+  const done = status === "completed" || status === "cancelled" || status === "no_show"
 
   return (
     <Card
       variant="outlined"
       padding="sm"
-      onPress={active ? onStart : onViewNotes}
+      onPress={onViewNotes}
       aria-label={`PT with ${memberName} at ${startTime}, ${statusLabel}`}
     >
       <XStack alignItems="center" gap="$3">
         <YStack alignItems="center" width={56} gap="$0.5">
-          <Text variant="h4" color={status === "completed" ? "muted" : "primary"}>
+          <Text variant="h4" color={done ? "muted" : "primary"}>
             {startTime}
           </Text>
           <Text variant="caption" color="muted">
@@ -132,7 +134,7 @@ export function SessionRow({
           <XStack alignItems="center" gap="$2">
             <Text
               variant="label"
-              textDecorationLine={status === "completed" ? "line-through" : "none"}
+              textDecorationLine={status === "cancelled" ? "line-through" : "none"}
             >
               {memberName}
             </Text>
@@ -159,8 +161,11 @@ export function SessionRow({
                 <Button label="Cancel" size="sm" variant="ghost" onPress={onCancel} />
               )}
             </>
-          ) : status === "active" ? (
-            <Button label="Resume" size="sm" variant="primary" onPress={onStart} />
+          ) : status === "active" || status === "overdue" ? (
+            <>
+              <Button label="Complete" size="sm" variant="primary" onPress={onComplete} />
+              <Button label="No-show" size="sm" variant="ghost" onPress={onNoShow} />
+            </>
           ) : (
             <XStack
               onPress={onViewNotes}

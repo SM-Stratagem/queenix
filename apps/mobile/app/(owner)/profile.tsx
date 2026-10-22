@@ -30,7 +30,8 @@ export default function FinanceProfile() {
   const coffeePay = useConvexQuery((api.queries as any).commerce.getVenuePaymentSettings, { venue: 'coffee' });
   const salonPay = useConvexQuery((api.queries as any).commerce.getVenuePaymentSettings, { venue: 'salon' });
 
-  const branchList: any[] = branches ?? [];
+  // branchesList rows are { branch, staffCount, upcomingEventCount }.
+  const branchList: any[] = (branches ?? []).map((r: any) => r.branch ?? r);
   const branch = branchList.find((b) => b.isActive) ?? branchList[0];
   const planList: any[] = plans ?? [];
   const staffList: any[] = staff ?? [];
@@ -212,3 +213,5 @@ function SettingsItem({
     </Card>
   );
 }
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

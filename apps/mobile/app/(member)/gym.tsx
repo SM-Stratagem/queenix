@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { YStack, XStack, ScrollView } from 'tamagui';
 import { useRouter } from 'expo-router';
 import {
@@ -48,7 +48,8 @@ export default function GymScreen() {
       setTokenExpiresAt(res.tokenExpiresAt);
       setSecondsLeft(Math.max(0, Math.round((res.tokenExpiresAt - Date.now()) / 1000)));
     } catch (err: any) {
-      setTokenError(err?.message ?? 'Could not refresh access token');
+      // ConvexError text (e.g. no active membership / no credential) lives in err.data.
+      setTokenError(err?.data?.message ?? err?.message ?? 'Could not refresh access token');
     } finally {
       setRotating(false);
     }
@@ -58,6 +59,17 @@ export default function GymScreen() {
   useEffect(() => {
     refreshToken();
   }, [refreshToken]);
+
+  // Tokens are single-use: a granted scan burns it (sets lastUsedAt), so
+  // fetch a fresh one as soon as the credential reports a new use.
+  const credential = useConvexQuery(api.queries.access.getMyAccessCredential, {});
+  const lastUsedAt = (credential as any)?.lastUsedAt as number | undefined;
+  const seenUse = useRef<number | undefined | null>(null); // null = not loaded yet
+  useEffect(() => {
+    if (credential === undefined) return;
+    if (seenUse.current !== null && lastUsedAt !== seenUse.current) refreshToken();
+    seenUse.current = lastUsedAt;
+  }, [credential, lastUsedAt, refreshToken]);
 
   // Periodic rotation
   useEffect(() => {
@@ -93,7 +105,7 @@ export default function GymScreen() {
         <YStack paddingHorizontal="$4">
           <Card variant="elevated" padding="lg" alignItems="center">
             <XStack alignSelf="stretch" justifyContent="space-between" alignItems="center" marginBottom="$3">
-              <Badge label="Active" variant="success" />
+              <Badge label={tokenError ? 'Unavailable' : 'Active'} variant={tokenError ? 'warning' : 'success'} />
               <Text variant="caption" color="muted">
                 {tokenError ? 'Token error' : `Refreshes in ${secondsLeft}s`}
               </Text>
@@ -302,3 +314,5 @@ export default function GymScreen() {
     </Screen>
   );
 }
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

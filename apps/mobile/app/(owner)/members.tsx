@@ -261,3 +261,5 @@ export default function FinanceMembers() {
     </Screen>
   );
 }
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

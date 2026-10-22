@@ -5,6 +5,10 @@ import { useQuery, useMutation, useConvex } from 'convex/react';
 import { YStack, XStack, Text } from 'tamagui';
 import { api } from '@queenix/convex';
 import { ALL_ROLES, card, btnPrimary, btnGhost, inputStyle } from './styles';
+import { useSessionRoles } from '@/lib/access';
+import { authClient } from '@/lib/auth-client';
+import { errMsg } from '@/lib/errors';
+import { assignableRoles, canDo, roleEditBlock } from '../admin/can';
 
 /* ---------------- Roles & permissions ---------------- */
 
@@ -21,12 +25,21 @@ export function PermissionsTab() {
   const convex = useConvex();
   const [findEmail, setFindEmail] = useState('');
   const [found, setFound] = useState<any>(null);
+  // Mirrors mutations/teamOrg guards: finance+ edit roles/profiles (ops view
+  // read-only), only roles below your own rank, never your own or a peer's.
+  const myRoles = useSessionRoles();
+  const myEmail = authClient.useSession().data?.user?.email ?? null;
+  const canEdit = canDo(myRoles, 'staff.roles');
+  const assignable = assignableRoles(myRoles, ALL_ROLES);
 
   if (overview === undefined) return <Text opacity={0.6}>Loading roles…</Text>;
   const ov = overview as any;
   // A looked-up member joins the list so they can be granted a staff role.
   const staff = found && !(ov.staff as any[]).some((s) => s._id === found._id) ? [...ov.staff, found] : (ov.staff as any[]);
   const selected = staff.find((s) => String(s._id) === selectedId) ?? null;
+  const block = selected
+    ? roleEditBlock({ email: myEmail, roles: myRoles }, { email: selected.email, roles: selected.roles ?? [] })
+    : null;
   const dirEntry = ((directory ?? []) as any[]).find(
     (d) => String(d.user._id) === selectedId
   );
@@ -47,7 +60,12 @@ export function PermissionsTab() {
 
   async function findByEmail() {
     setMsg(null);
-    const u = await convex.query(api.queries.teamOrg.userByEmail, { email: findEmail });
+    let u;
+    try {
+      u = await convex.query(api.queries.teamOrg.userByEmail, { email: findEmail });
+    } catch (err) {
+      return setMsg(errMsg(err, 'Lookup failed.'));
+    }
     if (!u) return setMsg(`No account for ${findEmail} — they need to sign up first.`);
     setFound(u);
     setSelectedId(String(u._id));
@@ -80,7 +98,7 @@ export function PermissionsTab() {
       if (!res.ok) throw new Error('Roles saved, but web access did not update — save again.');
       setMsg('Roles saved.');
     } catch (err: any) {
-      setMsg(err?.message ?? 'Failed to save roles.');
+      setMsg(errMsg(err, 'Failed to save roles.'));
     }
   }
 
@@ -96,7 +114,7 @@ export function PermissionsTab() {
       });
       setMsg('Profile saved.');
     } catch (err: any) {
-      setMsg(err?.message ?? 'Failed to save profile.');
+      setMsg(errMsg(err, 'Failed to save profile.'));
     }
   }
 
@@ -125,6 +143,7 @@ export function PermissionsTab() {
           <Text fontSize={15} fontWeight="700">
             Staff
           </Text>
+          {canEdit && (
           <XStack gap={8} marginTop={8}>
             <input
               aria-label="Add staff by email"
@@ -138,6 +157,7 @@ export function PermissionsTab() {
               Find
             </button>
           </XStack>
+          )}
           <YStack gap={4} marginTop={8}>
             {staff.map((s) => (
               <div
@@ -171,6 +191,13 @@ export function PermissionsTab() {
               <Text fontSize={15} fontWeight="700">
                 {selected.fullName}
               </Text>
+              {!canEdit || block ? (
+                <Text fontSize={13} opacity={0.7}>
+                  Roles: {(selected.roles ?? []).join(', ')} · active {selected.activeRole}
+                  {canEdit ? ` — ${block}` : ' — role changes need finance or above.'}
+                </Text>
+              ) : (
+              <>
               <div>
                 <Text fontSize={13} fontWeight="700">
                   Granted roles
@@ -181,6 +208,7 @@ export function PermissionsTab() {
                       <input
                         type="checkbox"
                         checked={roles.includes(r)}
+                        disabled={!assignable.includes(r)}
                         onChange={() => toggleRole(r)}
                       />
                       {r}
@@ -198,7 +226,7 @@ export function PermissionsTab() {
                   style={{ ...inputStyle, maxWidth: 200, marginTop: 4 }}
                 >
                   <option value="">Select…</option>
-                  {ALL_ROLES.map((r) => (
+                  {ALL_ROLES.filter((r) => roles.includes(r)).map((r) => (
                     <option key={r} value={r}>
                       {r}
                     </option>
@@ -208,6 +236,9 @@ export function PermissionsTab() {
               <button style={{ ...btnPrimary, alignSelf: 'flex-start' }} onClick={saveRoles}>
                 Save roles
               </button>
+              </>
+              )}
+              {canEdit && (
               <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12 }}>
                 <Text fontSize={13} fontWeight="700">
                   Staff profile (title · department · reports to)
@@ -249,6 +280,7 @@ export function PermissionsTab() {
                   </Text>
                 )}
               </div>
+              )}
               {msg && <Text fontSize={13} opacity={0.7}>{msg}</Text>}
             </YStack>
           )}

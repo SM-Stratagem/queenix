@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useConvexAuth } from 'convex/react';
 import { ShieldAlert } from 'lucide-react';
-import { canOpen, isPublicPath, landingFor, useSessionRoles } from '@/lib/access';
+import { canOpen, isPublicPath, landingFor, routeCapability, useCapabilityGrants, useSessionRoles } from '@/lib/access';
 import { RequireAuth } from '../RequireAuth';
 import { AdminShell } from './AdminShell';
 import { QueryBoundary } from './QueryBoundary';
@@ -30,7 +30,13 @@ export function AdminFrame({ children }: { children: React.ReactNode }) {
 function RouteGate({ pathname, children }: { pathname: string; children: React.ReactNode }) {
   const roles = useSessionRoles();
   const convex = useConvexAuth();
-  if (!canOpen(roles, pathname)) {
+  // Roles don't open it but a capability grant might (e.g. content.manage → /website).
+  const byGrant = !canOpen(roles, pathname) && !!routeCapability(pathname);
+  const grants = useCapabilityGrants(byGrant && convex.isAuthenticated);
+  if (byGrant && (convex.isLoading || (convex.isAuthenticated && grants === undefined))) {
+    return <div style={{ padding: 24, color: 'var(--text-muted)' }}>Connecting…</div>;
+  }
+  if (!canOpen(roles, pathname, grants)) {
     const home = landingFor(roles);
     return (
       <div

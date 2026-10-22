@@ -6,7 +6,7 @@ import {
   deriveStatus,
   type SessionStatus,
 } from '@/components/trainer-today/format';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { HeroStat, QuickAction, SessionRow } from '@/components/trainer-today/Cards';
 import { YStack, XStack, ScrollView } from 'tamagui';
 import { useRouter } from 'expo-router';
@@ -55,6 +55,8 @@ export default function TrainerToday() {
   const myProfile = useConvexQuery(api.queries.users.getMyTrainerProfile, {});
   const setAvailability = useConvexMutation(api.mutations.users.updateTrainerProfile);
 
+  // ponytail: "started" is device-local — ptSessions has no in_progress state; add one server-side if other devices must see it.
+  const [started, setStarted] = useState<Set<string>>(() => new Set());
   const isLoading = sessionsQuery === undefined;
   const sessions = sessionsQuery ?? [];
 
@@ -215,9 +217,12 @@ export default function TrainerToday() {
                   memberName={s.member?.fullName ?? 'Member'}
                   memberId={s.memberId}
                   dbStatus={s.status}
-                  onStart={() =>
+                  started={started.has(String(s._id))}
+                  onStart={() => setStarted((prev) => new Set(prev).add(String(s._id)))}
+                  onComplete={() =>
                     changeStatus(String(s._id), 'completed', `Completed PT with ${s.member?.fullName ?? 'member'}`)
                   }
+                  onNoShow={() => changeStatus(String(s._id), 'no_show', 'Marked as no-show')}
                   onCancel={() =>
                     changeStatus(String(s._id), 'cancelled', 'Session cancelled')
                   }
@@ -233,3 +238,5 @@ export default function TrainerToday() {
     </Screen>
   );
 }
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

@@ -112,3 +112,5 @@ export default function TrainerTimeOffScreen() {
     </Screen>
   );
 }
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

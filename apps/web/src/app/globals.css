@@ -77,6 +77,28 @@ html {
   box-shadow: 4px 0 24px rgba(0, 70, 111, 0.35);
 }
 
+.admin-sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+/* Drawer toggle: only shown in the narrow-screen top bar. */
+.admin-nav-toggle {
+  display: none;
+  margin-left: auto;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+}
+
 .admin-header {
   grid-area: header;
   border-bottom: 1px solid var(--border);
@@ -132,16 +154,30 @@ html {
     grid-template-rows: auto auto 1fr;
     grid-template-areas: 'sidebar' 'header' 'main';
   }
+  /* Sidebar collapses to a top bar; the nav opens as a drawer below it. */
   .admin-sidebar {
     border-right: none;
     border-bottom: 3px solid #00466f;
-    padding: 12px;
+    padding: 10px 16px;
     height: auto;
     position: static;
+    overflow: visible;
   }
-  .admin-nav {
-    flex-direction: row !important;
-    overflow-x: auto;
+  .admin-sidebar-brand {
+    margin-bottom: 0;
+  }
+  .admin-nav-toggle {
+    display: flex;
+  }
+  /* !important: AdminNav sets display:flex inline. */
+  .admin-sidebar[data-open='false'] .admin-nav {
+    display: none !important;
+  }
+  .admin-sidebar[data-open='true'] .admin-nav {
+    margin-top: 12px;
+  }
+  .admin-header {
+    padding: 8px 16px;
   }
   .admin-branch-label {
     display: none;

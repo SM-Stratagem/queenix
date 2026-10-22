@@ -7,9 +7,9 @@ import { Building2 } from 'lucide-react';
 import { QueryBoundary, EmptyState } from './QueryBoundary';
 import { canOpen, useSessionRoles } from '@/lib/access';
 
-const STORAGE_KEY = 'qx-branch-scope';
+// v2: earlier builds stored department scopes ('dept:…'), not branch ids.
+const STORAGE_KEY = 'qx-branch-scope-v2';
 const ALL = 'all';
-const MAIN = 'main';
 
 const BranchContext = createContext<{ scope: string; setScope: (s: string) => void }>({
   scope: ALL,
@@ -41,41 +41,24 @@ export function BranchProvider({ children }: { children: React.ReactNode }) {
   return <BranchContext.Provider value={{ scope, setScope: change }}>{children}</BranchContext.Provider>;
 }
 
-type Option = { id: string; label: string };
+/** Selected branch id (branches table), or null for "All branches". */
+export function useBranchScope(): string | null {
+  const { scope } = useBranch();
+  return scope === ALL ? null : scope;
+}
 
 /**
- * Multi-branch switcher.
- *
- * BACKEND GAP (no schema change made): there is no branch/location table in
- * convex/schema/*, so the only org data to scope over is the staff
- * directory (staffProfiles.department via queries/org:staffDirectory).
- * Options are therefore "All branches" + "Main Branch" + one scope entry
- * per live department. Department scopes only label the dashboard scope
- * chip — widgets are NOT filtered by department because no backend table
- * carries a branch/department key for revenue, access, or classes.
+ * Branch switcher over the real `branches` table (queries/branches:branchesList).
+ * Only data carrying a branchId (events) is filtered by it — see ScopeNote.
  */
 function SwitcherInner() {
   const { scope, setScope } = useBranch();
-  const directory = useQuery(api.queries.org.staffDirectory, { limit: 200 });
-
-  const options: Option[] = React.useMemo(() => {
-    const base: Option[] = [
-      { id: ALL, label: 'All branches' },
-      { id: MAIN, label: 'Main Branch — Queenix Gym' },
-    ];
-    if (!directory) return base;
-    const depts = new Map<string, number>();
-    for (const row of directory) {
-      const d = (row as { profile?: { department?: string } | null }).profile?.department;
-      if (d) depts.set(d, (depts.get(d) ?? 0) + 1);
-    }
-    for (const [d, n] of [...depts.entries()].sort()) {
-      base.push({ id: `dept:${d}`, label: `${d} · ${n} staff` });
-    }
-    return base;
-  }, [directory]);
-
-  const valid = options.some((o) => o.id === scope) ? scope : ALL;
+  const branches = useQuery(api.queries.branches.branchesList, { includeInactive: false });
+  const options = (branches ?? []).map(({ branch }) => ({ id: String(branch._id), label: branch.name }));
+  // A saved scope for a since-deactivated branch falls back to All.
+  useEffect(() => {
+    if (branches && scope !== ALL && !options.some((o) => o.id === scope)) setScope(ALL);
+  }, [branches, scope]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
@@ -83,11 +66,11 @@ function SwitcherInner() {
       <span className="admin-branch-label" style={{ color: 'var(--text-muted)', fontWeight: 600 }}>
         Branch
       </span>
-      {directory === undefined ? (
+      {branches === undefined ? (
         <span style={{ color: 'var(--text-muted)' }}>Loading…</span>
       ) : (
         <select
-          value={valid}
+          value={options.some((o) => o.id === scope) ? scope : ALL}
           onChange={(e) => setScope(e.target.value)}
           aria-label="Branch scope"
           style={{
@@ -101,6 +84,7 @@ function SwitcherInner() {
             maxWidth: 240,
           }}
         >
+          <option value={ALL}>All branches</option>
           {options.map((o) => (
             <option key={o.id} value={o.id}>
               {o.label}
@@ -116,22 +100,25 @@ export function BranchSwitcher() {
   const fixed = (
     <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-muted)' }}>
       <Building2 size={16} />
-      Main Branch — Queenix Gym
+      Queenix Gym
     </label>
   );
-  // staffDirectory is finance/operations-only (same set as /team); venue staff + trainers get the fixed label.
+  // Branch scope only matters to the managers who see branch-keyed pages.
   const roles = useSessionRoles();
   const { isAuthenticated } = useConvexAuth();
-  if (!isAuthenticated || !canOpen(roles, '/team')) return fixed;
+  if (!isAuthenticated || !canOpen(roles, '/branches')) return fixed;
   return (
-    <QueryBoundary fallback={fixed}>
+    <QueryBoundary fallback={fixed} retry={false}>
       <SwitcherInner />
     </QueryBoundary>
   );
 }
 
+/** Says what the branch scope does on pages it can't filter. */
 export function ScopeNote() {
-  const { scope } = useBranch();
-  if (scope === ALL || scope === MAIN) return null;
-  return <EmptyState message={`Scope "${scope.replace(/^dept:/, '')}" labels this view only — single-site data, not filtered by department (no branch table in backend).`} />;
+  const scope = useBranchScope();
+  if (!scope) return null;
+  return (
+    <EmptyState message="Branch scope filters Events. Dashboard figures are gym-wide: memberships, payments and check-ins aren't recorded per branch yet." />
+  );
 }

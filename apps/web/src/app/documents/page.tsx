@@ -34,7 +34,7 @@ export default function DocumentsPage() {
             <div key={t._id} style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 14, background: 'var(--bg-elevated)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                 <div>
-                  <div style={{ fontWeight: 700 }}>{t.title} <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--text-muted)' }}>v{t.version}</span></div>
+                  <div style={{ fontWeight: 700 }}>{t.title} <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--text-muted)' }}>{/^v/i.test(t.version) ? t.version : `v${t.version}`}</span></div>
                   <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t.type} · {t.required ? 'required' : 'optional'} · effective {new Date(t.effectiveDate).toLocaleDateString()} · {t.signatureCount} signatures</div>
                 </div>
                 <button onClick={() => setOpenId(openId === t._id ? null : t._id)} style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-muted)', color: 'var(--text)', cursor: 'pointer', fontSize: 13 }}>

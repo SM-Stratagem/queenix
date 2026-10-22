@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { canOpen, useSessionRoles } from '@/lib/access';
+import { canOpen, useCapabilityGrants, useSessionRoles } from '@/lib/access';
+import { useConvexAuth } from 'convex/react';
 import {
   LayoutDashboard,
   Users,
@@ -110,13 +111,17 @@ const FINANCE_SECTIONS = new Set(['Money', 'Venues', 'Growth']);
 export function AdminNav() {
   const pathname = usePathname();
   const roles = useSessionRoles();
+  // Capability grants (e.g. content.manage → Website) add links on top of roles.
+  const grants = useCapabilityGrants(useConvexAuth().isAuthenticated) ?? [];
   const elevated = roles.some((r) => r === 'superadmin' || r === 'admin');
   const financeOnly = !elevated && roles.length > 0 && roles.every((r) => r === 'finance' || r === 'member');
-  const visible = SECTIONS.filter((s) => !financeOnly || FINANCE_SECTIONS.has(s.title))
-    .map((s) => ({ ...s, links: s.links.filter((l) => canOpen(roles, l.href)) }))
+  const visible = SECTIONS.filter(
+    (s) => !financeOnly || FINANCE_SECTIONS.has(s.title) || (s.title === 'Website' && grants.includes('content.manage')),
+  )
+    .map((s) => ({ ...s, links: s.links.filter((l) => canOpen(roles, l.href, grants)) }))
     .filter((s) => s.links.length > 0);
   return (
-    <nav aria-label="Admin" style={{ display: 'flex', flexDirection: 'column', gap: 16 }} className="admin-nav">
+    <nav id="admin-nav" aria-label="Admin" style={{ display: 'flex', flexDirection: 'column', gap: 16 }} className="admin-nav">
       {visible.map((s) => (
         <div key={s.title}>
           <div

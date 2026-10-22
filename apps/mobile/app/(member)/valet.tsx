@@ -117,3 +117,5 @@ export default function MemberValetScreen() {
     </Screen>
   );
 }
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

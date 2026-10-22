@@ -75,3 +75,5 @@ export default function OpsCoffeeQueue() {
     </Screen>
   );
 }
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

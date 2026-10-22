@@ -9,6 +9,7 @@ import { ConvexError, v } from 'convex/values';
 
 import { mutation, internalMutation } from '../_generated/server';
 import { requireRole, requireUser } from '../_helpers';
+import { COFFEE_NEXT, SALON_NEXT, transition } from '../opsLogic';
 
 type CommerceRole =
   | 'superadmin'
@@ -72,10 +73,11 @@ export const deleteSalonService = mutation({
     await staff(ctx, MANAGE);
     const svc = await ctx.db.get(args.serviceId);
     if (!svc) throw new ConvexError('Service not found');
-    const bookings = await ctx.db.query('salonBookings').collect();
-    const blocking = bookings.filter(
-      (b: any) => b.status !== 'cancelled' && String(b.serviceId) === String(args.serviceId)
-    );
+    const bookings = await ctx.db
+      .query('salonBookings')
+      .withIndex('by_service_start', (q: any) => q.eq('serviceId', args.serviceId))
+      .collect();
+    const blocking = bookings.filter((b: any) => b.status !== 'cancelled');
     if (blocking.length > 0) {
       throw new ConvexError(
         `Cannot remove: ${blocking.length} open booking(s) use this service. Deactivate it instead.`
@@ -147,7 +149,11 @@ export const updateSalonBookingStatus = mutation({
     } else {
       await staff(ctx, STAFF_SALON);
     }
-    await ctx.db.patch(args.bookingId, { status: args.status });
+    const step = transition(SALON_NEXT, booking.status, args.status);
+    if (step === 'invalid') {
+      throw new ConvexError({ code: 'INVALID_STATE', message: `Cannot move a ${booking.status} booking to ${args.status}` });
+    }
+    if (step === 'ok') await ctx.db.patch(args.bookingId, { status: args.status });
     return args.bookingId;
   },
 });
@@ -254,7 +260,11 @@ export const updateCoffeeOrderStatus = mutation({
     await staff(ctx, STAFF_COFFEE);
     const order = await ctx.db.get(args.orderId);
     if (!order) throw new ConvexError('Order not found');
-    await ctx.db.patch(args.orderId, { status: args.status });
+    const step = transition(COFFEE_NEXT, order.status, args.status);
+    if (step === 'invalid') {
+      throw new ConvexError({ code: 'INVALID_STATE', message: `Cannot move a ${order.status} order to ${args.status}` });
+    }
+    if (step === 'ok') await ctx.db.patch(args.orderId, { status: args.status });
     return args.orderId;
   },
 });
@@ -327,7 +337,8 @@ export const markSalonBookingCashPaid = mutation({
 /**
  * Counter coffee sale: staff picks items for a walk-up customer.
  * Always cash. Linked to the member when identified at the till,
- * otherwise recorded as a counter sale under the staff account.
+ * otherwise recorded as a walk-in (`walkIn: true`, `userId` = the staff
+ * member who rang it up).
  */
 export const createCounterCoffeeOrder = mutation({
   args: {
@@ -354,6 +365,7 @@ export const createCounterCoffeeOrder = mutation({
       paymentMode: 'cash',
       paidAt: Date.now(),
       paymentProvider: 'cash' as const,
+      ...(args.memberId ? {} : { walkIn: true }),
       createdAt: Date.now(),
     });
   },
@@ -362,7 +374,8 @@ export const createCounterCoffeeOrder = mutation({
 /**
  * Counter salon booking: staff books a walk-up customer in.
  * Always cash. Linked to the member when identified at the till,
- * otherwise recorded as a counter sale under the staff account.
+ * otherwise recorded as a walk-in (`walkIn: true`, `userId` = the staff
+ * member who rang it up).
  */
 export const createCounterSalonBooking = mutation({
   args: {
@@ -393,6 +406,7 @@ export const createCounterSalonBooking = mutation({
       paidAt: Date.now(),
       paymentProvider: 'cash' as const,
       note: args.note,
+      ...(args.memberId ? {} : { walkIn: true }),
       createdAt: Date.now(),
     });
   },

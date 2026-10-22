@@ -6,6 +6,7 @@ import { YStack, XStack, Text } from 'tamagui';
 import { api } from '@queenix/convex';
 import { downloadCsv } from '../finance/CsvExport';
 import { card, btnPrimary, btnGhost, inputStyle, fmtDay } from './styles';
+import { errMsg } from '@/lib/errors';
 
 /* ---------------- Timings & time off ---------------- */
 
@@ -16,6 +17,15 @@ export function TimingsTab() {
   const decideTimeOff = useMutation(api.mutations.teamOrg.decideTimeOff);
   const [form, setForm] = useState({ userId: '', date: '', kind: 'sick', note: '' });
   const [msg, setMsg] = useState<string | null>(null);
+  const [decideMsg, setDecideMsg] = useState<string | null>(null);
+  async function decide(timeOffId: any, decision: 'approved' | 'denied') {
+    setDecideMsg(null);
+    try {
+      await decideTimeOff({ timeOffId, decision });
+    } catch (err) {
+      setDecideMsg(errMsg(err, 'Failed to save decision.'));
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -30,7 +40,7 @@ export function TimingsTab() {
       setForm({ userId: '', date: '', kind: 'sick', note: '' });
       setMsg('Recorded.');
     } catch (err: any) {
-      setMsg(err?.message ?? 'Failed to record.');
+      setMsg(errMsg(err, 'Failed to record.'));
     }
   }
 
@@ -54,19 +64,24 @@ export function TimingsTab() {
                 </Text>
                 <button
                   style={btnPrimary}
-                  onClick={() => decideTimeOff({ timeOffId: t.record._id, decision: 'approved' })}
+                  onClick={() => decide(t.record._id, 'approved')}
                 >
                   Approve
                 </button>
                 <button
                   style={btnGhost}
-                  onClick={() => decideTimeOff({ timeOffId: t.record._id, decision: 'denied' })}
+                  onClick={() => decide(t.record._id, 'denied')}
                 >
                   Deny
                 </button>
               </XStack>
             ))}
           </YStack>
+          {decideMsg && (
+            <Text fontSize={13} marginTop={8} style={{ color: 'var(--danger)' }}>
+              {decideMsg}
+            </Text>
+          )}
         </div>
       )}
 

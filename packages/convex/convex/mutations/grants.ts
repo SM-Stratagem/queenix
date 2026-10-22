@@ -3,13 +3,15 @@
  *
  * Grants are ADDITIVE ONLY: they add capabilities to a user (globally or
  * scoped to one branch) and can never remove role-implied capabilities.
- * All three endpoints require staff.manage / staff.read so only
- * privileged staff can hand out access.
+ * Granting/revoking needs staff.manage AND passes grantChangeError: the
+ * actor holds the capability via their role, outranks the target, and
+ * never grants to themselves. Every change is audited.
  */
 
 import { v } from 'convex/values';
 import { mutation, query } from '../_generated/server';
-import { requireCapability } from '../permissions';
+import { audit } from '../_helpers';
+import { forbidIf, grantChangeError, requireCapability, type Role } from '../permissions';
 
 const capabilityLiteral = v.union(
   v.literal('platform.manage'),
@@ -41,6 +43,13 @@ export const grantCapability = mutation({
     const actor = await requireCapability(ctx, 'staff.manage');
     const target = await ctx.db.get(args.userId);
     if (!target) throw new Error('User not found');
+    forbidIf(
+      grantChangeError(
+        { id: actor._id, roles: actor.roles as Role[] },
+        { id: target._id, roles: target.roles as Role[] },
+        args.capability,
+      ),
+    );
     const existing = await ctx.db
       .query('capabilityGrants')
       .withIndex('by_user_capability', (q) =>
@@ -55,6 +64,14 @@ export const grantCapability = mutation({
         expiresAt: args.expiresAt,
         note: args.note,
       });
+      await audit(ctx, {
+        actorId: actor._id,
+        action: 'capabilityGrant.updated',
+        entityType: 'capabilityGrant',
+        entityId: sameScope._id,
+        before: { expiresAt: sameScope.expiresAt ?? null, note: sameScope.note ?? null },
+        after: { expiresAt: args.expiresAt ?? null, note: args.note ?? null },
+      });
       return { ok: true, grantId: sameScope._id, updated: true };
     }
     const grantId = await ctx.db.insert('capabilityGrants', {
@@ -66,6 +83,18 @@ export const grantCapability = mutation({
       expiresAt: args.expiresAt,
       note: args.note,
     });
+    await audit(ctx, {
+      actorId: actor._id,
+      action: 'capabilityGrant.created',
+      entityType: 'capabilityGrant',
+      entityId: grantId,
+      after: {
+        userId: args.userId,
+        capability: args.capability,
+        branchId: args.branchId ?? null,
+        expiresAt: args.expiresAt ?? null,
+      },
+    });
     return { ok: true, grantId, updated: false };
   },
 });
@@ -74,10 +103,26 @@ export const grantCapability = mutation({
 export const revokeCapability = mutation({
   args: { grantId: v.id('capabilityGrants') },
   handler: async (ctx, { grantId }) => {
-    await requireCapability(ctx, 'staff.manage');
+    const actor = await requireCapability(ctx, 'staff.manage');
     const grant = await ctx.db.get(grantId);
     if (!grant) throw new Error('Grant not found');
+    const target = await ctx.db.get(grant.userId);
+    forbidIf(
+      grantChangeError(
+        { id: actor._id, roles: actor.roles as Role[] },
+        { id: grant.userId, roles: (target?.roles ?? []) as Role[] },
+        grant.capability,
+        { revoke: true },
+      ),
+    );
     await ctx.db.delete(grantId);
+    await audit(ctx, {
+      actorId: actor._id,
+      action: 'capabilityGrant.revoked',
+      entityType: 'capabilityGrant',
+      entityId: grantId,
+      before: { ...grant },
+    });
     return { ok: true };
   },
 });

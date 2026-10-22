@@ -82,3 +82,5 @@ export default function MemberNotificationsScreen() {
     </Screen>
   );
 }
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

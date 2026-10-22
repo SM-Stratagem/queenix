@@ -94,3 +94,5 @@ export default function OwnerAnnounceScreen() {
     </Screen>
   );
 }
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

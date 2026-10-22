@@ -18,7 +18,9 @@ const synced = new Set<string>();
  * Convex query stream (client.setAuth with this endpoint).
  */
 export async function GET(req: Request) {
-  const session = await auth.api.getSession({ headers: req.headers });
+  // DB-checked, never the signed cookie cache: a signed-out / revoked session
+  // must stop minting Convex tokens immediately, not when the cache expires.
+  const session = await auth.api.getSession({ headers: req.headers, query: { disableCookieCache: true } });
   if (!session?.user?.id || !session?.session?.id) {
     return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
   }

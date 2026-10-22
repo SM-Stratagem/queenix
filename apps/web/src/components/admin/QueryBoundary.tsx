@@ -20,7 +20,7 @@ function isUnauthorized(error: Error): boolean {
   return msg.includes('"code":"UNAUTHORIZED"') || msg.includes('Not signed in');
 }
 export class QueryBoundary extends React.Component<
-  { children: React.ReactNode; fallback?: React.ReactNode },
+  { children: React.ReactNode; fallback?: React.ReactNode; retry?: boolean },
   { error: Error | null }
 > {
   override state = { error: null as Error | null };
@@ -33,10 +33,13 @@ export class QueryBoundary extends React.Component<
     // Intentionally silent: the fallback UI reports the degraded state.
   }
 
+  // Remounts the children, which re-subscribes their Convex queries (a
+  // transient timeout shouldn't need a full page reload).
+  retry = () => this.setState({ error: null });
+
   override render() {
     if (this.state.error) {
-      if (this.props.fallback) return this.props.fallback;
-      if (isUnauthorized(this.state.error)) {
+      if (!this.props.fallback && isUnauthorized(this.state.error)) {
         return (
           <div
             style={{
@@ -70,8 +73,30 @@ export class QueryBoundary extends React.Component<
           </div>
         );
       }
+      if (this.props.retry === false && this.props.fallback) return this.props.fallback;
       return (
-        <EmptyState message="Live data unavailable — you may not have access, or the backend is unreachable." />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {this.props.fallback ?? (
+            <EmptyState message="Live data unavailable — you may not have access, or the backend is unreachable." />
+          )}
+          <button
+            type="button"
+            onClick={this.retry}
+            style={{
+              alignSelf: 'flex-start',
+              fontSize: 13,
+              fontWeight: 700,
+              color: 'var(--text)',
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              padding: '6px 12px',
+              cursor: 'pointer',
+            }}
+          >
+            Retry
+          </button>
+        </div>
       );
     }
     return this.props.children;
@@ -151,7 +176,9 @@ export function formatMoney(cents: number, currency = 'AED'): string {
     return new Intl.NumberFormat('en-AE', {
       style: 'currency',
       currency,
-      maximumFractionDigits: 0,
+      // Keep fils (99.99), drop ".00" on whole amounts.
+      minimumFractionDigits: cents % 100 === 0 ? 0 : 2,
+      maximumFractionDigits: 2,
     }).format(cents / 100);
   } catch {
     return `${(cents / 100).toFixed(2)} ${currency}`;

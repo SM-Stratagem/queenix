@@ -13,6 +13,7 @@ import { v } from 'convex/values';
 
 import { query } from '../_generated/server';
 import { requireRole } from '../_helpers';
+import { scrubPaymentLink } from '../opsLogic';
 
 const STAFF_COFFEE = ['superadmin', 'admin', 'owner', 'operations', 'coffee'] as any;
 const STAFF_SALON = ['superadmin', 'admin', 'owner', 'operations', 'salon'] as any;
@@ -62,7 +63,7 @@ export const getCoffeeRevenue = query({
       totalOrders: scoped.length,
       byStatus,
       byPaymentMode,
-      recent: scoped.slice(0, 50),
+      recent: scoped.slice(0, 50).map(scrubPaymentLink),
     };
   },
 });
@@ -107,7 +108,7 @@ export const getSalonRevenue = query({
       totalBookings: scoped.length,
       unpricedCount,
       byStatus,
-      recent: scoped.slice(0, 50),
+      recent: scoped.slice(0, 50).map(scrubPaymentLink),
     };
   },
 });

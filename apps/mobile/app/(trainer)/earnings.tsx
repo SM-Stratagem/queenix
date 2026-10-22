@@ -306,3 +306,5 @@ export default function TrainerEarnings() {
     </Screen>
   );
 }
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

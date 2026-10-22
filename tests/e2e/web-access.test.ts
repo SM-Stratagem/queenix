@@ -18,6 +18,18 @@ describe("web access", () => {
     expect(canOpen(["operations"], "/members/abc123")).toBe(true);
     expect(canOpen(["salon"], "/coffee")).toBe(false);
     expect(canOpen(["finance"], "/finance")).toBe(true);
+    // Trainers can't push: the engagement backend rejects them.
+    expect(canOpen(["trainer"], "/notifications")).toBe(false);
+    expect(canOpen(["trainer"], "/sales-push")).toBe(false);
+    expect(canOpen(["operations"], "/notifications")).toBe(true);
+  });
+
+  it("a capability grant opens the page it covers, nothing else", () => {
+    expect(canOpen(["trainer"], "/website")).toBe(false);
+    expect(canOpen(["trainer"], "/website", ["content.manage"])).toBe(true);
+    expect(canOpen(["trainer"], "/website/pages", ["content.manage"])).toBe(true);
+    expect(canOpen(["trainer"], "/finance", ["content.manage"])).toBe(false);
+    expect(canOpen(["trainer"], "/website", ["notifications.push"])).toBe(false);
   });
 
   it("lands single-role staff on their home, others on ?next", () => {
@@ -30,9 +42,22 @@ describe("web access", () => {
   });
 
   it("never redirects off-site via ?next", () => {
-    for (const bad of ["//evil.example", "https://evil.example", "/\\evil.example", "javascript:alert(1)"]) {
+    for (const bad of [
+      "//evil.example",
+      "https://evil.example",
+      "/\\evil.example",
+      "javascript:alert(1)",
+      "/\t/evil.example",
+      "/\n/evil.example",
+      "/\r\n/evil.example",
+      "/\t\\evil.example",
+      " //evil.example",
+    ]) {
       expect(landingFor(["superadmin"], bad)).toBe("/dashboard");
     }
+    expect(landingFor(["superadmin"], "/members/abc?tab=1#x")).toBe("/members/abc?tab=1#x");
+    // Gated on the path, not the query string.
+    expect(landingFor(["operations"], "/finance?x=1")).toBe("/dashboard");
   });
 
   it("shows the ConvexError payload, not the raw server dump", () => {

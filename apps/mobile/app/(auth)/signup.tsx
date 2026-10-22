@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { YStack, XStack, ScrollView } from 'tamagui';
-import { useRouter } from 'expo-router';
+import { useRouter, Redirect } from 'expo-router';
 import { Screen, Text, Input, Button, Logo, Spacer } from '@queenix/ui';
 import { useAuth } from '@/lib/auth';
 import { Mail, Lock, User } from '@tamagui/lucide-icons-2';
 
 export default function SignupScreen() {
   const router = useRouter();
-  const { signUp } = useAuth();
+  const { signUp, session, needsOnboarding } = useAuth();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -36,8 +36,11 @@ export default function SignupScreen() {
       setError(res.error ?? 'Sign up failed');
       return;
     }
-    router.replace('/(auth)/onboarding');
+    // AuthProvider routes the new account to onboarding (needsOnboarding).
   };
+
+  // Declarative hop so it survives the root Stack remounting while Convex auth loads.
+  if (session && needsOnboarding) return <Redirect href="/(auth)/onboarding" />;
 
   return (
     <Screen scroll>
@@ -123,3 +126,5 @@ export default function SignupScreen() {
     </Screen>
   );
 }
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

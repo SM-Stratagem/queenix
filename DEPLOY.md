@@ -60,7 +60,8 @@ secret: after the Convex service is up, run `./generate_admin_key.sh` inside it
 | `QUEENIX_ADMIN_TOKEN` | ✓ | guards the role-assignment API |
 | `SCANNER_API_KEY` | ✓ | door/fingerprint devices send it as `X-Scanner-Key` (or `?key=`) |
 | `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`, `TAP_SECRET_KEY`/`TAP_WEBHOOK_SECRET` | for online card payments | AED charges use Tap when its key is set, else Stripe. Without keys online checkout errors; counter/cash still works. Leave `PAYMENTS_PROVIDER` unset — `mock` is refused in production. |
-| `AUTH_IP_HEADER` | behind a proxy | header with the real client IP for per-IP rate limits: `x-real-ip` on Railway; default `x-forwarded-for` (fine behind an AWS ALB). Only name a header your proxy overwrites. |
+| `AUTH_IP_HEADER` | ✓ (or `AUTH_TRUSTED_PROXIES`) | header your edge **overwrites** with the real client IP, for per-IP auth rate limits: `x-real-ip` on Railway, `cf-connecting-ip` behind Cloudflare. Never a header clients can set themselves: a client-chosen `x-forwarded-for` gets a fresh rate-limit bucket per request. |
+| `AUTH_TRUSTED_PROXIES` | behind an appending proxy | comma-separated proxy CIDRs (e.g. the AWS ALB subnets `10.0.0.0/16`). `x-forwarded-for` is then read from the right, skipping these hops, so the client-supplied left part is ignored. Don't use `x-forwarded-for` without this. If neither variable is set, no header is trusted and every client shares one rate-limit bucket (no bypass, but one abuser can lock out everyone); the server logs a warning at boot. |
 
 ### Convex (`convex`) environment
 

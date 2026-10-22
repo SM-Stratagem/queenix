@@ -22,7 +22,7 @@ import {
   Wallet,
 } from '@tamagui/lucide-icons-2';
 
-type ApprovalTab = 'all' | 'membership' | 'payment' | 'document' | 'trainer' | 'access' | 'payout';
+type ApprovalTab = 'all' | 'membership' | 'payment' | 'document' | 'trainer' | 'access' | 'payout' | 'timeoff';
 
 const TABS: { key: ApprovalTab; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -32,6 +32,7 @@ const TABS: { key: ApprovalTab; label: string }[] = [
   { key: 'trainer', label: 'Trainers' },
   { key: 'access', label: 'Access' },
   { key: 'payout', label: 'Payouts' },
+  { key: 'timeoff', label: 'Time off' },
 ];
 
 type Approval = {
@@ -42,44 +43,75 @@ type Approval = {
     | 'document.resign_requested'
     | 'trainer.cert_expiring'
     | 'access.override_requested'
-    | 'payout.early_requested';
+    | 'payout.early_requested'
+    | 'timeoff.leave'
+    | 'timeoff.sick';
+  /** 'timeoff' rows come from staffTimeOff (decideTimeOff), not the approvals table. */
+  source?: 'timeoff';
   requestorId: string;
   payload: any;
   status: 'pending' | 'approved' | 'denied' | 'cancelled';
   createdAt: number;
   requestor?: { fullName?: string; email?: string } | null;
+  requester?: { name?: string; fullName?: string; email?: string } | null;
 };
+
+const errMsg = (e: any) => e?.data?.message ?? e?.message ?? 'Failed';
 
 export default function ApprovalsScreen() {
   const toast = useToast();
   const [tab, setTab] = useState<ApprovalTab>('all');
 
-  const approvals = useConvexQuery(api.queries.memberships.getApprovals, {
+  const approvalRows = useConvexQuery(api.queries.memberships.getApprovals, {
     status: 'pending',
   }) as Approval[] | undefined;
-  const isLoading = approvals === undefined;
+  // Staff time-off requests (trainer/ops mobile) live in staffTimeOff.
+  const timeOffRows = useConvexQuery((api.queries as any).teamOrg.timeOffList, { status: 'pending' }) as
+    | Array<{ record: any; user: any }>
+    | undefined;
+  const isLoading = approvalRows === undefined || timeOffRows === undefined;
 
   const decide = useConvexMutation(api.mutations.users.decideApproval);
+  const decideTimeOff = useConvexMutation((api.mutations as any).teamOrg.decideTimeOff);
 
-  const filtered = (approvals ?? []).filter((a) =>
+  const approvals: Approval[] = [
+    ...(approvalRows ?? []),
+    ...(timeOffRows ?? []).map(({ record, user }) => ({
+      _id: record._id,
+      source: 'timeoff' as const,
+      type: `timeoff.${record.kind}` as Approval['type'],
+      requestorId: record.userId,
+      payload: { date: record.date, note: record.note },
+      status: record.status,
+      createdAt: record.createdAt,
+      requestor: user ? { fullName: user.fullName, email: user.email } : null,
+    })),
+  ].sort((a, b) => b.createdAt - a.createdAt);
+
+  const run = (a: Approval, decision: 'approved' | 'denied') =>
+    a.source === 'timeoff'
+      ? decideTimeOff({ timeOffId: a._id, decision })
+      : decide({ approvalId: a._id, decision });
+
+  const filtered = approvals.filter((a) =>
     tab === 'all' ? true : a.type.startsWith(tab + '.')
   );
 
   const handleApprove = async (a: Approval) => {
     try {
-      await decide({ approvalId: a._id, decision: 'approved' });
+      await run(a, 'approved');
       toast.success('Approved');
     } catch (e: any) {
-      toast.error(e?.message ?? 'Failed');
+      toast.error(errMsg(e));
     }
   };
 
   const handleDecline = async (a: Approval) => {
     try {
-      await decide({ approvalId: a._id, decision: 'denied' });
+      await run(a, 'denied');
       toast.success('Declined');
     } catch (e: any) {
-      toast.error(e?.message ?? 'Failed');
+      toast.error(errMsg(e));
     }
   };
 
@@ -148,10 +180,18 @@ export default function ApprovalsScreen() {
                   <FileText size={20} color="$brand" />
                 </YStack>
                 <YStack flex={1} gap="$1">
-                  <Text variant="body" weight="600">{a.type}</Text>
-                  <Text variant="caption" color="muted">
-                    {a.requestor?.email ?? '—'}
+                  <Text variant="body" weight="600">
+                    {a.source === 'timeoff'
+                      ? `${a.type === 'timeoff.sick' ? 'Sick day' : 'Leave'} · ${a.payload?.date ?? ''}`
+                      : a.type}
                   </Text>
+                  <Text variant="caption" color="muted">
+                    {a.requestor?.fullName ?? a.requester?.fullName ?? a.requester?.name ?? ''}{' '}
+                    {a.requestor?.email ?? a.requester?.email ?? '—'}
+                  </Text>
+                  {a.source === 'timeoff' && a.payload?.note ? (
+                    <Text variant="caption" color="secondary">{a.payload.note}</Text>
+                  ) : null}
                   <XStack alignItems="center" gap="$1.5" marginTop="$1">
                     <Clock size={12} color="$textMuted" />
                     <Text variant="caption" color="muted">
@@ -188,3 +228,5 @@ export default function ApprovalsScreen() {
     </Screen>
   );
 }
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

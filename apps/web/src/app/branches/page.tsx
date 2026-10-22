@@ -5,6 +5,8 @@ import { useQuery, useMutation } from 'convex/react';
 import { YStack, XStack, Text } from 'tamagui';
 import { api } from '@queenix/convex';
 import { errMsg } from '@/lib/errors';
+import { useSessionRoles } from '@/lib/access';
+import { canDo } from '@/components/admin/can';
 import { card, btnPrimary, btnGhost, inputStyle } from '@/components/admin/styles';
 import { BranchDetail } from '@/components/branches/BranchDetail';
 
@@ -13,6 +15,8 @@ export default function BranchesPage() {
   const createBranch = useMutation(api.mutations.branches.createBranch);
   const updateBranch = useMutation(api.mutations.branches.updateBranch);
 
+  // Create/edit/(de)activate are finance+ (mutations/branches); ops still assigns staff.
+  const canManage = canDo(useSessionRoles(), 'branch.manage');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -79,9 +83,11 @@ export default function BranchesPage() {
             Multi-branch management · staff assignments · local events
           </Text>
         </YStack>
-        <button style={btnPrimary} onClick={openCreate}>
-          + New branch
-        </button>
+        {canManage && (
+          <button style={btnPrimary} onClick={openCreate}>
+            + New branch
+          </button>
+        )}
       </XStack>
 
       {showForm && (
@@ -203,7 +209,7 @@ export default function BranchesPage() {
                 </Text>
               </div>
             ) : (
-              <BranchDetail selectedId={selectedId} detail={detail} onEdit={openEdit} notify={setMsg} />
+              <BranchDetail selectedId={selectedId} detail={detail} onEdit={canManage ? openEdit : undefined} notify={setMsg} />
             )}
           </div>
         </XStack>

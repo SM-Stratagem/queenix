@@ -52,14 +52,6 @@ export function IncidentDetail({
           aria-label="Mark incident as resolved"
           disabled={incident.status === "resolved"}
         />
-        <Button
-          label="Escalate"
-          variant="outline"
-          size="md"
-          flex={1}
-          onPress={() => {}}
-          aria-label="Escalate incident"
-        />
       </XStack>
     </YStack>
   )

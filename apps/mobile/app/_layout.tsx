@@ -120,7 +120,7 @@ function AppLoader() {
 }
 
 function RootNavigator() {
-  const { isLoading, session } = useAuth()
+  const { isLoading, session, needsOnboarding } = useAuth()
   // Screens subscribe on mount: hold them until Convex has accepted the token.
   const convexAuth = useConvexAuth()
   usePushNotifications(!!session && convexAuth.isAuthenticated)
@@ -143,7 +143,7 @@ function RootNavigator() {
 
   return (
     <Stack {...stackProps}>
-      <Stack.Screen name="(auth)" redirect={!!session} />
+      <Stack.Screen name="(auth)" redirect={!!session && !needsOnboarding} />
       <Stack.Screen name="(member)" redirect={!session} />
       <Stack.Screen name="(trainer)" redirect={!session} />
       <Stack.Screen name="(owner)" redirect={!session} />

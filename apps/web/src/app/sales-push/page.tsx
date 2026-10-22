@@ -58,6 +58,10 @@ export default function WebSalesPushPage() {
       setErr('Title and body are required.');
       return;
     }
+    if (price.trim() !== '' && !(Number(price) >= 0)) {
+      setErr('Price must be a number (AED), or leave it empty.');
+      return;
+    }
     setBusy(true);
     try {
       const res = await send({
@@ -67,7 +71,7 @@ export default function WebSalesPushPage() {
         priceCents: price.trim() === '' ? undefined : Math.round(Number(price) * 100),
         audience: 'members',
       });
-      setStatus(`Promo sent to ${res.sent} member${res.sent === 1 ? '' : 's'}. Batch ${res.batchId}.`);
+      setStatus(`Promo sent to ${res.sent} member${res.sent === 1 ? '' : 's'}.${res.continuing ? ' Delivering to the rest of the audience in the background.' : ''} Batch ${res.batchId}.`);
       setTitle('');
       setBody('');
       setCta('');

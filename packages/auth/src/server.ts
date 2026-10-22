@@ -7,6 +7,7 @@
 
 import { betterAuth } from 'better-auth';
 import { emailOTP, phoneNumber } from 'better-auth/plugins';
+import { expo } from '@better-auth/expo';
 import { getMigrations } from 'better-auth/db/migration';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -14,7 +15,7 @@ import Database from 'better-sqlite3';
 import { Kysely, PostgresDialect, SqliteDialect, sql } from 'kysely';
 import { Pool } from 'pg';
 import { convexAdmin } from './convex-admin';
-import { isProductionRuntime, secret, setting } from './env';
+import { authIpConfig, isProductionRuntime, secret, setting } from './env';
 import { codeMessage, sendEmail, sendSms } from './notify';
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -53,13 +54,18 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: false,
     minPasswordLength: 8,
+    // A reset (email or SMS code) signs out every other session — e.g. an attacker's.
+    revokeSessionsOnPasswordReset: true,
   },
 
 
   session: {
     expiresIn: 60 * 60 * 24 * 30, // 30 days
     updateAge: 60 * 60 * 24,
-    cookieCache: { enabled: true, maxAge: 5 * 60 },
+    // Signed-cookie cache: get-session skips the DB for up to 60s, so a sign-out,
+    // ban or role change takes up to a minute to reach it. /api/convex/token and
+    // other privileged server routes bypass it (disableCookieCache) and hit the DB.
+    cookieCache: { enabled: true, maxAge: 60 },
   },
 
   user: {
@@ -97,6 +103,9 @@ export const auth = betterAuth({
   },
 
   plugins: [
+    // Native app: turns the Expo client's `expo-origin` header into Origin so
+    // cookie-bearing POSTs (sign-out, verify, change-password) pass the origin check.
+    expo(),
     // Email codes: sign-in, email verification, password reset, email change.
     emailOTP({
       otpLength: 6,
@@ -127,27 +136,30 @@ export const auth = betterAuth({
     cookiePrefix: 'queenix',
     // Secure (https-only) cookies whenever the public URL is https — i.e. every real deployment.
     useSecureCookies: (process.env.AUTH_BASE_URL ?? '').startsWith('https://'),
-    // Header carrying the real client IP (rate limits are per IP). Railway: x-real-ip
-    // (its edge overwrites it). Only name a header your proxy overwrites — clients can send any.
-    ipAddress: { ipAddressHeaders: (process.env.AUTH_IP_HEADER || 'x-forwarded-for').split(',') },
+    // Client IP for per-IP rate limits: only AUTH_IP_HEADER (a header the edge
+    // overwrites, e.g. x-real-ip on Railway) or x-forwarded-for walked through
+    // AUTH_TRUSTED_PROXIES. Never a raw client header — see authIpConfig / DEPLOY.md.
+    ipAddress: authIpConfig(),
   },
 
   // Staff often share one office IP: allow a shift-change burst, still brute-force hostile.
   rateLimit: { customRules: { '/sign-in/*': { window: 60, max: 10 } } },
 
-  // Production trusts only its own public URL; the localhost / Expo / compose
-  // origins below exist for local development and are never trusted in prod.
+  // Production trusts its own public URL + the native app scheme (app.json
+  // `scheme`; browsers can't send it). The localhost / Expo Go / compose origins
+  // below exist for local development and are never trusted in prod.
   trustedOrigins: [
     process.env.AUTH_BASE_URL || '',
+    'queenix://',
     ...(isProductionRuntime()
       ? []
       : [
+          'exp://',
           'http://localhost:3000',
           'http://localhost:3300',
           'http://localhost:8081',
           'http://localhost:19006',
           'http://localhost:19000',
-          'exp://localhost:8081',
           // Compose service name: the one-shot seed container calls the API as http://web:3000.
           'http://web:3000',
           // Expo web preview served by Metro on the same LAN host (:3000 → :8081).
@@ -175,6 +187,7 @@ export async function syncUserToConvex(
     fullName: (user.fullName as string | undefined) ?? user.name ?? 'Member',
     roles: (user.roles as string[] | undefined) ?? ['member'],
     activeRole: user.activeRole as string | undefined,
+    emailVerified: Boolean(user.emailVerified),
     ...opts,
   });
 }

@@ -43,6 +43,19 @@ export function filterByConsent<T extends string>(
   return { allowed, skippedNoConsent: userIds.length - allowed.length };
 }
 
+/**
+ * Members who switched "Push notifications" off in the app
+ * (`memberProfiles.preferences.notifications === false`) get no phone push.
+ * No profile / no preference = on.
+ */
+export function filterByPushPreference<T extends string>(
+  userIds: T[],
+  pushOff: Set<string>,
+): { allowed: T[]; skippedOptOut: number } {
+  const allowed = userIds.filter((id) => !pushOff.has(id));
+  return { allowed, skippedOptOut: userIds.length - allowed.length };
+}
+
 export function buildMessages(
   targets: PushTarget[],
   msg: { title: string; body: string; type: string; batchId: string },

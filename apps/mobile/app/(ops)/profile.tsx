@@ -81,6 +81,7 @@ export default function OpsProfileScreen() {
   const [handoverText, setHandoverText] = useState('');
   const [roleSheetOpen, setRoleSheetOpen] = useState(false);
 
+  const me = useConvexQuery(api.queries.users.getCurrentUser, {});
   const shiftActive = useConvexQuery(
     api.queries.operations.getMyActiveShift,
     session?.userId ? {} : 'skip',
@@ -99,15 +100,17 @@ export default function OpsProfileScreen() {
     return {
       fullName: session.fullName,
       email: session.email,
-      phone: '+971 50 882 4710',
-      employeeSince: 'March 2024',
+      phone: (me as any)?.phone ?? session.phoneNumber,
+      employeeSince: me?._creationTime
+        ? new Date(me._creationTime).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+        : undefined,
       employeeId: userIdTail || '40219',
       avatarUrl: session.avatarUrl ?? undefined,
       primaryRole: 'Operations',
       secondaryRole: 'Front desk',
       roles: session.roles,
     }
-  }, [session])
+  }, [session, me])
 
   const shiftStart: number | null = shiftActive?.startsAt ?? null
   const elapsed = useElapsedSeconds(Boolean(shiftStart), shiftStart)
@@ -154,9 +157,8 @@ export default function OpsProfileScreen() {
 
   const handleSwitchRole = async (roleKey: string) => {
     try {
-      await switchRole(roleKey as any)
       setRoleSheetOpen(false)
-      router.replace(`/${roleKey}` as any)
+      await switchRole(roleKey as any) // routes to the role's MOBILE_HOME
     } catch (e: any) {
       toast.error(e?.message ?? 'Could not switch role')
     }
@@ -242,7 +244,7 @@ export default function OpsProfileScreen() {
             <SettingsRow
               icon={<Crown size={18} color="$textPrimary" />}
               label="Switch role"
-              description={`Current: ${ROLE_META.find((r) => r.key === session.activeRole)?.label ?? 'Member'}`}
+              description={`Current: ${ROLE_META.find((r) => r.key === session.activeRole)?.label ?? session.activeRole}`}
               onPress={() => setRoleSheetOpen(true)}
             />
           </YStack>
@@ -302,14 +304,23 @@ export default function OpsProfileScreen() {
         value={handoverText}
         onChange={setHandoverText}
         onSave={() => {
-          toast.success('Handover saved')
+          // No handover backend yet — don't claim it was saved.
+          toast.info('Handover notes are not saved yet. Please brief the next shift directly.')
           setHandoverOpen(false)
         }}
       />
       <RoleSwitcherSheet
         open={roleSheetOpen}
         onOpenChange={setRoleSheetOpen}
-        roles={ROLE_META}
+        roles={session.roles.map(
+          (k) =>
+            ROLE_META.find((r) => r.key === k) ?? {
+              key: k,
+              label: k.charAt(0).toUpperCase() + k.slice(1),
+              description: 'Open this role\'s dashboard',
+              icon: <Building2 size={16} color="$brand" />,
+            },
+        )}
         activeRole={session.activeRole}
         availableRoles={session.roles}
         onSwitch={handleSwitchRole}
@@ -321,3 +332,5 @@ export default function OpsProfileScreen() {
 // Side-effect import to keep tree-shake quiet on formatTime/formatDate.
 export const __formatTimeRef = formatTime
 export const __formatDateRef = formatDate
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

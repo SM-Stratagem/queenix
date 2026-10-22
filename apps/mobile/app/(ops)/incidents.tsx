@@ -10,6 +10,7 @@ import {
   Header,
   Skeleton,
   ErrorState,
+  Chip,
   useToast,
 } from '@queenix/ui';
 import { useConvexQuery, useConvexMutation, api } from '@/lib/convex';
@@ -120,7 +121,7 @@ export default function IncidentsScreen() {
       setReportType('equipment');
       setReportSeverity('medium');
     } catch (err: any) {
-      toast.error(err?.message ?? 'Failed to submit');
+      toast.error(err?.data?.message ?? err?.message ?? 'Failed to submit');
     }
   };
 
@@ -130,7 +131,7 @@ export default function IncidentsScreen() {
       toast.success('Incident resolved');
       setSelected(null);
     } catch (err: any) {
-      toast.error(err?.message ?? 'Failed to resolve');
+      toast.error(err?.data?.message ?? err?.message ?? 'Failed to resolve');
     }
   };
 
@@ -283,9 +284,41 @@ export default function IncidentsScreen() {
         ) : null}
       </Sheet>
 
-      {/* Report sheet extracted */}
-      {/* <ReportSheet ... /> — re-implement using extracted component below */}
+      {/* Report sheet */}
+      <Sheet open={reportOpen} onOpenChange={setReportOpen} snapPoints={[90]}>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <YStack gap="$3" paddingBottom="$6">
+            <Text variant="h2">Report incident</Text>
+            <Text variant="caption" color="secondary" fontWeight="600">Type</Text>
+            <XStack gap="$2" flexWrap="wrap">
+              {TYPE_OPTIONS.map((t) => (
+                <Chip key={t} label={TYPE_META[t].label} selected={reportType === t} variant="brand" onPress={() => setReportType(t)} />
+              ))}
+            </XStack>
+            <Text variant="caption" color="secondary" fontWeight="600">Severity</Text>
+            <XStack gap="$2" flexWrap="wrap">
+              {SEVERITY_OPTIONS.map((sv) => (
+                <Chip key={sv} label={SEVERITY_META[sv].label} selected={reportSeverity === sv} variant="brand" onPress={() => setReportSeverity(sv)} />
+              ))}
+            </XStack>
+            <Input label="Title" value={reportTitle} onChangeText={setReportTitle} placeholder="e.g. Treadmill 4 belt slipping" required />
+            <Input label="Location (optional)" value={reportLocation} onChangeText={setReportLocation} placeholder="e.g. Cardio zone" />
+            <Input
+              label="Description"
+              value={reportDescription}
+              onChangeText={setReportDescription}
+              placeholder="What happened?"
+              multiline
+              numberOfLines={4}
+              required
+            />
+            <Button label="Submit report" variant="primary" size="lg" fullWidth onPress={handleSubmit} />
+          </YStack>
+        </ScrollView>
+      </Sheet>
     </Screen>
   );
 }
 
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

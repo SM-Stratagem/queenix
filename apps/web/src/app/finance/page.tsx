@@ -50,6 +50,8 @@ export default function FinancePage() {
   const payouts = useQuery(financeRefs.listPayouts, { limit: 100 }) as PayoutRow[] | undefined;
   const financeAudit = useQuery(financeRefs.listFinanceAudit, { limit: 50 });
   const close = useQuery(financeRefs.getDailyClose, { day }) as any | undefined;
+  // Overview cards come from the unfiltered server aggregate, not the filtered 100-row table.
+  const totals = useQuery(financeRefs.getProfitAndLoss, {}) as any | undefined;
   const voidPayment = useMutation(financeRefs.voidPayment);
 
   const ledgerRows = toLedgerRows(ledger as any[] | undefined);
@@ -70,13 +72,6 @@ export default function FinancePage() {
     entityId: String(e.entityId),
     timestamp: e.timestamp ?? e.createdAt ?? 0,
   }));
-
-  const gross = ledgerRows
-    .filter((r) => r.status === 'succeeded')
-    .reduce((s, r) => s + r.amountCents, 0);
-  const refunded = refundRows.reduce((s, r) => s + (r.refundedAmountCents ?? r.amountCents), 0);
-  const payoutList = payouts ?? [];
-  const payoutsCents = payoutList.reduce((s, p) => s + (p.amountCents ?? 0), 0);
 
   // ponytail: native prompt for the void reason; swap for a dialog if copy/design needs it.
   async function handleVoid(row: LedgerRow) {
@@ -120,20 +115,20 @@ export default function FinancePage() {
         </Text>
       )}
 
-      {ledger === undefined ? (
+      {totals === undefined ? (
         <Text fontSize={13} opacity={0.6}>
-          Loading live ledger…
+          Loading live totals…
         </Text>
       ) : (
         <OverviewCards
           summary={{
-            grossCents: gross,
-            refundedCents: refunded,
-            netCents: gross - refunded,
-            succeededCount: ledgerRows.filter((r) => r.status === 'succeeded').length,
-            refundedCount: refundRows.length,
-            payoutsCents,
-            payoutsCount: payoutList.length,
+            grossCents: totals.grossCents,
+            refundedCents: totals.refundedCents,
+            netCents: totals.grossCents - totals.refundedCents,
+            succeededCount: totals.succeededCount,
+            refundedCount: totals.refundedCount,
+            payoutsCents: totals.payoutsCents,
+            payoutsCount: totals.payoutsCount,
           }}
         />
       )}

@@ -4,28 +4,87 @@
 
 import { v } from 'convex/values';
 import { internalMutation, mutation, type MutationCtx } from '../_generated/server';
+import type { Id } from '../_generated/dataModel';
 import { requireUser } from '../_helpers';
 import { requireCapability } from '../permissions';
 import { ConvexError } from 'convex/values';
 
+/** Unguessable token (no user id, crypto randomness). */
+function randomToken(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+type MembershipLike = { _id: Id<'memberships'>; status: string; endDate: number };
+
+/** The membership that currently admits entry (active/trial, not past its end). */
+export function admittingMembership<M extends MembershipLike>(memberships: M[], now: number): M | null {
+  return memberships.find((m) => (m.status === 'active' || m.status === 'trial') && m.endDate >= now) ?? null;
+}
+
+/**
+ * Pure door decision. Denied reasons are distinct so staff can tell an
+ * unknown/used token from an expired one or a lapsed membership.
+ */
+export function accessDecision(
+  credential: { status: string; tokenExpiresAt: number } | null,
+  memberships: MembershipLike[],
+  now: number,
+): { granted: boolean; reason?: string } {
+  if (!credential) return { granted: false, reason: 'Invalid or already used token' };
+  if (credential.status !== 'active') return { granted: false, reason: `Credential ${credential.status}` };
+  if (credential.tokenExpiresAt < now) return { granted: false, reason: 'Token expired' };
+  if (!admittingMembership(memberships, now)) {
+    const latest = memberships[0];
+    const why = latest?.status === 'frozen' ? 'frozen' : latest?.status === 'cancelled' ? 'cancelled' : 'expired';
+    return { granted: false, reason: latest ? `Membership ${why}` : 'No membership' };
+  }
+  return { granted: true };
+}
+
+async function membershipsOf(ctx: MutationCtx, userId: Id<'users'>) {
+  return await ctx.db
+    .query('memberships')
+    .withIndex('by_user', (q) => q.eq('userId', userId))
+    .order('desc')
+    .take(10);
+}
+
 /**
  * Rotate the QR access token (called every 60s by the client).
  * Returns a new token + expiry. Old token is invalidated atomically.
+ * Creates the member's credential on first use when they hold an admitting
+ * membership (credentials used to exist only for seeded demo users).
  */
 export const rotateAccessToken = mutation({
   args: {},
   handler: async (ctx) => {
     const user = await requireUser(ctx);
-    const credential = await ctx.db
+    const creds = await ctx.db
       .query('accessCredentials')
       .withIndex('by_user', (q) => q.eq('userId', user._id))
-      .filter((q) => q.eq(q.field('status'), 'active'))
-      .first();
+      .take(10);
+    let credential = creds.find((c) => c.status === 'active') ?? null;
+    const now = Date.now();
+    const tokenExpiresAt = now + 60 * 1000; // 60 seconds
+    const token = randomToken();
     if (!credential) {
-      throw new ConvexError({ code: 'NO_CREDENTIAL', message: 'No active access credential' });
+      // A blocked credential stays blocked; otherwise issue one for a paying member.
+      const membership = creds.some((c) => c.status === 'blocked')
+        ? null
+        : admittingMembership(await membershipsOf(ctx, user._id), now);
+      if (!membership) {
+        throw new ConvexError({ code: 'NO_CREDENTIAL', message: 'No active access credential' });
+      }
+      await ctx.db.insert('accessCredentials', {
+        userId: user._id,
+        membershipId: membership._id,
+        status: 'active',
+        token,
+        tokenExpiresAt,
+      });
+      return { token, tokenExpiresAt };
     }
-    const tokenExpiresAt = Date.now() + 60 * 1000; // 60 seconds
-    const token = `${user._id}-${tokenExpiresAt}-${Math.random().toString(36).slice(2, 10)}`;
     await ctx.db.patch(credential._id, { token, tokenExpiresAt });
     return { token, tokenExpiresAt };
   },
@@ -55,71 +114,34 @@ export const processAccessScanInternal = internalMutation({
 /**
  * Decide + log one QR scan. Returns the access decision and the member
  * info (if granted) so the caller can show a personalised result.
+ * A granted scan burns the token (single use: no screenshot replays).
  */
 async function scan(
   ctx: MutationCtx,
   { token, accessPointId, direction }: { token: string; accessPointId: string; direction: 'in' | 'out' },
 ) {
+  const now = Date.now();
   const credential = await ctx.db
     .query('accessCredentials')
     .withIndex('by_token', (q) => q.eq('token', token))
     .first();
+  const memberships = credential ? await membershipsOf(ctx, credential.userId) : [];
+  const { granted, reason } = accessDecision(credential, memberships, now);
+  const user = granted && credential ? await ctx.db.get(credential.userId) : null;
 
-  let granted = false;
-  let reason: string | undefined;
-  let userId: any = undefined;
-  let user: any = null;
-
-  if (!credential) {
-    reason = 'Invalid token';
-  } else if (credential.tokenExpiresAt < Date.now()) {
-    reason = 'Token expired';
-  } else if (credential.status !== 'active') {
-    reason = `Credential ${credential.status}`;
-  } else {
-    granted = true;
-    userId = credential.userId;
-    user = await ctx.db.get(credential.userId);
-  }
-
-  // Build the event row. If we have no credential we still log it but
-  // we need a placeholder userId to satisfy the schema. We use a
-  // dedicated "system" user that is created on demand.
-  if (!userId) {
-    const system = await ctx.db
-      .query('users')
-      .withIndex('by_email', (q) => q.eq('email', 'system@queenix.local'))
-      .first();
-    if (system) {
-      userId = system._id;
-    } else {
-      userId = await ctx.db.insert('users', {
-        email: 'system@queenix.local',
-        fullName: 'System',
-        activeRole: 'owner',
-        roles: ['owner'],
-        emailVerified: false,
-        phoneVerified: false,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      });
-    }
-  }
-
-  const credentialId = credential?._id ?? (await ensureSystemCredential(ctx))._id;
-
+  // Unknown tokens log with no user/credential (never a placeholder user).
   await ctx.db.insert('accessEvents', {
-    userId,
-    credentialId,
+    userId: credential?.userId,
+    credentialId: credential?._id,
     accessPointId,
     direction,
     granted,
     reason,
-    timestamp: Date.now(),
+    timestamp: now,
   });
 
   if (granted && credential) {
-    await ctx.db.patch(credential._id, { lastUsedAt: Date.now() });
+    await ctx.db.patch(credential._id, { lastUsedAt: now, token: randomToken(), tokenExpiresAt: 0 });
     // Update occupancy snapshot
     const lastSnapshot = await ctx.db
       .query('occupancySnapshots')
@@ -131,7 +153,7 @@ async function scan(
     await ctx.db.insert('occupancySnapshots', {
       accessPointId,
       count: newCount,
-      timestamp: Date.now(),
+      timestamp: now,
     });
   }
 
@@ -146,78 +168,4 @@ async function scan(
         }
       : null,
   };
-}
-
-/**
- * Internal helper — guarantees a system-level credential so we can
- * always log access events even for invalid tokens.
- */
-async function ensureSystemCredential(ctx: any) {
-  const existing = await ctx.db
-    .query('accessCredentials')
-    .withIndex('by_token', (q: any) => q.eq('token', '__system__'))
-    .first();
-  if (existing) return existing;
-  // We need a membership row too. The schema requires it.
-  const membership = await ctx.db
-    .query('memberships')
-    .filter((q: any) => q.eq(q.field('autoRenew'), false))
-    .first();
-  let membershipId = membership?._id;
-  if (!membershipId) {
-    // Create a placeholder membership plan + membership
-    const planId = await ctx.db.insert('membershipPlans', {
-      name: '__system__',
-      description: 'placeholder for system events',
-      durationDays: 1,
-      priceCents: 0,
-      currency: 'AED',
-      features: [],
-      isActive: false,
-      isTrial: false,
-      trialDays: 0,
-      maxClassesPerMonth: 0,
-      maxPTSessions: 0,
-    });
-    const sysUser = await ctx.db
-      .query('users')
-      .withIndex('by_email', (q: any) => q.eq('email', 'system@queenix.local'))
-      .first();
-    const sysUserId =
-      sysUser?._id ??
-      (await ctx.db.insert('users', {
-        email: 'system@queenix.local',
-        fullName: 'System',
-        activeRole: 'owner',
-        roles: ['owner'],
-        emailVerified: false,
-        phoneVerified: false,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      }));
-    membershipId = await ctx.db.insert('memberships', {
-      userId: sysUserId,
-      planId,
-      status: 'expired',
-      startDate: 0,
-      endDate: 0,
-      freezes: [],
-      autoRenew: false,
-      remainingClasses: 0,
-      remainingPTSessions: 0,
-    });
-  }
-  const id = await ctx.db.insert('accessCredentials', {
-    userId: (
-      await ctx.db
-        .query('users')
-        .withIndex('by_email', (q: any) => q.eq('email', 'system@queenix.local'))
-        .first()
-    )._id,
-    membershipId,
-    status: 'expired',
-    token: '__system__',
-    tokenExpiresAt: 0,
-  });
-  return await ctx.db.get(id);
 }

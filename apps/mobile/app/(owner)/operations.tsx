@@ -35,10 +35,6 @@ export default function FinanceOperations() {
   const activeShifts = liveQuery?.activeShifts ?? [];
   const openIncidentsCount = liveQuery?.openIncidentsCount ?? 0;
 
-  const handleOpenDoor = () => {
-    toast.success('Remote door open signal sent');
-  };
-
   return (
     <Screen scroll padded={false}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
@@ -87,13 +83,14 @@ export default function FinanceOperations() {
                 <Text variant="caption" color="muted">on shift now</Text>
               </YStack>
             </XStack>
+            {/* No door-relay integration exists yet — disabled rather than a fake "sent" toast. */}
             <Button
-              label="Open door remotely"
+              label="Open door remotely (not available yet)"
               variant="primary"
               fullWidth
               size="md"
+              disabled
               icon={<Unlock size={18} color="$textOnBrand" />}
-              onPress={handleOpenDoor}
             />
           </Card>
         </YStack>
@@ -284,3 +281,5 @@ export default function FinanceOperations() {
     </Screen>
   );
 }
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

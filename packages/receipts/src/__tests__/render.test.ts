@@ -16,9 +16,9 @@ describe("renderReceiptHtml", () => {
           totalCents: 49900,
         },
       ],
-      subtotalCents: 49900,
-      vatCents: 2495,
-      totalCents: 52395,
+      subtotalCents: 47524,
+      vatCents: 2376,
+      totalCents: 49900,
       currency: "AED",
       paymentMethodLabel: "Visa **** 4242",
       brandName: "Queenix Gym",
@@ -28,7 +28,8 @@ describe("renderReceiptHtml", () => {
     expect(html).toContain("Queenix Gym")
     expect(html).toContain("VAT")
     expect(html).toContain("AED")
-    expect(html).toContain("523.95")
+    expect(html).toContain("499.00") // total = amount charged (VAT-inclusive)
+    expect(html).toContain("23.76")
     expect(html).toContain("Jane Doe")
     expect(html).toContain("INV-001")
   })

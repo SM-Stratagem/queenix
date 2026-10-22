@@ -269,3 +269,5 @@ function Stat({
     </Card>
   );
 }
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

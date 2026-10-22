@@ -555,7 +555,8 @@ export const seedDemoDataset = internalMutation({
           .take(500);
         const byUser = new Map<string, any[]>();
         for (const e of todaysEvents) {
-          const cred = await ctx.db.get((e as any).credentialId);
+          // Denied unknown-token scans carry no credential (schema/access.ts).
+          const cred = (e as any).credentialId ? await ctx.db.get((e as any).credentialId) : null;
           if (typeof (cred as any)?.token !== 'string' || !(cred as any).token.startsWith('demo-qr-')) continue;
           const k = String((e as any).userId);
           if (!byUser.has(k)) byUser.set(k, []);
@@ -846,11 +847,11 @@ export const seedDemoDataset = internalMutation({
     const existingDocs = await ctx.db.query('documentTemplates').take(1);
     if (existingDocs.length === 0) {
       const docs = [
-        { type: 'membership_agreement', title: 'Membership Agreement v3', content: 'Membership terms and conditions…', required: true },
-        { type: 'liability_waiver', title: 'Liability Waiver v2', content: 'Assumption of risk…', required: true },
-        { type: 'health_declaration', title: 'Health Declaration v2', content: 'PAR-Q + health declaration…', required: true },
-        { type: 'gym_rules', title: 'Gym Rules v1', content: 'Floor rules and etiquette…', required: false },
-        { type: 'trainer_contract', title: 'Trainer Contract v1', content: 'Trainer engagement terms…', required: false },
+        { type: 'membership_agreement', title: 'Membership Agreement', content: 'Membership terms and conditions…', required: true },
+        { type: 'liability_waiver', title: 'Liability Waiver', content: 'Assumption of risk…', required: true },
+        { type: 'health_declaration', title: 'Health Declaration', content: 'PAR-Q + health declaration…', required: true },
+        { type: 'gym_rules', title: 'Gym Rules', content: 'Floor rules and etiquette…', required: false },
+        { type: 'trainer_contract', title: 'Trainer Contract', content: 'Trainer engagement terms…', required: false },
       ] as const;
       for (const d of docs) {
         const tid = await ctx.db.insert('documentTemplates', {

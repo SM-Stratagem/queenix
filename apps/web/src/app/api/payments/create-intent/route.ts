@@ -13,11 +13,12 @@
  *
  * The caller must be signed in and own the payment. Amount, currency and
  * description always come from the Convex record, never the request body.
- * PAYMENTS_PROVIDER=mock returns a fake intent for local testing.
+ * PAYMENTS_PROVIDER=mock returns a fake intent for local testing (never in
+ * production). No usable gateway → 503 "Payment gateway not configured".
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createPayment } from '@queenix/payments';
+import { createPayment, gatewayMode, pickProvider } from '@queenix/payments';
 import { convexAdmin } from '@queenix/auth/convex-admin';
 import { sessionUser } from '@/lib/session-user';
 
@@ -57,9 +58,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Payment is ${payment.status}` }, { status: 409 });
     }
 
+    const currency = String(payment.currency ?? 'AED').toUpperCase();
+    if (!gatewayMode(pickProvider(currency))) {
+      return NextResponse.json({ error: 'Payment gateway not configured' }, { status: 503 });
+    }
+
     const intent = await createPayment({
       amountCents: payment.amountCents,
-      currency: String(payment.currency ?? 'AED').toUpperCase(),
+      currency,
       userId: user._id,
       description: payment.description,
       redirectUrl: body.redirectUrl,

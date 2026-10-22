@@ -12,6 +12,7 @@ import type { Id } from '../_generated/dataModel';
 import { audit } from '../_helpers';
 import { requireCapability } from '../permissions';
 import { SITE_DEFAULTS, isSiteKey, slugify } from '../_site';
+import { isAllowedImageType, isSafeHref } from '../opsLogic';
 
 const MAX_STR = 2000;
 const MAX_LIST = 20;
@@ -25,6 +26,9 @@ function conform(def: unknown, val: unknown, path: string): unknown {
   if (typeof def === 'string') {
     if (typeof val !== 'string') throw invalid(`${path} must be text`);
     if (val.length > MAX_STR) throw invalid(`${path} is too long (max ${MAX_STR} characters)`);
+    if ((/(href|url)$/i.test(path) || path.startsWith('social.')) && !isSafeHref(val)) {
+      throw invalid(`${path} must be a /path, #anchor, https://, mailto: or tel: link`);
+    }
     return val;
   }
   if (Array.isArray(def)) {
@@ -107,8 +111,9 @@ export const generateUploadUrl = mutation({
 });
 
 /**
- * Register an uploaded file. Non-images and files over 8 MB are deleted and
- * reported (returned, not thrown — a throw would roll back the delete).
+ * Register an uploaded file. Anything but JPEG/PNG/WebP/GIF/AVIF (SVG can
+ * carry script) and files over 8 MB are deleted and reported (returned,
+ * not thrown — a throw would roll back the delete).
  */
 export const createMedia = mutation({
   args: { storageId: v.id('_storage'), alt: v.string(), caption: v.optional(v.string()), album },
@@ -116,9 +121,9 @@ export const createMedia = mutation({
     const me = await editor(ctx);
     const meta = await ctx.db.system.get('_storage', args.storageId);
     if (!meta) throw invalid('Upload not found');
-    if (!meta.contentType?.startsWith('image/') || meta.size > MAX_IMAGE_BYTES) {
+    if (!isAllowedImageType(meta.contentType) || meta.size > MAX_IMAGE_BYTES) {
       await ctx.storage.delete(args.storageId);
-      return { ok: false as const, message: 'Images only, up to 8 MB.' };
+      return { ok: false as const, message: 'JPEG, PNG, WebP, GIF or AVIF images only, up to 8 MB.' };
     }
     const alt = text(args.alt, 'Alt text', 300, true);
     const caption = text(args.caption, 'Caption', 500) || undefined;

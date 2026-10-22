@@ -11,13 +11,18 @@
  *
  * Staff only (BetterAuth session): coffee → coffee/operations/finance,
  * salon → salon/operations/finance; superadmin/admin always. Convex is
- * reached with the admin key (internal functions). Without provider keys
- * configured the route reports which gateway is missing instead of failing
- * silently.
+ * reached with the admin key (internal functions).
+ *
+ * Gateway policy: no usable gateway (keys missing, or PAYMENTS_PROVIDER=mock
+ * in production) → 503 "Payment gateway not configured". Only a hosted
+ * payment page URL (Tap) is a shareable link; Stripe needs Checkout /
+ * Payment Links, which are not built yet → 501. A Stripe client secret is
+ * never returned or stored as a link. Mock mode (dev only) returns a
+ * `mock:` placeholder link.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createPayment } from '@queenix/payments';
+import { createPayment, gatewayMode } from '@queenix/payments';
 import { convexAdmin } from '@queenix/auth/convex-admin';
 import { hasStaffRole, sessionUser } from '@/lib/session-user';
 
@@ -59,12 +64,15 @@ export async function POST(req: NextRequest) {
         { status: 409 }
       );
     }
-    const mock = process.env.PAYMENTS_PROVIDER === 'mock'; // createPayment fakes the charge
-    if (!mock && settings.provider === 'tap' && !process.env.TAP_SECRET_KEY) {
-      return NextResponse.json({ error: 'TAP_SECRET_KEY is not configured' }, { status: 409 });
+    const mode = gatewayMode(settings.provider);
+    if (!mode) {
+      return NextResponse.json({ error: 'Payment gateway not configured' }, { status: 503 });
     }
-    if (!mock && settings.provider === 'stripe' && !process.env.STRIPE_SECRET_KEY) {
-      return NextResponse.json({ error: 'STRIPE_SECRET_KEY is not configured' }, { status: 409 });
+    if (mode === 'live' && settings.provider === 'stripe') {
+      return NextResponse.json(
+        { error: 'Stripe payment links are not available yet — use Tap or cash' },
+        { status: 501 }
+      );
     }
 
     const order = await convexAdmin<any>('query', 'queries/commerce:getOrderForPayment', {
@@ -80,7 +88,10 @@ export async function POST(req: NextRequest) {
     if (!order.amountCents || order.amountCents <= 0) {
       return NextResponse.json({ error: 'Order has no billable amount' }, { status: 409 });
     }
-    if (order.paymentLink) {
+    // Reuse only a real hosted page (or a mock link in mock mode). Legacy
+    // `stripe:<id>:<clientSecret>` values are not links: never hand them out.
+    const stored = String(order.paymentLink ?? '');
+    if (/^https?:\/\//.test(stored) || (mode === 'mock' && stored.startsWith('mock:'))) {
       return NextResponse.json({ provider: order.paymentProvider, paymentLink: order.paymentLink, reused: true });
     }
 
@@ -94,11 +105,8 @@ export async function POST(req: NextRequest) {
       metadata: { venue, orderId: String(order.id) },
     });
 
-    // A shareable link: Tap gives a hosted page; Stripe gives a client
-    // secret for the app sheet plus a dashboard payment URL is not
-    // public — so return whichever the provider produced.
-    const paymentLink =
-      intent.redirectUrl ?? (intent.clientSecret ? `stripe:${intent.id}:${intent.clientSecret}` : null);
+    // Only a hosted page is shareable; a client secret is never a link.
+    const paymentLink = intent.redirectUrl ?? (mode === 'mock' ? `mock:${intent.id}` : null);
     if (!paymentLink) {
       return NextResponse.json({ error: 'Provider returned no shareable link' }, { status: 502 });
     }

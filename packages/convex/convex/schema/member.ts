@@ -29,6 +29,9 @@ export const memberProfiles = defineTable({
       marketing: v.boolean(),
       language: v.union(v.literal('en'), v.literal('ar')),
     }),
+    // Onboarding answers (mutations/users.ts updateMyProfile).
+    healthConditions: v.optional(v.array(v.string())),
+    goals: v.optional(v.array(v.string())),
     // ID document read by OCR and confirmed by a human (mutations/scans.ts).
     // verifiedBy === userId means the member self-scanned; otherwise staff verified.
     identity: v.optional(

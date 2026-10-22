@@ -124,7 +124,7 @@ export function RevenueChart({
     <Card variant="outlined">
       <XStack justifyContent="space-between" alignItems="center" marginBottom="$3">
         <YStack>
-          <Text variant="label">Revenue this week</Text>
+          <Text variant="label">Net revenue, last 6 months</Text>
           <Text variant="caption" color="muted">
             AED {(todaysRevenueCents ? todaysRevenueCents / 100 : 0).toLocaleString()} today
           </Text>

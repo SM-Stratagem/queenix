@@ -5,7 +5,9 @@ import Link from 'next/link';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@queenix/convex';
 import { downloadCsv } from '../../components/finance/CsvExport';
+import { formatPrice } from '@/components/finance/ui';
 import { canOpen, useSessionRoles } from '@/lib/access';
+import { errMsg } from '@/lib/errors';
 
 // New convex modules are not in the generated api.d.ts until `convex dev`
 // codegen runs against a live deployment; access them untyped so
@@ -16,7 +18,7 @@ const adminApi = api as any;
 const STATUS_TABS = ['all', 'active', 'trial', 'frozen', 'pending', 'expired', 'cancelled'] as const;
 
 function fmtMoney(cents: number, currency: string) {
-  return `${(cents / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })} ${currency}`;
+  return formatPrice(cents, currency);
 }
 
 function Directory() {
@@ -125,7 +127,7 @@ function Plans() {
       setForm({ name: '', description: '', price: '', durationDays: '30', maxClasses: '8', maxPT: '0' });
       setMsg('Plan created.');
     } catch (e: any) {
-      setMsg(e?.message ?? 'Failed to create plan.');
+      setMsg(errMsg(e, 'Failed to create plan.'));
     }
   };
 
@@ -156,7 +158,14 @@ function Plans() {
                 {p.isActive ? 'Active' : 'Inactive'} · {p.maxClassesPerMonth} classes/mo · {p.maxPTSessions} PT
               </div>
               <button
-                onClick={() => setActive({ planId: p._id, isActive: !p.isActive })}
+                onClick={async () => {
+                  setMsg(null);
+                  try {
+                    await setActive({ planId: p._id, isActive: !p.isActive });
+                  } catch (e) {
+                    setMsg(errMsg(e, 'Failed to update plan.'));
+                  }
+                }}
                 style={{ marginTop: 8, padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-muted)', color: 'var(--text)', cursor: 'pointer', fontSize: 13 }}
               >
                 {p.isActive ? 'Deactivate' : 'Activate'}

@@ -71,6 +71,9 @@ export function assertProductionEnv(): void {
       if (!process.env[n]) problems.push(`  - ${n} is missing (SMS_PROVIDER=twilio)`);
     }
   }
+  if (!process.env.AUTH_IP_HEADER && !process.env.AUTH_TRUSTED_PROXIES) {
+    console.warn('[env] AUTH_IP_HEADER / AUTH_TRUSTED_PROXIES unset: auth rate limits share ONE bucket for all clients (see DEPLOY.md)');
+  }
   if (problems.length) {
     throw new Error(`Refusing to start: production environment is incomplete:\n${problems.join('\n')}`);
   }
@@ -80,4 +83,25 @@ export function assertProductionEnv(): void {
 export function safeEqual(a: string, b: string): boolean {
   // Hash first so unequal lengths don't short-circuit.
   return timingSafeEqual(createHash('sha256').update(a).digest(), createHash('sha256').update(b).digest());
+}
+
+/**
+ * BetterAuth `advanced.ipAddress` — where the client IP for per-IP rate limits
+ * comes from. Any header a client can set is spoofable (a rotating
+ * x-forwarded-for = a fresh rate-limit bucket per request), so:
+ *  - AUTH_IP_HEADER: a header your edge OVERWRITES (Railway: x-real-ip).
+ *  - AUTH_TRUSTED_PROXIES: comma-separated proxy CIDRs; x-forwarded-for is then
+ *    walked from the right, skipping those hops (AWS ALB appends to it).
+ *  - neither: no header is trusted — production falls back to one shared
+ *    bucket (no bypass, but everyone shares the limit); dev uses 127.0.0.1.
+ */
+export function authIpConfig(env: Record<string, string | undefined> = process.env): {
+  ipAddressHeaders: string[];
+  trustedProxies?: string[];
+} {
+  const list = (v?: string) => (v ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+  const headers = list(env.AUTH_IP_HEADER).map((h) => h.toLowerCase());
+  const trustedProxies = list(env.AUTH_TRUSTED_PROXIES);
+  if (!trustedProxies.length) return { ipAddressHeaders: headers };
+  return { ipAddressHeaders: headers.length ? headers : ['x-forwarded-for'], trustedProxies };
 }

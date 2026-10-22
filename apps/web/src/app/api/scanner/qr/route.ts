@@ -28,6 +28,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { convexAdmin } from '@queenix/auth/convex-admin';
 import { scannerKeyOk } from '@/lib/scanner-auth';
+import { scannerError } from '../errors';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -97,15 +98,17 @@ export async function POST(req: NextRequest) {
       action: granted ? 'open_door_2s' : 'beep_twice',
       display: granted ? `✓ Welcome ${user?.fullName ? user.fullName.split(' ')[0] : ''}`.trim() : `✗ ${reason ?? 'Access denied'}`,
     });
-  } catch (err: any) {
+  } catch (err) {
+    const { status, reason } = scannerError(err);
+    if (status >= 500) console.error('[scanner/qr]', err);
     return NextResponse.json(
       {
         granted: false,
-        reason: err?.message ?? 'Convex error',
+        reason,
         action: 'beep_twice',
-        display: '✗ Server error',
+        display: status >= 500 ? '✗ Server error' : `✗ ${reason}`,
       },
-      { status: 502 }
+      { status }
     );
   }
 }

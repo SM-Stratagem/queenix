@@ -1,6 +1,7 @@
 import React from "react"
 import { YStack, XStack } from "tamagui"
 import { Text, Card, Button, Badge, EmptyState } from "@queenix/ui"
+import { ChevronLeft } from "@tamagui/lucide-icons-2"
 import { formatDate, formatMoney, statusToVariant } from "./format"
 
 export function PaymentsHeader({
@@ -21,12 +22,7 @@ export function PaymentsHeader({
         borderRadius="$full"
         backgroundColor="$surfaceMuted"
       >
-        <YStack
-          aria-hidden
-          style={{ transform: [{ rotate: "180deg" }] }}
-        >
-          <Text>‹</Text>
-        </YStack>
+        <ChevronLeft size={18} color="$textPrimary" aria-hidden />
       </YStack>
       <Text variant="h1">{title}</Text>
     </XStack>
@@ -164,6 +160,8 @@ export function DangerZone({
   endDateLabel: string
   onCancel: () => void
 }) {
+  // Inline confirm (Alert.alert is a no-op on react-native-web).
+  const [confirming, setConfirming] = React.useState(false)
   return (
     <YStack paddingHorizontal="$4" marginTop="$6" gap="$2">
       <Text variant="caption" color="muted" textTransform="uppercase" weight="600">
@@ -174,10 +172,31 @@ export function DangerZone({
           <YStack alignItems="center" gap="$3">
             <Text variant="label">Cancel membership</Text>
             <Text variant="caption" color="muted" align="center">
-              You will keep access until {endDateLabel}
+              Cancelling ends your plan and gym access right away (paid through {endDateLabel}).
             </Text>
           </YStack>
-          <Button label="Cancel membership" variant="danger" size="md" fullWidth onPress={onCancel} />
+          {confirming ? (
+            <YStack gap="$2">
+              <Text variant="bodySmall" align="center">
+                Cancel your membership now? Gym access stops immediately and this can't be undone in the app.
+              </Text>
+              <XStack gap="$2">
+                <Button label="Keep plan" variant="outline" size="md" flex={1} onPress={() => setConfirming(false)} />
+                <Button
+                  label="Yes, cancel"
+                  variant="danger"
+                  size="md"
+                  flex={1}
+                  onPress={() => {
+                    setConfirming(false)
+                    onCancel()
+                  }}
+                />
+              </XStack>
+            </YStack>
+          ) : (
+            <Button label="Cancel membership" variant="danger" size="md" fullWidth onPress={() => setConfirming(true)} />
+          )}
         </YStack>
       </Card>
     </YStack>

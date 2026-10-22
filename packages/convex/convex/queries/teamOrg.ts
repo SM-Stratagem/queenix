@@ -306,7 +306,9 @@ export const rolesOverview = query({
 export const staffPunches = query({
   args: { userId: v.id('users'), limit: v.optional(v.number()) },
   handler: async (ctx, { userId, limit = 30 }) => {
-    await requireUser(ctx);
+    // Your own punches, or anyone's for finance/ops managers.
+    const me = await requireUser(ctx);
+    if (me._id !== userId) await requireRole(ctx, ['finance', 'operations']);
     return await ctx.db
       .query('punchEvents')
       .withIndex('by_user', (q) => q.eq('userId', userId))

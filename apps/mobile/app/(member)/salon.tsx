@@ -88,3 +88,5 @@ export default function MemberSalon() {
     </Screen>
   );
 }
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

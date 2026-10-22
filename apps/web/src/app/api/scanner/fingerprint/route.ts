@@ -28,11 +28,13 @@
  *
  *   4xx / 5xx
  *   { "ok": false, "reason": "Device not allowed" }
+ *   400 malformed id · 403 not staff / device not allowed · 404 unknown user
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { convexAdmin } from '@queenix/auth/convex-admin';
 import { scannerKeyOk } from '@/lib/scanner-auth';
+import { scannerError } from '../errors';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -107,10 +109,9 @@ export async function POST(req: NextRequest) {
       userId,
       punchType,
     });
-  } catch (err: any) {
-    return NextResponse.json(
-      { ok: false, reason: err?.message ?? 'Convex error' },
-      { status: 502 }
-    );
+  } catch (err) {
+    const { status, reason } = scannerError(err);
+    if (status >= 500) console.error('[scanner/fingerprint]', err);
+    return NextResponse.json({ ok: false, reason }, { status });
   }
 }

@@ -8,6 +8,7 @@
  */
 import { useState } from 'react';
 import { useMutation, useQuery } from 'convex/react';
+import { errMsg } from '@/lib/errors';
 import { api } from '@queenix/convex';
 import { useSessionRoles } from '@/lib/access';
 
@@ -77,12 +78,12 @@ export default function WebNotificationsPage() {
         ...(canPush && push ? { push: true } : {}),
       });
       const phones = res.pushQueued ? ` Phone push queued for ${res.pushQueued} member${res.pushQueued === 1 ? '' : 's'}.` : '';
-      setStatus(`Sent to ${res.sent} member${res.sent === 1 ? '' : 's'}${res.capped ? ' (audience larger than one batch — send again with offset to continue)' : ''}.${phones} Batch ${res.batchId}.`);
+      setStatus(`Sent to ${res.sent} member${res.sent === 1 ? '' : 's'}.${phones}${res.continuing ? ' Delivering to the rest of the audience in the background.' : ''} Batch ${res.batchId}.`);
       setTitle('');
       setBody('');
       setPush(false);
     } catch (e: any) {
-      setErr(e?.message ?? 'Failed to send');
+      setErr(errMsg(e, 'Failed to send'));
     } finally {
       setBusy(false);
     }

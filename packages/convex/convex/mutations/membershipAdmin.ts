@@ -12,6 +12,7 @@ import { v } from 'convex/values';
 import { mutation } from '../_generated/server';
 import { requireRole, audit } from '../_helpers';
 import { ConvexError } from 'convex/values';
+import { unfreezeEarly } from '../opsLogic';
 
 const STAFF_ROLES = ['admin', 'superadmin', 'owner'] as any;
 
@@ -61,13 +62,16 @@ export const unfreezeAnyMembership = mutation({
     const m = await ctx.db.get(membershipId);
     if (!m) throw new ConvexError({ code: 'NOT_FOUND', message: 'Membership not found' });
     if (m.status !== 'frozen') return m;
-    await ctx.db.patch(membershipId, { status: 'active' });
+    // Early unfreeze: give back only the days actually frozen.
+    const { endDate, freezes } = unfreezeEarly(m, Date.now());
+    await ctx.db.patch(membershipId, { status: 'active', endDate, freezes });
     await audit(ctx, {
       actorId: staff._id,
       action: 'membership.unfrozen',
       entityType: 'membership',
       entityId: membershipId,
-      after: { byAdmin: true },
+      before: { endDate: m.endDate },
+      after: { byAdmin: true, endDate },
     });
     return await ctx.db.get(membershipId);
   },

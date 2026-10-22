@@ -6,6 +6,18 @@ import { v } from 'convex/values';
 import { mutation } from '../_generated/server';
 import { requireUser, audit } from '../_helpers';
 import { ConvexError } from 'convex/values';
+import { canBookClass, cancelBookingEffect } from '../opsLogic';
+
+/** Members need a live (active/trial, unexpired) membership; staff don't. */
+async function requireBookable(ctx: any, user: any) {
+  const memberships = await ctx.db
+    .query('memberships')
+    .withIndex('by_user', (q: any) => q.eq('userId', user._id))
+    .take(50);
+  if (!canBookClass(user.roles ?? [], memberships, Date.now())) {
+    throw new ConvexError({ code: 'NO_MEMBERSHIP', message: 'An active membership is required to book classes' });
+  }
+}
 
 export const bookClass = mutation({
   args: {
@@ -32,6 +44,7 @@ export const bookClass = mutation({
     ).find((b) => String(b.userId) === String(user._id) && b.status !== 'cancelled');
     if (live) return live;
 
+    await requireBookable(ctx, user);
     const classInstance = await ctx.db.get(classInstanceId);
     if (!classInstance) throw new ConvexError({ code: 'NOT_FOUND', message: 'Class not found' });
     if (classInstance.status !== 'scheduled') {
@@ -77,48 +90,46 @@ export const cancelBooking = mutation({
     }
     if (booking.status === 'cancelled') return booking;
 
+    const classInstance = await ctx.db.get(booking.classInstanceId);
+    // Earliest waitlisted booking takes a freed seat (confirmed cancels only).
+    const next =
+      booking.status === 'confirmed'
+        ? (
+            await ctx.db
+              .query('bookings')
+              .withIndex('by_classInstance', (q) => q.eq('classInstanceId', booking.classInstanceId))
+              .collect()
+          )
+            .filter((b) => b.status === 'waitlisted')
+            .sort((a, b) => a.bookedAt - b.bookedAt)[0]
+        : undefined;
+    const effect = cancelBookingEffect(
+      booking.status,
+      { bookedCount: classInstance?.bookedCount ?? 0, waitlistCount: classInstance?.waitlistCount ?? 0 },
+      !!next,
+    );
+    if (!effect.ok) {
+      throw new ConvexError({ code: 'INVALID_STATE', message: `Cannot cancel a booking that is ${booking.status}` });
+    }
+
     const before = { ...booking };
     await ctx.db.patch(bookingId, {
       status: 'cancelled',
       cancelledAt: Date.now(),
     });
+    if (classInstance) await ctx.db.patch(booking.classInstanceId, effect.counts);
 
-    // Decrement class capacity
-    const classInstance = await ctx.db.get(booking.classInstanceId);
-    if (classInstance && classInstance.bookedCount > 0) {
-      await ctx.db.patch(booking.classInstanceId, {
-        bookedCount: classInstance.bookedCount - 1,
+    if (effect.promote && next) {
+      await ctx.db.patch(next._id, { status: 'confirmed' });
+      await ctx.db.insert('notifications', {
+        userId: next.userId,
+        title: 'You are off the waitlist',
+        body: 'A spot opened up — your class booking is confirmed.',
+        type: 'booking',
+        read: false,
+        data: { bookingId: next._id, classInstanceId: booking.classInstanceId },
+        createdAt: Date.now(),
       });
-    }
-
-    // Promote the earliest waitlisted member into the freed spot.
-    if (booking.status === 'confirmed') {
-      const waiting = await ctx.db
-        .query('bookings')
-        .withIndex('by_classInstance', (q) => q.eq('classInstanceId', booking.classInstanceId))
-        .collect();
-      const next = waiting
-        .filter((b) => b.status === 'waitlisted')
-        .sort((a, b) => a.bookedAt - b.bookedAt)[0];
-      if (next) {
-        await ctx.db.patch(next._id, { status: 'confirmed' });
-        const fresh = await ctx.db.get(booking.classInstanceId);
-        if (fresh) {
-          await ctx.db.patch(booking.classInstanceId, {
-            bookedCount: fresh.bookedCount + 1,
-            waitlistCount: Math.max(0, (fresh.waitlistCount ?? 1) - 1),
-          });
-        }
-        await ctx.db.insert('notifications', {
-          userId: next.userId,
-          title: 'You are off the waitlist',
-          body: 'A spot opened up — your class booking is confirmed.',
-          type: 'booking',
-          read: false,
-          data: { bookingId: next._id, classInstanceId: booking.classInstanceId },
-          createdAt: Date.now(),
-        });
-      }
     }
 
     await audit(ctx, {
@@ -152,6 +163,7 @@ export const joinWaitlist = mutation({
       .first();
     if (existing) return existing;
 
+    await requireBookable(ctx, user);
     const classInstance = await ctx.db.get(classInstanceId);
     if (!classInstance) throw new ConvexError({ code: 'NOT_FOUND', message: 'Class not found' });
     if (classInstance.status !== 'scheduled') {

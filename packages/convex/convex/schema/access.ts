@@ -24,8 +24,9 @@ export const accessCredentials = defineTable({
     .index('by_membership', ['membershipId'])
 
 export const accessEvents = defineTable({
-    userId: v.id('users'),
-    credentialId: v.id('accessCredentials'),
+    // Both omitted on a denied scan of an unknown token (no placeholder user).
+    userId: v.optional(v.id('users')),
+    credentialId: v.optional(v.id('accessCredentials')),
     accessPointId: v.string(),
     direction: v.union(v.literal('in'), v.literal('out')),
     granted: v.boolean(),

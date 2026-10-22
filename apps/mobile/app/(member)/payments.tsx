@@ -252,9 +252,9 @@ export default function PaymentsScreen() {
               if (!membership) return
               try {
                 await cancelMembershipM({ membershipId: membership._id })
-                toast.success('Membership cancelled. Access remains until period end.')
+                toast.success('Membership cancelled.')
               } catch (err: any) {
-                toast.error(err?.message ?? 'Could not cancel')
+                toast.error(err?.data?.message ?? err?.message ?? 'Could not cancel')
               }
             }}
           />
@@ -272,3 +272,5 @@ export default function PaymentsScreen() {
     </Screen>
   );
 }
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

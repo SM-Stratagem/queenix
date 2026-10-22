@@ -67,7 +67,9 @@ export function DashboardHome() {
         <RecentCheckins />
       </QueryBoundary>
 
-      <ScannerHealthPanel />
+      <QueryBoundary fallback={<EmptyState message="Scanner health unavailable." />}>
+        <ScannerHealthPanel />
+      </QueryBoundary>
     </div>
   );
 }

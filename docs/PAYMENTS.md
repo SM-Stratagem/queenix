@@ -197,9 +197,15 @@ For partial refunds, the Stripe webhook only fires once for the full refund even
 
 ## Idempotency
 
-Every payment carries a server-generated `idempotencyKey` that is reused as the Stripe / Tap `idempotencyKey` parameter. If the mobile app retries (poor network, app crash mid-checkout), the provider returns the same intent instead of charging twice.
+Every payment carries a server-generated `idempotencyKey` that is reused as the Stripe / Tap `idempotencyKey` parameter, so a provider retry for the same payment returns the same intent instead of charging twice.
 
-Convex also stores the key with a `by_idempotencyKey` index; the `createPaymentIntent` mutation short-circuits if it sees the same key.
+Double-submits from the app (two taps on "Buy", a retry after a crash) are collapsed in Convex: `createMembershipCheckout` / `createPaymentIntent` reuse the member's existing **pending** payment for the same plan and price created in the last 15 minutes (`findReusableCheckout` in `convex/moneyLogic.ts`). Concurrent taps read the same index, so Convex serialises them into one payment.
+
+## Price integrity
+
+Membership payments are priced on the server from the plan (`plan.priceCents` / `plan.currency`); any amount the client sends is ignored. `recordPaymentSuccess` verifies the amount and currency the gateway reports against the payment (and the payment against the plan). On a mismatch it activates nothing, marks the payment `failed` ("Amount mismatch … refund required") and writes a `payment.amountMismatch` audit event.
+
+Prices are VAT-inclusive (UAE 5%): receipts split VAT out of the charged total (`vat = round(total × 5/105)`); they never add it on top. Receipts render only for `succeeded` / `refunded` payments.
 
 ---
 

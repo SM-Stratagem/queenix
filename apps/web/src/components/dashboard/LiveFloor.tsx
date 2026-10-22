@@ -15,7 +15,8 @@ export function OccupancySection() {
   // counting only granted "in" events (schema/access:accessEvents).
   const latest = new Map<string, (typeof events)[number]>();
   for (const e of [...events].sort((a, b) => a.timestamp - b.timestamp)) {
-    latest.set(e.userId as unknown as string, e);
+    // Unknown-pass scans have no userId (denied, never "in gym").
+    if (e.userId) latest.set(String(e.userId), e);
   }
   const inGym = [...latest.values()].filter((e) => e.direction === 'in' && e.granted);
 
@@ -188,7 +189,12 @@ export function RecentCheckins() {
             <tbody>
               {events.map((e) => (
                 <tr key={String(e._id)} style={{ borderBottom: '1px solid var(--border)' }}>
-                  <td style={{ padding: '10px 0', fontSize: 14, fontWeight: 500 }}>{e.user?.fullName ?? 'Unknown'}</td>
+                  <td style={{ padding: '10px 0', fontSize: 14, fontWeight: 500 }}>
+                    {e.user?.fullName ?? (e.userId ? 'Unknown member' : 'Unknown pass')}
+                    {!e.granted && e.reason && (
+                      <div style={{ fontSize: 12, fontWeight: 400, color: 'var(--danger)' }}>{e.reason}</div>
+                    )}
+                  </td>
                   <td style={{ padding: '10px 0' }}>
                     <span
                       style={{
@@ -196,12 +202,12 @@ export function RecentCheckins() {
                         fontWeight: 700,
                         padding: '3px 8px',
                         borderRadius: 999,
-                        background: e.direction === 'in' ? '#10b98120' : '#0081cc20',
-                        color: e.direction === 'in' ? 'var(--success)' : 'var(--brand)',
+                        background: !e.granted ? '#ef444420' : e.direction === 'in' ? '#10b98120' : '#0081cc20',
+                        color: !e.granted ? 'var(--danger)' : e.direction === 'in' ? 'var(--success)' : 'var(--brand)',
                         textTransform: 'uppercase',
                       }}
                     >
-                      {e.direction}{e.granted ? '' : ' · denied'}
+                      {e.direction}{e.granted ? '' : ': denied'}
                     </span>
                   </td>
                   <td style={{ padding: '10px 0', fontSize: 13, color: 'var(--text-muted)' }}>{e.accessPointId}</td>

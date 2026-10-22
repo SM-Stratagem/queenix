@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQuery, useMutation } from 'convex/react';
 import { YStack, XStack, Text } from 'tamagui';
 import Link from 'next/link';
 import { api } from '@queenix/convex';
 import { canOpen, useSessionRoles } from '@/lib/access';
 import { errMsg } from '@/lib/errors';
+import { QueryBoundary, EmptyState } from '@/components/admin/QueryBoundary';
 
 type Venue = 'coffee' | 'salon';
 type Provider = 'cash' | 'tap' | 'stripe';
@@ -23,6 +24,18 @@ function VenueCard({ venue }: { venue: Venue }) {
   const current = settings as unknown as
     | { provider?: Provider; currency?: string; enabled?: boolean }
     | undefined;
+
+  // Prime the form from the saved settings once they load, so "Save gateway"
+  // never silently resets the venue to cash/AED.
+  const [primed, setPrimed] = useState(false);
+  useEffect(() => {
+    if (current && !primed) {
+      setProvider(current.provider ?? 'cash');
+      setCurrency(current.currency ?? 'AED');
+      setEnabled(current.enabled ?? true);
+      setPrimed(true);
+    }
+  }, [current, primed]);
 
   async function onSave(e: React.FormEvent) {
     e.preventDefault();
@@ -102,8 +115,31 @@ function VenueCard({ venue }: { venue: Venue }) {
  * Settings: venue payment gateways (coffee/salon provider + currency),
  * branch overview, and where each domain is configured.
  */
-export default function SettingsPage() {
+function BranchesSummary() {
   const branches = useQuery(api.queries.branches.branchesList, {});
+  return (
+    <YStack gap={8}>
+      <Text fontSize={18} fontWeight="700">
+        Branches ({branches === undefined ? '…' : branches.length})
+      </Text>
+      {branches === undefined ? (
+        <Text fontSize={13} opacity={0.6}>Loading branches…</Text>
+      ) : branches.length === 0 ? (
+        <Text fontSize={13} opacity={0.6}>
+          No branches yet — create them from Branches, then scope the dashboard with the branch switcher.
+        </Text>
+      ) : (
+        branches.map((b: any) => (
+          <Text key={String(b.branch?._id ?? b.branch?.name)} fontSize={13}>
+            {b.branch?.name ?? 'Branch'} · {b.staffCount} staff · {b.upcomingEventCount} upcoming events
+          </Text>
+        ))
+      )}
+    </YStack>
+  );
+}
+
+export default function SettingsPage() {
   const roles = useSessionRoles();
   // Venue staff edit only their own venue; managers see both.
   const venues = (['coffee', 'salon'] as const).filter((v) => canOpen(roles, `/${v}`));
@@ -132,29 +168,17 @@ export default function SettingsPage() {
         </Text>
         <XStack gap={16} flexWrap="wrap">
           {venues.map((v) => (
-            <VenueCard key={v} venue={v} />
+            <QueryBoundary key={v} fallback={<EmptyState message={`${v} gateway settings unavailable.`} />}>
+              <VenueCard venue={v} />
+            </QueryBoundary>
           ))}
         </XStack>
       </YStack>
 
-      <YStack gap={8}>
-        <Text fontSize={18} fontWeight="700">
-          Branches ({branches === undefined ? '…' : branches.length})
-        </Text>
-        {branches === undefined ? (
-          <Text fontSize={13} opacity={0.6}>Loading branches…</Text>
-        ) : branches.length === 0 ? (
-          <Text fontSize={13} opacity={0.6}>
-            No branches yet — create them from Branches, then scope the dashboard with the branch switcher.
-          </Text>
-        ) : (
-          branches.map((b: any) => (
-            <Text key={String(b.branch?._id ?? b.branch?.name)} fontSize={13}>
-              {b.branch?.name ?? 'Branch'} · {b.staffCount} staff · {b.upcomingEventCount} upcoming events
-            </Text>
-          ))
-        )}
-      </YStack>
+      {/* Own boundary: a branches timeout mustn't blank the gateway forms. */}
+      <QueryBoundary fallback={<EmptyState message="Branches unavailable." />}>
+        <BranchesSummary />
+      </QueryBoundary>
 
       {places.length > 0 && (
         <YStack gap={4}>

@@ -2,9 +2,15 @@
  * Queenix Gym — User mutations
  */
 
-import { v } from 'convex/values';
+import { ConvexError, v } from 'convex/values';
 import { internalMutation, mutation } from '../_generated/server';
-import { requireUser } from '../_helpers';
+import { requireRole, requireUser } from '../_helpers';
+import {
+  approvalDecisionError,
+  forbidIf,
+  getUserGrantedCapabilities,
+  type Role,
+} from '../permissions';
 
 export const switchRole = mutation({
   args: {
@@ -43,6 +49,8 @@ export const syncFromBetterAuth = internalMutation({
     // Self-heal on login: create the row if missing, never overwrite roles
     // (Team → Permissions edits roles in Convex first).
     createOnly: v.optional(v.boolean()),
+    // BetterAuth's emailVerified; omitted by older callers → left as-is (false on create).
+    emailVerified: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db
@@ -51,6 +59,9 @@ export const syncFromBetterAuth = internalMutation({
       .first();
     const activeRole = (args.activeRole ?? args.roles[0] ?? 'member') as 'member' | 'trainer' | 'finance' | 'owner' | 'operations';
     if (existing) {
+      if (args.emailVerified !== undefined && args.emailVerified !== existing.emailVerified) {
+        await ctx.db.patch(existing._id, { emailVerified: args.emailVerified, updatedAt: Date.now() });
+      }
       if (args.createOnly) return { ok: true, created: false };
       await ctx.db.patch(existing._id, {
         fullName: args.fullName,
@@ -66,7 +77,7 @@ export const syncFromBetterAuth = internalMutation({
       fullName: args.fullName,
       activeRole,
       roles: args.roles as ('member' | 'trainer' | 'finance' | 'owner' | 'operations')[],
-      emailVerified: true,
+      emailVerified: args.emailVerified ?? false,
       phoneVerified: false,
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -166,14 +177,23 @@ export const requestEarlyPayout = mutation({
     note: v.optional(v.string()),
   },
   handler: async (ctx, { amountCents, currency = 'AED', note }) => {
-    const user = await requireUser(ctx);
+    const user = await requireRole(ctx, ['trainer']);
+    if (!Number.isInteger(amountCents) || amountCents <= 0) {
+      throw new ConvexError({ code: 'INVALID', message: 'Amount must be a positive whole number of cents' });
+    }
     const now = Date.now();
 
-    // Find the owner(s) to notify
-    const owners = await ctx.db
-      .query('users')
-      .filter((q) => q.eq(q.field('activeRole'), 'owner'))
-      .take(10);
+    // Notify finance (incl. the legacy 'owner' alias). Indexed on activeRole,
+    // ponytail: misses finance staff currently switched to another persona.
+    const owners = [];
+    for (const role of ['finance', 'owner'] as const) {
+      owners.push(
+        ...(await ctx.db
+          .query('users')
+          .withIndex('by_activeRole', (q) => q.eq('activeRole', role))
+          .take(10)),
+      );
+    }
 
     for (const owner of owners) {
       await ctx.db.insert('notifications', {
@@ -219,9 +239,18 @@ export const decideApproval = mutation({
     note: v.optional(v.string()),
   },
   handler: async (ctx, { approvalId, decision, note }) => {
-    const user = await requireUser(ctx);
+    // Staff gate first (members never get here), then the per-kind rule:
+    // money kinds need finance.write, the rest finance/operations; never your own.
+    const user = await requireRole(ctx, ['finance', 'operations']);
     const approval = await ctx.db.get(approvalId);
     if (!approval) throw new Error('Approval not found');
+    forbidIf(
+      approvalDecisionError(
+        { id: user._id, roles: user.roles as Role[] },
+        approval,
+        await getUserGrantedCapabilities(ctx, user._id),
+      ),
+    );
     if (approval.status !== 'pending') {
       throw new Error('Approval already decided');
     }
@@ -366,9 +395,17 @@ export const updateMyProfile = mutation({
         language: v.union(v.literal('en'), v.literal('ar')),
       })
     ),
+    healthConditions: v.optional(v.array(v.string())),
+    goals: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
+    // Onboarding free-text lists: at most 20 entries of 200 chars each.
+    for (const list of [args.healthConditions, args.goals]) {
+      if (list && (list.length > 20 || list.some((x) => x.length > 200))) {
+        throw new ConvexError({ code: 'INVALID', message: 'Too many entries or an entry is too long' });
+      }
+    }
     const existing = await ctx.db
       .query('memberProfiles')
       .withIndex('by_user', (q) => q.eq('userId', user._id))
@@ -379,6 +416,8 @@ export const updateMyProfile = mutation({
     if (args.emergencyContact !== undefined) patch.emergencyContact = args.emergencyContact;
     if (args.vehicles !== undefined) patch.vehicles = args.vehicles;
     if (args.preferences !== undefined) patch.preferences = args.preferences;
+    if (args.healthConditions !== undefined) patch.healthConditions = args.healthConditions.map((x) => x.trim()).filter(Boolean);
+    if (args.goals !== undefined) patch.goals = args.goals.map((x) => x.trim()).filter(Boolean);
     if (existing) {
       await ctx.db.patch(existing._id, patch);
       return await ctx.db.get(existing._id);

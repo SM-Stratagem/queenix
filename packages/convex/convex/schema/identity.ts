@@ -44,6 +44,8 @@ export const users = defineTable({
     .index('by_email', ['email'])
     .index('by_phone', ['phone'])
     .index('by_betterAuthUserId', ['betterAuthUserId'])
+    .index('by_activeRole', ['activeRole'])
+    .searchIndex('search_fullName', { searchField: 'fullName', filterFields: ['activeRole'] })
 
 export const devices = defineTable({
     userId: v.id('users'),

@@ -79,3 +79,5 @@ export default function MemberSecurityScreen() {
     </Screen>
   );
 }
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

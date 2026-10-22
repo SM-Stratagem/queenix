@@ -23,9 +23,13 @@ export const SECTION_INFO: Record<string, { title: string; hint: string }> = {
 };
 
 const WORDS: Record<string, string> = { cta: 'CTA', url: 'URL', ios: 'iOS', seo: 'SEO', whatsapp: 'WhatsApp', tiktok: 'TikTok' };
+const LABELS: Record<string, string> = { iosUrl: 'iOS app URL', androidUrl: 'Android app URL' };
 const humanize = (k: string) => {
-  const s = k.replace(/([A-Z])/g, ' $1').toLowerCase().split(' ').map((w) => WORDS[w] ?? w).join(' ');
-  return s.charAt(0).toUpperCase() + s.slice(1);
+  if (LABELS[k]) return LABELS[k];
+  const words = k.replace(/([A-Z])/g, ' $1').toLowerCase().split(' ');
+  const s = words.map((w) => WORDS[w] ?? w).join(' ');
+  // A mapped first word keeps its own casing ('iOS', not 'IOS').
+  return words[0] && WORDS[words[0]] ? s : s.charAt(0).toUpperCase() + s.slice(1);
 };
 const LONG = new Set(['body', 'subheadline', 'description', 'quote']);
 const SINGULAR: Record<string, string> = { highlights: 'highlight', items: 'testimonial', hours: 'hours row' };
@@ -149,7 +153,7 @@ export function SectionForm({ sectionKey, data, updatedAt }: { sectionKey: SiteK
       <Field name="" def={defaults} value={draft} onChange={(v) => setDraft(v as Obj)} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <button type="button" onClick={onSave} disabled={busy || !dirty} style={{ ...btnPrimary, opacity: busy || !dirty ? 0.5 : 1 }}>
-          {busy ? 'Saving…' : `Save ${info.title.toLowerCase()}`}
+          {busy ? 'Saving…' : `Save ${info.title === info.title.toUpperCase() ? info.title : info.title.toLowerCase()}`}
         </button>
         {dirty && (
           <button type="button" onClick={() => { setDraft(data); setErr(null); }} style={btnGhost}>

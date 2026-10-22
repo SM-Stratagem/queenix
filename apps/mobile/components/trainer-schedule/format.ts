@@ -1,4 +1,4 @@
-function getMonday(offsetWeeks: number): Date {
+export function getMonday(offsetWeeks: number): Date {
   const today = new Date()
   const dow = (today.getDay() + 6) % 7
   const monday = new Date(today)

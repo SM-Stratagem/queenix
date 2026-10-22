@@ -240,3 +240,5 @@ export default function TrainerProfile() {
     </Screen>
   );
 }
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

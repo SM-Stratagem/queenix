@@ -41,3 +41,5 @@ export default function MemberTiersScreen() {
     </Screen>
   );
 }
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

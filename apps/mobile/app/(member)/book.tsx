@@ -198,3 +198,5 @@ export default function BookScreen() {
   );
 }
 
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

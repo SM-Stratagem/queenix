@@ -2,9 +2,10 @@
  * Queenix Gym — User queries
  */
 
-import { v } from 'convex/values';
+import { ConvexError, v } from 'convex/values';
 import { internalQuery, query } from '../_generated/server';
 import { requireRole, requireUser } from '../_helpers';
+import { userHasCapability, type Role } from '../permissions';
 import { REWARDS } from '../mutations/loyalty';
 
 export const getCurrentUser = query({
@@ -106,8 +107,7 @@ export const getTodaySessions = query({
       .withIndex('by_trainer', (q) => q.eq('trainerId', user._id))
       .filter(
         (q) =>
-          q.gte(q.field('scheduledAt'), startOfDay) &&
-          q.lt(q.field('scheduledAt'), endOfDay)
+          q.and(q.gte(q.field('scheduledAt'), startOfDay), q.lt(q.field('scheduledAt'), endOfDay))
       )
       .collect();
 
@@ -131,8 +131,9 @@ export const getTodaySessions = query({
  * member/class-type info.
  */
 export const getWeekSchedule = query({
-  args: {},
-  handler: async (ctx) => {
+  // weekStart: the client's local Monday 00:00 (week arrows); default = this week.
+  args: { weekStart: v.optional(v.number()) },
+  handler: async (ctx, args) => {
     const user = await requireUser(ctx);
 
     // Compute Monday-Sunday window in local time
@@ -140,7 +141,7 @@ export const getWeekSchedule = query({
     const day = now.getDay(); // 0=Sun..6=Sat
     const diffToMonday = day === 0 ? -6 : 1 - day;
     const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffToMonday);
-    const weekStart = monday.getTime();
+    const weekStart = args.weekStart ?? monday.getTime();
     const weekEnd = weekStart + 7 * 24 * 60 * 60 * 1000;
 
     // PT sessions for this trainer in this window
@@ -149,8 +150,7 @@ export const getWeekSchedule = query({
       .withIndex('by_trainer', (q) => q.eq('trainerId', user._id))
       .filter(
         (q) =>
-          q.gte(q.field('scheduledAt'), weekStart) &&
-          q.lt(q.field('scheduledAt'), weekEnd)
+          q.and(q.gte(q.field('scheduledAt'), weekStart), q.lt(q.field('scheduledAt'), weekEnd))
       )
       .collect();
 
@@ -160,8 +160,7 @@ export const getWeekSchedule = query({
       .withIndex('by_trainer', (q) => q.eq('trainerId', user._id))
       .filter(
         (q) =>
-          q.gte(q.field('startsAt'), weekStart) &&
-          q.lt(q.field('startsAt'), weekEnd)
+          q.and(q.gte(q.field('startsAt'), weekStart), q.lt(q.field('startsAt'), weekEnd))
       )
       .collect();
 
@@ -278,11 +277,6 @@ export const getClientDetail = query({
   args: { memberId: v.id('users') },
   handler: async (ctx, { memberId }) => {
     const user = await requireUser(ctx);
-    const member = await ctx.db.get(memberId);
-    const memberProfile = await ctx.db
-      .query('memberProfiles')
-      .withIndex('by_user', (q) => q.eq('userId', memberId))
-      .first();
 
     // Only show sessions between this trainer and this member
     const recentSessions = await ctx.db
@@ -291,6 +285,24 @@ export const getClientDetail = query({
       .filter((q) => q.eq(q.field('memberId'), memberId))
       .order('desc')
       .take(20);
+
+    // Self, finance/ops managers (staff.read), or a trainer who coaches them.
+    const allowed =
+      user._id === memberId ||
+      recentSessions.length > 0 ||
+      userHasCapability(user.roles as Role[], 'staff.read');
+    if (!allowed) {
+      throw new ConvexError({ code: 'FORBIDDEN', message: 'Not your client' });
+    }
+
+    const m = await ctx.db.get(memberId);
+    const member = m
+      ? { _id: m._id, fullName: m.fullName, email: m.email, phone: m.phone, avatarUrl: m.avatarUrl, createdAt: m.createdAt }
+      : null;
+    const memberProfile = await ctx.db
+      .query('memberProfiles')
+      .withIndex('by_user', (q) => q.eq('userId', memberId))
+      .first();
 
     const latestNotes = await ctx.db
       .query('trainerNotes')
@@ -370,10 +382,33 @@ export const getMembersDirectory = query({
     // Member PII (names, emails, membership status): staff who work with
     // members only — never other members. superadmin/admin always pass.
     await requireRole(ctx, ['finance', 'operations', 'trainer']);
-    const members = await ctx.db
+    // Newest 500 members, plus (when searching) name matches from the search
+    // index and exact email/phone hits, so members beyond the window are findable.
+    // ponytail: partial email/phone substrings only match within the newest 500.
+    const recent = await ctx.db
       .query('users')
-      .filter((q) => q.eq(q.field('activeRole'), 'member'))
+      .withIndex('by_activeRole', (q) => q.eq('activeRole', 'member'))
+      .order('desc')
       .take(500);
+    const term = (search ?? '').trim();
+    const extra = term
+      ? [
+          ...(await ctx.db
+            .query('users')
+            .withSearchIndex('search_fullName', (q) => q.search('fullName', term).eq('activeRole', 'member'))
+            .take(100)),
+          ...(await ctx.db
+            .query('users')
+            .withIndex('by_email', (q) => q.eq('email', term.toLowerCase()))
+            .take(5)),
+          ...(await ctx.db
+            .query('users')
+            .withIndex('by_phone', (q) => q.eq('phone', term))
+            .take(5)),
+        ].filter((u) => u.activeRole === 'member')
+      : [];
+    const seen = new Set<string>();
+    const members = [...extra, ...recent].filter((u) => !seen.has(u._id) && !!seen.add(u._id));
 
     const results = await Promise.all(
       members.map(async (m) => {

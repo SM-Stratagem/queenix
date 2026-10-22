@@ -4,7 +4,7 @@
 
 import { v } from 'convex/values';
 import { query } from '../_generated/server';
-import { requireUser } from '../_helpers';
+import { requireRole, requireUser } from '../_helpers';
 
 export const getCurrentMembership = query({
   args: {},
@@ -54,7 +54,8 @@ export const getMembershipHistory = query({
 export const getOwnerKPIs = query({
   args: {},
   handler: async (ctx) => {
-    await requireUser(ctx);
+    // Gym-wide revenue/occupancy: web /dashboard (finance, ops) + mobile owner app.
+    await requireRole(ctx, ['finance', 'operations']);
 
     // Active members
     const activeMemberships = await ctx.db
@@ -90,8 +91,7 @@ export const getOwnerKPIs = query({
       .query('accessEvents')
       .withIndex('by_timestamp', (q) => q.gte('timestamp', startOfDay))
       .filter((q) =>
-        q.lt(q.field('timestamp'), endOfDay) &&
-        q.eq(q.field('direction'), 'in')
+        q.and(q.lt(q.field('timestamp'), endOfDay), q.eq(q.field('direction'), 'in'))
       )
       .collect();
 
@@ -118,7 +118,7 @@ export const getOwnerKPIs = query({
 export const getPendingApprovalsCount = query({
   args: {},
   handler: async (ctx) => {
-    await requireUser(ctx);
+    await requireRole(ctx, ['finance', 'operations']);
     const pending = await ctx.db
       .query('approvals')
       .withIndex('by_status', (q) => q.eq('status', 'pending'))
@@ -144,17 +144,18 @@ export const getApprovals = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, { status = 'pending', limit = 100 }) => {
-    await requireUser(ctx);
+    // Inbox for web /approvals (finance, ops) + mobile owner app.
+    await requireRole(ctx, ['finance', 'operations']);
     const items = await ctx.db
       .query('approvals')
       .withIndex('by_status', (q) => q.eq('status', status))
       .order('desc')
       .take(limit);
-    // Enrich with requestor user info
+    // Enrich with the requestor's display fields only (no phone/roles/auth ids).
     const enriched = await Promise.all(
       items.map(async (a) => {
-        const requestor = await ctx.db.get(a.requestorId);
-        return { ...a, requestor };
+        const r = await ctx.db.get(a.requestorId);
+        return { ...a, requestor: r ? { _id: r._id, fullName: r.fullName, email: r.email } : null };
       })
     );
     return enriched;

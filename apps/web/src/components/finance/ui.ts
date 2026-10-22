@@ -42,3 +42,8 @@ export const th: CSSProperties = {
 export function todayDay(): string {
   return new Date().toISOString().slice(0, 10);
 }
+
+/** Money with fils kept: 9999 → "99.99 AED" (never rounded to whole dirhams). */
+export function formatPrice(cents: number, currency = 'AED'): string {
+  return `${(cents / 100).toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
+}

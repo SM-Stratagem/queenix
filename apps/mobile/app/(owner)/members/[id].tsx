@@ -222,3 +222,5 @@ export default function OwnerMemberDetail() {
   );
 }
 
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

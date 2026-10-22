@@ -208,3 +208,5 @@ export default function NewSessionScreen() {
     </Screen>
   );
 }
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

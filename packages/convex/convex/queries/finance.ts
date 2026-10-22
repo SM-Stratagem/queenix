@@ -11,6 +11,7 @@
 import { v } from 'convex/values';
 import { query } from '../_generated/server';
 import { requireRole } from '../_helpers';
+import { countsAsPayout } from '../moneyLogic';
 
 const STAFF_ROLES = ['admin', 'superadmin', 'owner'] as any;
 
@@ -49,13 +50,15 @@ export const getLedger = query({
   },
   handler: async (ctx, { status, type, from, to, limit = 100 }) => {
     await requireRole(ctx, STAFF_ROLES);
-    const payments = await ctx.db
-      .query('payments')
+    // Status via its index so a filter never misses rows older than the newest `limit`.
+    const payments = await (status
+      ? ctx.db.query('payments').withIndex('by_status', (q) => q.eq('status', status))
+      : ctx.db.query('payments')
+    )
       .order('desc')
       .take(Math.min(limit, 500));
     const rows = [];
     for (const p of payments) {
-      if (status && p.status !== status) continue;
       if (type && p.type !== type) continue;
       if (from !== undefined && p.createdAt < from) continue;
       if (to !== undefined && p.createdAt > to) continue;
@@ -147,7 +150,8 @@ export const listFinanceAudit = query({
 
 /**
  * Daily-close summary for a calendar day (YYYY-MM-DD): gross succeeded,
- * refunded total, net, counts by status/type, and payouts issued that day.
+ * refunded total, net, counts by status/type, and payouts issued that day
+ * (cancelled payouts excluded).
  */
 export const getDailyClose = query({
   args: { day: v.string() },
@@ -176,8 +180,11 @@ export const getDailyClose = query({
       }
     }
 
-    const payouts = await ctx.db.query('payouts').order('desc').take(500);
-    const dayPayouts = payouts.filter((p) => p.createdAt >= start && p.createdAt <= end);
+    const payouts = await ctx.db
+      .query('payouts')
+      .withIndex('by_createdAt', (q) => q.gte('createdAt', start).lte('createdAt', end))
+      .take(500);
+    const dayPayouts = payouts.filter(countsAsPayout);
     const payoutsCents = dayPayouts.reduce((sum, p) => sum + p.amountCents, 0);
 
     return {

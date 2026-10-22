@@ -25,9 +25,13 @@ export const crmLeads = defineTable({
   createdBy: v.optional(v.id('users')),
   createdAt: v.number(),
   updatedAt: v.number(),
+  /** Digits-only phone, set on website trial leads for index-backed dedupe. */
+  phoneDigits: v.optional(v.string()),
 })
   .index('by_stage', ['stage'])
   .index('by_assignee', ['assignedTo'])
+  .index('by_phoneDigits_and_createdAt', ['phoneDigits', 'createdAt'])
+  .index('by_source_and_createdAt', ['source', 'createdAt'])
 
 export const crmInteractions = defineTable({
   leadId: v.id('crmLeads'),

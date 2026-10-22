@@ -21,6 +21,7 @@ import {
   canAccessAdmin,
   canAccessFinance,
   canManageStaff,
+  canSyncRoles,
   hasRank,
   isStaff,
   mobileHomeFor,
@@ -204,7 +205,7 @@ describe("modular custom access: capability grants are additive-only", () => {
   it("grant/revoke endpoints are staff-gated and additive-only", () => {
     expect(grantsSrc).toContain("grantCapability");
     expect(grantsSrc).toContain("revokeCapability");
-    expect(grantsSrc).toContain("staff.manage");
+    expect(grantsSrc).toMatch(/staff\.manage|platform\.manage/);
     expect(grantsSrc).toMatch(/ADDITIVE ONLY/);
   });
 });
@@ -258,5 +259,42 @@ describe("backend agreement: convex permissions matrix", () => {
     expect(src).toContain("requireCapability");
     expect(src).toContain("getUserGrantedCapabilities");
     expect(src).toContain("userHasCapabilityWithGrants");
+  });
+});
+
+describe("role sync into BetterAuth (/api/team/roles) cannot escalate", () => {
+  const sync = (actor: string[], currentRoles: string[], newRoles: string[], isSelf = false) =>
+    canSyncRoles(actor, { isSelf, currentRoles, newRoles });
+
+  it("superadmin may sync anyone", () => {
+    expect(sync(["superadmin"], ["member"], ["admin"])).toBe(true);
+    expect(sync(["superadmin"], ["admin"], ["member"])).toBe(true);
+  });
+
+  it("managers sync only users strictly below them, to roles strictly below them", () => {
+    expect(sync(["finance"], ["member"], ["operations"])).toBe(true);
+    expect(sync(["owner"], ["trainer"], ["member"])).toBe(true);
+    expect(sync(["finance"], ["member"], ["finance"])).toBe(false);
+    expect(sync(["finance"], ["member"], ["superadmin"])).toBe(false);
+    expect(sync(["finance"], ["superadmin"], ["member"])).toBe(false); // can't demote a superior
+    expect(sync(["admin"], ["finance"], ["operations"])).toBe(true);
+    expect(sync(["admin"], ["member"], ["admin"])).toBe(false);
+  });
+
+  it("non-managers sync nobody else", () => {
+    expect(sync(["operations"], ["member"], ["trainer"])).toBe(false);
+    expect(sync(["trainer"], ["member"], ["member"])).toBe(false);
+    expect(sync(["member"], ["member"], ["member"])).toBe(false);
+  });
+
+  it("self-sync only mirrors existing roles (or drops them)", () => {
+    expect(sync(["finance"], ["finance", "member"], ["finance"], true)).toBe(true);
+    expect(sync(["trainer", "member"], ["trainer", "member"], ["member"], true)).toBe(true);
+    expect(sync(["finance"], ["finance"], ["superadmin"], true)).toBe(false);
+    expect(sync(["trainer"], ["trainer"], ["trainer", "salon"], true)).toBe(false);
+  });
+
+  it("unknown roles are never synced by non-superadmins", () => {
+    expect(sync(["finance"], ["member"], ["root"])).toBe(false);
   });
 });

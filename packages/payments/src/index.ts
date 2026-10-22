@@ -369,6 +369,16 @@ export const pickProvider = (currency: string): PaymentProvider => {
   return 'stripe';
 };
 
+/**
+ * Can `provider` take a charge right now? 'mock' = local-dev fake (never in
+ * production), 'live' = keys configured, null = not configured — callers
+ * answer 503 "payment gateway not configured" instead of crashing.
+ */
+export const gatewayMode = (provider: PaymentProvider): 'mock' | 'live' | null => {
+  if (process.env.PAYMENTS_PROVIDER === 'mock') return process.env.NODE_ENV === 'production' ? null : 'mock';
+  return process.env[provider === 'tap' ? 'TAP_SECRET_KEY' : 'STRIPE_SECRET_KEY'] ? 'live' : null;
+};
+
 // ============================================================
 // Invoice number generator
 // ============================================================

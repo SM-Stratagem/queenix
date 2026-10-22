@@ -239,3 +239,5 @@ export default function OpsSupportScreen() {
   );
 }
 
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

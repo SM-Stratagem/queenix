@@ -39,7 +39,8 @@ export const branchesList = query({
 export const branchDetail = query({
   args: { branchId: v.id('branches') },
   handler: async (ctx, { branchId }) => {
-    await requireUser(ctx);
+    // Staff roster: web /branches (finance, ops) only.
+    await requireRole(ctx, ['finance', 'operations']);
     const branch = await ctx.db.get(branchId);
     if (!branch) return null;
     const links = await ctx.db
@@ -47,7 +48,13 @@ export const branchDetail = query({
       .withIndex('by_branch', (q) => q.eq('branchId', branchId))
       .collect();
     const staff = await Promise.all(
-      links.map(async (l) => ({ link: l, user: await ctx.db.get(l.userId) }))
+      links.map(async (l) => {
+        const u = await ctx.db.get(l.userId);
+        return {
+          link: l,
+          user: u ? { _id: u._id, fullName: u.fullName, avatarUrl: u.avatarUrl, activeRole: u.activeRole } : null,
+        };
+      })
     );
     const events = await ctx.db
       .query('gymEvents')

@@ -6,6 +6,8 @@
  * show) and AdminShell (staff-only panel instead of a broken page).
  */
 import { WEB_LANDING, type Role } from '@queenix/auth/roles';
+import { useQuery } from 'convex/react';
+import { makeFunctionReference } from 'convex/server';
 import { authClient } from './auth-client';
 
 /** Canonical role names from a BetterAuth session user ('owner' → 'finance'). */
@@ -25,6 +27,18 @@ export function sessionRoles(user: unknown): string[] {
 export function useSessionRoles(): string[] {
   const { data } = authClient.useSession();
   return sessionRoles(data?.user);
+}
+
+// packages/convex/convex/queries/capabilities.ts (by name: no codegen needed).
+const myGrantsRef = makeFunctionReference<'query', Record<string, never>, string[]>('queries/capabilities:mine');
+
+/**
+ * The signed-in user's capability grants (Convex `capabilityGrants`, additive
+ * to roles). undefined while loading; pass enabled=false to skip the query
+ * (e.g. before Convex has accepted the auth token).
+ */
+export function useCapabilityGrants(enabled = true): string[] | undefined {
+  return useQuery(myGrantsRef, enabled ? {} : 'skip');
 }
 
 export function isPureMember(roles: string[]): boolean {
@@ -52,14 +66,27 @@ const ROUTE_ROLES: Record<string, string[]> = {
   '/promotions': ['finance'],
   '/partners': ['finance'],
   '/documents': ['finance'],
-  '/notifications': ['finance', 'operations', 'trainer'],
-  '/sales-push': ['finance', 'operations', 'trainer'],
+  // Not trainer: engagement queries/mutations reject trainers (STAFF only).
+  '/notifications': ['finance', 'operations'],
+  '/sales-push': ['finance', 'operations'],
   '/reports': ['finance'],
   '/audit': ['finance'],
   '/settings': ['finance', 'operations', 'salon', 'coffee'],
-  // Website CMS (content.manage capability): operations + superadmin/admin.
+  // Website CMS (content.manage capability): operations + superadmin/admin,
+  // plus anyone granted content.manage (ROUTE_CAPABILITY).
   '/website': ['operations'],
 };
+
+/** Routes a capability grant also opens — must match the page's backend requireCapability. */
+const ROUTE_CAPABILITY: Record<string, string> = {
+  '/website': 'content.manage',
+};
+
+/** The capability that would open this path for a non-role holder, if any. */
+export function routeCapability(pathname: string): string | undefined {
+  const route = routeFor(pathname);
+  return route ? ROUTE_CAPABILITY[route] : undefined;
+}
 
 /**
  * Public website routes: rendered without the staff console frame or auth.
@@ -78,12 +105,31 @@ function routeFor(pathname: string): string | undefined {
     .sort((a, b) => b.length - a.length)[0];
 }
 
-/** Unlisted paths (login, api) are not gated here. */
-export function canOpen(roles: string[], pathname: string): boolean {
+/** Unlisted paths (login, api) are not gated here. `grants` = capability grants (useCapabilityGrants). */
+export function canOpen(roles: string[], pathname: string, grants: readonly string[] = []): boolean {
   if (roles.some((r) => ELEVATED.includes(r))) return true;
   const route = routeFor(pathname);
   if (!route) return true;
-  return roles.some((r) => ROUTE_ROLES[route]!.includes(r));
+  if (roles.some((r) => ROUTE_ROLES[route]!.includes(r))) return true;
+  const cap = ROUTE_CAPABILITY[route];
+  return !!cap && grants.includes(cap);
+}
+
+/**
+ * ?next → a same-origin path ('/x?y#z'), or undefined. Resolved the way the
+ * router will resolve it, so '//host', '/\\host', 'https:…', 'javascript:'
+ * and tab/newline tricks ('/\t/evil.example' → http://evil.example/) all fail.
+ */
+export function safeNextPath(next: string): string | undefined {
+  const base = 'http://queenix.invalid';
+  if (!next.startsWith('/')) return undefined;
+  try {
+    const u = new URL(next, base);
+    if (u.origin !== base) return undefined;
+    return u.pathname + u.search + u.hash;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -92,16 +138,17 @@ export function canOpen(roles: string[], pathname: string): boolean {
  * operations honor ?next (default '/dashboard') when they can open it.
  */
 export function landingFor(roles: string[], next = '/dashboard'): string {
-  // Same-site paths only: '//host' or 'https:…' in ?next would be an open redirect.
-  if (!next.startsWith('/') || next.startsWith('//') || next.startsWith('/\\')) next = '/dashboard';
+  // Same-site paths only: anything resolving off-origin would be an open redirect.
+  next = safeNextPath(next) ?? '/dashboard';
   // '/' is the public website — staff signing in want the console.
   if (next === '/') next = '/dashboard';
+  const path = next.split(/[?#]/)[0]!; // gate on the path, not '/finance?x'
   const staff = roles.filter((r) => r !== 'member');
   if (staff.length === 1) {
     const home = WEB_LANDING[staff[0] as Role];
-    if (home && home !== '/dashboard' && (next === '/dashboard' || !canOpen(roles, next))) return home;
+    if (home && home !== '/dashboard' && (next === '/dashboard' || !canOpen(roles, path))) return home;
   }
-  if (canOpen(roles, next)) return next;
+  if (canOpen(roles, path)) return next;
   return Object.keys(ROUTE_ROLES).find((r) => canOpen(roles, r)) ?? '/dashboard';
 }
 

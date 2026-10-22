@@ -94,3 +94,5 @@ export default function MemberVehiclesScreen() {
     </Screen>
   );
 }
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

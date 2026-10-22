@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQuery, useMutation } from 'convex/react';
 import { YStack, XStack, Text } from 'tamagui';
 import { api } from '@queenix/convex';
+import { useBranchScope } from '@/components/admin/BranchSwitcher';
+import { errMsg } from '@/lib/errors';
 
 const card: React.CSSProperties = {
   background: 'var(--bg-elevated)',
@@ -51,7 +53,10 @@ function toLocalInput(ts: number) {
 }
 
 export default function EventsPage() {
-  const [branchFilter, setBranchFilter] = useState('');
+  // Defaults to the header branch switcher; the local filter can still override it.
+  const scope = useBranchScope();
+  const [branchFilter, setBranchFilter] = useState(scope ?? '');
+  useEffect(() => setBranchFilter(scope ?? ''), [scope]);
   const [upcomingOnly, setUpcomingOnly] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
@@ -127,7 +132,7 @@ export default function EventsPage() {
       }
       setShowForm(false);
     } catch (err: any) {
-      setMsg(err?.message ?? 'Failed to save event.');
+      setMsg(errMsg(err, 'Failed to save event.'));
     }
   }
 
@@ -292,7 +297,16 @@ export default function EventsPage() {
                     </button>
                     <button
                       style={btnGhost}
-                      onClick={() => cancelEvent({ eventId: event._id })}
+                      onClick={async () => {
+                        if (!window.confirm(`Cancel "${event.title}"?`)) return;
+                        setMsg(null);
+                        try {
+                          await cancelEvent({ eventId: event._id });
+                          setMsg('Event cancelled.');
+                        } catch (err) {
+                          setMsg(errMsg(err, 'Failed to cancel event.'));
+                        }
+                      }}
                     >
                       Cancel
                     </button>

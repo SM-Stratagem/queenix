@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { YStack, XStack, ScrollView } from 'tamagui';
 import { useRouter } from 'expo-router';
 import { Screen, Text, Card, Button, Badge, EmptyState, Sheet, Input, Skeleton, useToast } from '@queenix/ui';
-import { FileText, CheckCircle, AlertCircle, ChevronRight, FileSignature } from '@tamagui/lucide-icons-2';
+import { FileText, CheckCircle, AlertCircle, ChevronRight, ChevronLeft, FileSignature } from '@tamagui/lucide-icons-2';
 import { useConvexQuery, useConvexMutation, api } from '@/lib/convex';
 
 const docsQueries = (api.queries as any).documentsAdmin;
@@ -72,7 +72,7 @@ export default function DocumentsScreen() {
           onPress={() => router.back()}
           variant="ghost"
           size="sm"
-          icon={<ChevronRight size={20} color="$textPrimary" style={{ transform: [{ rotate: '180deg' }] }} />}
+          icon={<ChevronLeft size={20} color="$textPrimary" />}
         />
         <Text variant="h2">Documents</Text>
       </XStack>
@@ -243,3 +243,5 @@ function DocumentCard({ doc, onPress }: { doc: Template; onPress: () => void }) 
     </Card>
   );
 }
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

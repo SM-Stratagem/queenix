@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
 import { YStack, XStack, ScrollView } from 'tamagui';
-import { useRouter } from 'expo-router';
-import { Screen, Text, Button, Input, Spacer, Progress, Card } from '@queenix/ui';
+import { Screen, Text, Button, Input, Spacer, Progress, Card, useToast } from '@queenix/ui';
 import { useAuth } from '@/lib/auth';
+import { useConvexMutation, api } from '@/lib/convex';
 import { Calendar, Heart, Users, Activity } from '@tamagui/lucide-icons-2';
 
 type Step = 'dob' | 'health' | 'goals' | 'done';
 
 export default function OnboardingScreen() {
-  const router = useRouter();
-  const { session } = useAuth();
+  const { finishOnboarding } = useAuth();
+  const toast = useToast();
+  const saveProfile = useConvexMutation((api.mutations as any).users.updateMyProfile);
+  const [saving, setSaving] = useState(false);
   const [step, setStep] = useState<Step>('dob');
   const [dob, setDob] = useState('');
   const [emergencyName, setEmergencyName] = useState('');
@@ -20,12 +22,32 @@ export default function OnboardingScreen() {
   const stepIdx: Record<Step, number> = { dob: 0, health: 1, goals: 2, done: 3 };
   const totalSteps = 3;
 
-  const next = () => {
-    if (step === 'dob') setStep('health');
-    else if (step === 'health') setStep('goals');
+  const next = async () => {
+    if (step === 'dob') {
+      if (dob.trim() && !/^\d{4}-\d{2}-\d{2}$/.test(dob.trim())) return toast.warning('Date of birth must be YYYY-MM-DD');
+      if (!!emergencyName.trim() !== !!emergencyPhone.trim()) return toast.warning('Add both the emergency contact name and phone');
+      setStep('health');
+    } else if (step === 'health') setStep('goals');
     else if (step === 'goals') {
+      // Everything persists to memberProfiles via updateMyProfile.
+      setSaving(true);
+      try {
+        await saveProfile({
+          dateOfBirth: dob.trim() || undefined,
+          emergencyContact:
+            emergencyName.trim() && emergencyPhone.trim()
+              ? { name: emergencyName.trim(), phone: emergencyPhone.trim() }
+              : undefined,
+          healthConditions: healthConditions.filter((c) => c !== 'None of the above'),
+          goals,
+        });
+      } catch (err: any) {
+        setSaving(false);
+        return toast.error(err?.data?.message ?? err?.message ?? 'Could not save your details');
+      }
+      setSaving(false);
       setStep('done');
-      setTimeout(() => router.replace('/(member)/home'), 1200);
+      setTimeout(finishOnboarding, 1200); // AuthProvider then routes to the role home
     }
   };
 
@@ -171,7 +193,7 @@ export default function OnboardingScreen() {
               })}
             </YStack>
             <Spacer />
-            <Button label="Finish setup" onPress={next} size="lg" fullWidth />
+            <Button label="Finish setup" onPress={next} loading={saving} size="lg" fullWidth />
           </YStack>
         )}
 
@@ -188,3 +210,5 @@ export default function OnboardingScreen() {
     </Screen>
   );
 }
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

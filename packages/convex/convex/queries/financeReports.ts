@@ -8,6 +8,7 @@
 import { v } from 'convex/values';
 import { query } from '../_generated/server';
 import { requireRole } from '../_helpers';
+import { summarizePnl } from '../moneyLogic';
 
 const STAFF_ROLES = ['admin', 'superadmin', 'owner'] as any;
 
@@ -77,7 +78,8 @@ export const getRevenueAnalytics = query({
 
 /**
  * Profit & loss summary for an explicit window [from, to] (ms timestamps).
- * Net = gross succeeded − refunded − payouts issued in-window.
+ * Net = gross succeeded − refunded − payouts (not cancelled) + manual
+ * journal income − manual journal expenses, all in-window.
  */
 export const getProfitAndLoss = query({
   args: {
@@ -89,52 +91,9 @@ export const getProfitAndLoss = query({
     const start = from ?? 0;
     const end = to ?? Date.now();
     const payments = await ctx.db.query('payments').order('desc').take(2000);
-    let grossCents = 0;
-    let refundedCents = 0;
-    let succeededCount = 0;
-    let refundedCount = 0;
-    const byType: Record<string, number> = {};
-    const byStatus: Record<string, number> = {};
-    for (const p of payments) {
-      if (p.createdAt < start || p.createdAt > end) continue;
-      byStatus[p.status] = (byStatus[p.status] ?? 0) + 1;
-      if (p.status === 'succeeded') {
-        grossCents += p.amountCents;
-        succeededCount += 1;
-        byType[p.type] = (byType[p.type] ?? 0) + p.amountCents;
-      }
-      if (p.status === 'refunded') {
-        refundedCents += p.refundedAmountCents ?? p.amountCents;
-        refundedCount += 1;
-      }
-    }
     const payouts = await ctx.db.query('payouts').order('desc').take(1000);
-    const inWindow = payouts.filter((p) => p.createdAt >= start && p.createdAt <= end);
-    const payoutsCents = inWindow.reduce((sum, p) => sum + p.amountCents, 0);
     const journal = await ctx.db.query('journalEntries').order('desc').take(1000);
-    const journalInWindow = journal.filter((e) => e.entryDate >= start && e.entryDate <= end);
-    const manualIncomeCents = journalInWindow
-      .filter((e) => e.kind === 'income')
-      .reduce((sum, e) => sum + e.amountCents, 0);
-    const manualExpenseCents = journalInWindow
-      .filter((e) => e.kind === 'expense')
-      .reduce((sum, e) => sum + e.amountCents, 0);
-    return {
-      from: start,
-      to: end,
-      grossCents,
-      refundedCents,
-      payoutsCents,
-      manualIncomeCents,
-      manualExpenseCents,
-      netCents: grossCents - refundedCents - payoutsCents + manualIncomeCents - manualExpenseCents,
-      succeededCount,
-      refundedCount,
-      payoutsCount: inWindow.length,
-      journalCount: journalInWindow.length,
-      byType,
-      byStatus,
-    };
+    return summarizePnl({ payments, payouts, journal }, start, end);
   },
 });
 

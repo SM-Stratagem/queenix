@@ -9,9 +9,11 @@
  */
 
 import { v } from 'convex/values';
-import { mutation, internalMutation } from '../_generated/server';
-import type { Id } from '../_generated/dataModel';
+import { mutation, internalMutation, type MutationCtx } from '../_generated/server';
+import type { Doc, Id } from '../_generated/dataModel';
 import { requireUser, audit } from '../_helpers';
+import { unfreezeEarly } from '../opsLogic';
+import { findReusableCheckout, paidAmountMismatch, splitVatInclusive, vatRateFor } from '../moneyLogic';
 import { ConvexError } from 'convex/values';
 
 // ============================================================
@@ -32,6 +34,53 @@ async function nextInvoiceSequence(ctx: any): Promise<number> {
   if (!last) return 1;
   const match = last.invoiceNumber.match(/(\d+)$/);
   return match ? Number(match[1]) + 1 : 1;
+}
+
+/**
+ * Pending membership payment for `planId`, priced from the plan server-side.
+ * Reuses the user's recent pending checkout for the same plan + price so
+ * repeated taps (or concurrent requests: OCC serialises them on the by_user
+ * read) yield exactly one payment.
+ */
+async function checkoutForPlan(ctx: MutationCtx, user: Doc<'users'>, planId: Id<'membershipPlans'>) {
+  const plan = await ctx.db.get(planId);
+  if (!plan) throw new ConvexError({ code: 'NOT_FOUND', message: 'Plan not found' });
+  if (!plan.isActive) {
+    throw new ConvexError({ code: 'INACTIVE_PLAN', message: 'Plan is not available' });
+  }
+  if (plan.priceCents <= 0) {
+    throw new ConvexError({ code: 'INVALID_AMOUNT', message: 'Plan has no price' });
+  }
+  const now = Date.now();
+  const recent = await ctx.db
+    .query('payments')
+    .withIndex('by_user', (q) => q.eq('userId', user._id))
+    .order('desc')
+    .take(20);
+  const reusable = findReusableCheckout(recent, plan, now);
+  if (reusable) return { paymentId: reusable._id, amountCents: plan.priceCents, currency: plan.currency };
+
+  const paymentId = await ctx.db.insert('payments', {
+    userId: user._id,
+    amountCents: plan.priceCents,
+    currency: plan.currency,
+    status: 'pending',
+    type: 'membership',
+    description: `${plan.name} membership — ${plan.durationDays} days`,
+    provider: 'stripe',
+    metadata: { planId: plan._id },
+    idempotencyKey: generateIdempotencyKey('checkout'),
+    createdAt: now,
+    updatedAt: now,
+  });
+  await audit(ctx, {
+    actorId: user._id,
+    action: 'checkout.created',
+    entityType: 'payment',
+    entityId: paymentId,
+    after: { planId: plan._id, amountCents: plan.priceCents, currency: plan.currency },
+  });
+  return { paymentId, amountCents: plan.priceCents, currency: plan.currency };
 }
 
 // ============================================================
@@ -58,17 +107,15 @@ export const createPaymentIntent = mutation({
   },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
+    // A plan is always priced server-side: the client amount/currency are ignored.
+    if (args.planId) return (await checkoutForPlan(ctx, user, args.planId)).paymentId;
+    if (args.type === 'membership') {
+      throw new ConvexError({ code: 'PLAN_REQUIRED', message: 'Membership payments need a planId' });
+    }
     if (args.amountCents <= 0) {
       throw new ConvexError({ code: 'INVALID_AMOUNT', message: 'Amount must be positive' });
     }
     const idempotencyKey = generateIdempotencyKey('pi');
-
-    // Idempotency: if a record already exists for this user with the same key, return it
-    const existing = await ctx.db
-      .query('payments')
-      .withIndex('by_idempotencyKey', (q) => q.eq('idempotencyKey', idempotencyKey))
-      .first();
-    if (existing) return existing._id;
 
     // Default to Stripe; Next.js route will swap to Tap for AED.
     const paymentId = await ctx.db.insert('payments', {
@@ -79,7 +126,7 @@ export const createPaymentIntent = mutation({
       type: args.type,
       description: args.description,
       provider: 'stripe',
-      metadata: { ...(args.metadata ?? {}), planId: args.planId ?? null },
+      metadata: { ...(args.metadata ?? {}), planId: null },
       idempotencyKey,
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -160,6 +207,38 @@ export const recordPaymentSuccess = internalMutation({
       // Idempotent — already processed
       return payment;
     }
+    if (payment.status === 'failed' && String(payment.failureReason ?? '').startsWith('Amount mismatch')) {
+      return payment; // replay of a rejected charge
+    }
+
+    // Verify the charge against the server-priced record (and plan) before
+    // honouring it. On mismatch: no invoice, no activation; finance refunds.
+    const planId = (payment.metadata as any)?.planId as string | undefined;
+    const planDocId =
+      payment.type === 'membership' && planId ? ctx.db.normalizeId('membershipPlans', planId) : null;
+    const plan = planDocId ? await ctx.db.get(planDocId) : null;
+    const mismatch = paidAmountMismatch({
+      receivedCents: args.amountCents,
+      receivedCurrency: args.currency,
+      expectedCents: payment.amountCents,
+      expectedCurrency: payment.currency,
+      planPriceCents: plan?.priceCents,
+    });
+    if (mismatch) {
+      await ctx.db.patch(payment._id, {
+        status: 'failed',
+        failureReason: `Amount mismatch (${mismatch}) — refund required`,
+        updatedAt: Date.now(),
+      });
+      await audit(ctx, {
+        actorId: payment.userId,
+        action: 'payment.amountMismatch',
+        entityType: 'payment',
+        entityId: payment._id,
+        after: { mismatch, receivedCents: args.amountCents, currency: args.currency },
+      });
+      return await ctx.db.get(payment._id);
+    }
 
     // Mark payment succeeded
     await ctx.db.patch(payment._id, {
@@ -171,16 +250,15 @@ export const recordPaymentSuccess = internalMutation({
     const sequence = await nextInvoiceSequence(ctx);
     const year = new Date().getFullYear();
     const invoiceNumber = `QNX-${year}-${String(sequence).padStart(5, '0')}`;
-    const subtotalCents = args.amountCents;
-    const vatRate = args.currency === 'AED' ? 0.05 : 0;
-    const vatCents = Math.round(subtotalCents * vatRate);
-    const totalCents = subtotalCents + vatCents;
+    // Prices are VAT-inclusive: split VAT out of the amount charged, never add it on top.
+    const vatRate = vatRateFor(args.currency);
+    const { subtotalCents, vatCents, totalCents } = splitVatInclusive(args.amountCents, vatRate);
     const lineItems = [
       {
         description: payment.description,
         quantity: 1,
-        unitPriceCents: subtotalCents,
-        totalCents: subtotalCents,
+        unitPriceCents: totalCents,
+        totalCents,
       },
     ];
 
@@ -202,33 +280,29 @@ export const recordPaymentSuccess = internalMutation({
     await ctx.db.patch(payment._id, { invoiceId, invoiceNumber });
 
     // If this is a membership payment, create/renew the membership record
-    const planId = (payment.metadata as any)?.planId as string | undefined;
-    if (payment.type === 'membership' && planId) {
-      const plan = await ctx.db.get(planId as Id<'membershipPlans'>);
-      if (plan) {
-        const startDate = Date.now();
-        const endDate = startDate + plan.durationDays * 24 * 60 * 60 * 1000;
-        // Cancel any existing active membership
-        const existingActive = await ctx.db
-          .query('memberships')
-          .withIndex('by_user', (q) => q.eq('userId', payment.userId))
-          .filter((q) => q.or(q.eq(q.field('status'), 'active'), q.eq(q.field('status'), 'trial')))
-          .collect();
-        for (const m of existingActive) {
-          await ctx.db.patch(m._id, { status: 'cancelled' });
-        }
-        await ctx.db.insert('memberships', {
-          userId: payment.userId,
-          planId: plan._id,
-          status: 'active',
-          startDate,
-          endDate,
-          freezes: [],
-          autoRenew: true,
-          remainingClasses: plan.maxClassesPerMonth,
-          remainingPTSessions: plan.maxPTSessions,
-        });
+    if (plan) {
+      const startDate = Date.now();
+      const endDate = startDate + plan.durationDays * 24 * 60 * 60 * 1000;
+      // Cancel any existing active membership
+      const existingActive = await ctx.db
+        .query('memberships')
+        .withIndex('by_user', (q) => q.eq('userId', payment.userId))
+        .filter((q) => q.or(q.eq(q.field('status'), 'active'), q.eq(q.field('status'), 'trial')))
+        .collect();
+      for (const m of existingActive) {
+        await ctx.db.patch(m._id, { status: 'cancelled' });
       }
+      await ctx.db.insert('memberships', {
+        userId: payment.userId,
+        planId: plan._id,
+        status: 'active',
+        startDate,
+        endDate,
+        freezes: [],
+        autoRenew: true,
+        remainingClasses: plan.maxClassesPerMonth,
+        remainingPTSessions: plan.maxPTSessions,
+      });
     }
 
     await audit(ctx, {
@@ -491,12 +565,16 @@ export const unfreezeMembership = mutation({
       throw new ConvexError({ code: 'FORBIDDEN', message: 'Not your membership' });
     }
     if (m.status !== 'frozen') return m;
-    await ctx.db.patch(membershipId, { status: 'active' });
+    // Early unfreeze: give back only the days actually frozen.
+    const { endDate, freezes } = unfreezeEarly(m, Date.now());
+    await ctx.db.patch(membershipId, { status: 'active', endDate, freezes });
     await audit(ctx, {
       actorId: user._id,
       action: 'membership.unfrozen',
       entityType: 'membership',
       entityId: membershipId,
+      before: { endDate: m.endDate },
+      after: { endDate },
     });
     return await ctx.db.get(membershipId);
   },
@@ -528,8 +606,8 @@ export const cancelMembership = mutation({
 
 /**
  * High-level "renew / switch plan" entry point used by the mobile plans screen.
- * Creates a payment record AND a payment intent via the Next.js server, then
- * returns the clientSecret/redirectUrl the client needs to complete payment.
+ * Creates (or reuses) the plan-priced pending payment; the app then POSTs its
+ * id to /api/payments/create-intent for the provider intent.
  */
 export const createMembershipCheckout = mutation({
   args: {
@@ -537,32 +615,6 @@ export const createMembershipCheckout = mutation({
   },
   handler: async (ctx, { planId }) => {
     const user = await requireUser(ctx);
-    const plan = await ctx.db.get(planId);
-    if (!plan) throw new ConvexError({ code: 'NOT_FOUND', message: 'Plan not found' });
-    if (!plan.isActive) {
-      throw new ConvexError({ code: 'INACTIVE_PLAN', message: 'Plan is not available' });
-    }
-    const idempotencyKey = generateIdempotencyKey('checkout');
-    const paymentId = await ctx.db.insert('payments', {
-      userId: user._id,
-      amountCents: plan.priceCents,
-      currency: plan.currency,
-      status: 'pending',
-      type: 'membership',
-      description: `${plan.name} membership — ${plan.durationDays} days`,
-      provider: 'stripe',
-      metadata: { planId: plan._id },
-      idempotencyKey,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    });
-    await audit(ctx, {
-      actorId: user._id,
-      action: 'checkout.created',
-      entityType: 'payment',
-      entityId: paymentId,
-      after: { planId: plan._id, amountCents: plan.priceCents, currency: plan.currency },
-    });
-    return { paymentId, amountCents: plan.priceCents, currency: plan.currency };
+    return await checkoutForPlan(ctx, user, planId);
   },
 });

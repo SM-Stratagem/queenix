@@ -25,6 +25,7 @@ export default function MemberProfile() {
   const { session, signOut, switchRole } = useAuth();
   const toast = useToast();
   const switchRoleMutation = useConvexMutation(api.mutations.users.switchRole);
+  const membership = useConvexQuery(api.queries.memberships.getCurrentMembership, {});
   const memberProfile = useConvexQuery((api.queries as any).users.getMemberProfile, {});
   const saveProfile = useConvexMutation((api.mutations as any).users.updateMyProfile);
   const [notifications, setNotifications] = React.useState(true);
@@ -70,7 +71,12 @@ export default function MemberProfile() {
           <Avatar name={session?.fullName} size="2xl" />
           <Text variant="h2" marginTop="$3">{session?.fullName}</Text>
           <Text variant="bodySmall" color="muted">{session?.email}</Text>
-          <Badge label="Premium Member" variant="brand" />
+          {membership !== undefined && (
+            <Badge
+              label={membership ? `${(membership as any).plan?.name ?? 'Active'}${membership.status === 'trial' ? ' · Trial' : ''} member` : 'No active plan'}
+              variant={membership ? 'brand' : 'neutral'}
+            />
+          )}
         </YStack>
 
         {/* Role switcher (if multi-role) */}
@@ -232,3 +238,5 @@ function SettingsItem({
     </Card>
   );
 }
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

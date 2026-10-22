@@ -101,12 +101,16 @@ export default function TrainerPage() {
           My clients · sessions · earnings · certifications · outreach
         </Text>
         <XStack gap={12}>
-          <Link href="/notifications" style={{ fontSize: 13, color: '#0081cc', fontWeight: 600 }}>
-            Notifications →
-          </Link>
-          <Link href="/sales-push" style={{ fontSize: 13, color: '#0081cc', fontWeight: 600 }}>
-            Sales push →
-          </Link>
+          {canOpen(roles, '/notifications') && (
+            <Link href="/notifications" style={{ fontSize: 13, color: '#0081cc', fontWeight: 600 }}>
+              Notifications →
+            </Link>
+          )}
+          {canOpen(roles, '/sales-push') && (
+            <Link href="/sales-push" style={{ fontSize: 13, color: '#0081cc', fontWeight: 600 }}>
+              Sales push →
+            </Link>
+          )}
           {canOpen(roles, '/documents') && (
             <Link href="/documents" style={{ fontSize: 13, color: '#0081cc', fontWeight: 600 }}>
               Documents →

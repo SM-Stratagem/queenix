@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@queenix/convex';
 import { PlateCheckIn } from '@/components/ocr/PlateCheckIn';
+import { errMsg } from '@/lib/errors';
 
 type Status = 'reserved' | 'checked_in' | 'completed' | 'cancelled';
 const TABS: Array<Status | 'all'> = ['all', 'reserved', 'checked_in', 'completed', 'cancelled'];
@@ -29,6 +30,15 @@ export default function ValetPage() {
   const checkIn = useMutation(api.mutations.valet.checkIn);
   const handOver = useMutation(api.mutations.valet.handOver);
 
+  const [actionErr, setActionErr] = useState<string | null>(null);
+  const run = async (fn: () => Promise<unknown>, fail: string) => {
+    setActionErr(null);
+    try {
+      await fn();
+    } catch (e) {
+      setActionErr(errMsg(e, fail));
+    }
+  };
   const rows = queue ?? [];
   const doneToday = rows.filter((r: any) => r.status === 'completed').length;
 
@@ -38,6 +48,7 @@ export default function ValetPage() {
       <h1 style={{ color: 'var(--text)' }}>Valet queue</h1>
 
       <PlateCheckIn />
+      {actionErr && <p role="alert" style={{ color: 'var(--danger)', fontSize: 13 }}>{actionErr}</p>}
 
       <section style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
         <div style={card}>
@@ -98,10 +109,10 @@ export default function ValetPage() {
                   <td style={{ padding: 12, color: 'var(--text)' }}>{r.etaMin}</td>
                   <td style={{ padding: 12, display: 'flex', gap: 8 }}>
                     {r.status === 'reserved' && (
-                      <button onClick={() => checkIn({ reservationId: r._id })}>Check in</button>
+                      <button onClick={() => run(() => checkIn({ reservationId: r._id }), 'Check-in failed.')}>Check in</button>
                     )}
                     {r.status === 'checked_in' && (
-                      <button onClick={() => handOver({ reservationId: r._id })}>Complete</button>
+                      <button onClick={() => run(() => handOver({ reservationId: r._id }), 'Hand-over failed.')}>Complete</button>
                     )}
                   </td>
                 </tr>

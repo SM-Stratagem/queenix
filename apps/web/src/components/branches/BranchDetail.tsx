@@ -16,7 +16,8 @@ export function BranchDetail({
 }: {
   selectedId: string;
   detail: any;
-  onEdit: (branch: any) => void;
+  /** Omitted for roles that can't edit branches (hides Edit + Deactivate). */
+  onEdit?: (branch: any) => void;
   notify: (msg: string | null) => void;
 }) {
   const setActive = useMutation(api.mutations.branches.setBranchActive);
@@ -24,6 +25,16 @@ export function BranchDetail({
   const unassignStaff = useMutation(api.mutations.teamOrg.unassignBranchStaff);
   const staffDir = useQuery(api.queries.org.staffDirectory, {});
   const [assign, setAssign] = useState({ userId: '', role: '', isPrimary: false });
+
+  async function act(fn: () => Promise<unknown>, ok: string, fail: string) {
+    notify(null);
+    try {
+      await fn();
+      notify(ok);
+    } catch (err) {
+      notify(errMsg(err, fail));
+    }
+  }
 
   async function submitAssign(e: React.FormEvent) {
     e.preventDefault();
@@ -50,22 +61,29 @@ export function BranchDetail({
           <Text fontSize={17} fontWeight="800">
             {(detail as any).branch.name}
           </Text>
-          <XStack gap={8}>
-            <button style={btnGhost} onClick={() => onEdit((detail as any).branch)}>
-              Edit
-            </button>
-            <button
-              style={btnGhost}
-              onClick={() =>
-                setActive({
-                  branchId: selectedId as any,
-                  isActive: !(detail as any).branch.isActive,
-                })
-              }
-            >
-              {(detail as any).branch.isActive ? 'Deactivate' : 'Activate'}
-            </button>
-          </XStack>
+          {onEdit && (
+            <XStack gap={8}>
+              <button style={btnGhost} onClick={() => onEdit((detail as any).branch)}>
+                Edit
+              </button>
+              <button
+                style={btnGhost}
+                onClick={() =>
+                  act(
+                    () =>
+                      setActive({
+                        branchId: selectedId as any,
+                        isActive: !(detail as any).branch.isActive,
+                      }),
+                    (detail as any).branch.isActive ? 'Branch deactivated.' : 'Branch activated.',
+                    'Failed to update branch.',
+                  )
+                }
+              >
+                {(detail as any).branch.isActive ? 'Deactivate' : 'Activate'}
+              </button>
+            </XStack>
+          )}
         </XStack>
         <Text fontSize={13} opacity={0.6}>
           {(detail as any).branch.city}
@@ -105,10 +123,11 @@ export function BranchDetail({
                 <button
                   style={btnGhost}
                   onClick={() =>
-                    unassignStaff({
-                      branchId: selectedId as any,
-                      userId: s.link.userId,
-                    })
+                    act(
+                      () => unassignStaff({ branchId: selectedId as any, userId: s.link.userId }),
+                      'Staff removed.',
+                      'Failed to remove staff.',
+                    )
                   }
                 >
                   Remove

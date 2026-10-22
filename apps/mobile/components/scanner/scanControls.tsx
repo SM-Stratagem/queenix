@@ -1,7 +1,7 @@
 import React, { useRef } from "react"
 import { CameraView, useCameraPermissions } from "expo-camera"
 import { YStack, XStack } from "tamagui"
-import { Card, Text, Button } from "@queenix/ui"
+import { Card, Text, Button, Input } from "@queenix/ui"
 import {
   ScanLine,
   Camera,
@@ -162,23 +162,18 @@ export function ScannerControls({
         ))}
       </XStack>
       <XStack gap="$2" alignItems="center">
-        <YStack
-          flex={1}
-          borderWidth={1}
-          borderColor="$borderColor"
-          borderRadius="$md"
-          paddingHorizontal="$3"
-          paddingVertical="$2"
-          backgroundColor="$surface"
-        >
-          <XStack alignItems="center" gap="$2">
-            <Search size={16} color="$textMuted" />
-            <YStack flex={1}>
-              <Text variant="bodySmall" color={manualToken ? "primary" : "muted"}>
-                {manualToken || "Manual token entry"}
-              </Text>
-            </YStack>
-          </XStack>
+        <YStack flex={1}>
+          <Input
+            value={manualToken}
+            onChangeText={setManualToken}
+            onSubmitEditing={handleManualEntry}
+            placeholder="Manual token entry"
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="go"
+            aria-label="Manual token"
+            leftIcon={<Search size={16} color="$textMuted" />}
+          />
         </YStack>
         <Button
           label="Submit"
@@ -188,14 +183,15 @@ export function ScannerControls({
           aria-label="Submit manual token"
         />
       </XStack>
+      {/* ponytail: no door-relay integration exists yet — shown disabled, not faked. */}
       <Button
-        label="Open main door"
+        label="Open main door (not available yet)"
         variant="outline"
         size="md"
         fullWidth
+        disabled
         icon={<DoorOpen size={18} color="$brand" />}
-        onPress={() => toast.info("Door relay triggered")}
-        aria-label="Manually open the main door"
+        aria-label="Manually open the main door (not available yet)"
       />
     </YStack>
   )

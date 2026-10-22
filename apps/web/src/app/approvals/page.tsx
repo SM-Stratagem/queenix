@@ -6,6 +6,9 @@ import { YStack, XStack, Text } from 'tamagui';
 import { api } from '@queenix/convex';
 import { formatAed } from '../../components/finance/OverviewCards';
 import { errMsg } from '@/lib/errors';
+import { useSessionRoles } from '@/lib/access';
+import { authClient } from '@/lib/auth-client';
+import { approvalBlock } from '@/components/admin/can';
 
 type ApprovalStatus = 'pending' | 'approved' | 'denied' | 'cancelled';
 
@@ -47,6 +50,7 @@ export default function ApprovalsPage() {
 
   const approvals = useQuery(api.queries.memberships.getApprovals, { status, limit: 100 });
   const decide = useMutation(api.mutations.users.decideApproval);
+  const me = { roles: useSessionRoles(), email: authClient.useSession().data?.user?.email ?? null };
 
   const items = ((approvals as Approval[] | undefined) ?? []).filter(
     (a) => type === 'all' || a.type.startsWith(`${type}.`)
@@ -183,7 +187,11 @@ export default function ApprovalsPage() {
                   {payloadSummary(a.payload)}
                 </Text>
               </XStack>
-              {status === 'pending' ? (
+              {status === 'pending' && approvalBlock(me, a) ? (
+                <Text fontSize={12} opacity={0.6}>
+                  {approvalBlock(me, a)}
+                </Text>
+              ) : status === 'pending' ? (
                 <XStack gap={8} flexWrap="wrap" alignItems="center">
                   <input
                     placeholder="Decision note (optional)"

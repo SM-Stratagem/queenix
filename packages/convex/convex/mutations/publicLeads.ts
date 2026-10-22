@@ -2,14 +2,20 @@
  * Queenix Gym — public website trial form → CRM lead.
  *
  * Unauthenticated by design. Abuse limits: length caps, a honeypot field
- * (bots fill it; we pretend success and store nothing), and per-phone dedupe
- * against recent website leads so resubmits don't flood the pipeline.
+ * (bots fill it; we pretend success and store nothing), per-phone dedupe
+ * (index-backed, any stage) so resubmits don't flood the pipeline, and a
+ * global cap on website leads per minute.
  */
 
 import { v } from 'convex/values';
 import { mutation } from '../_generated/server';
-
-const DEDUPE_WINDOW_MS = 24 * 60 * 60 * 1000;
+import {
+  TRIAL_DEDUPE_WINDOW_MS,
+  TRIAL_THROTTLE_MAX,
+  TRIAL_THROTTLE_WINDOW_MS,
+  phoneDigits,
+  trialLeadDecision,
+} from '../opsLogic';
 
 export const submitTrialRequest = mutation({
   args: {
@@ -27,15 +33,28 @@ export const submitTrialRequest = mutation({
     if (args.website && args.website.trim() !== '') return { ok: true as const };
 
     const now = Date.now();
+    const digits = phoneDigits(input.phone);
+    const samePhone = await ctx.db
+      .query('crmLeads')
+      .withIndex('by_phoneDigits_and_createdAt', (q) =>
+        q.eq('phoneDigits', digits).gt('createdAt', now - TRIAL_DEDUPE_WINDOW_MS),
+      )
+      .take(1);
     const recent = await ctx.db
       .query('crmLeads')
-      .withIndex('by_stage', (q) => q.eq('stage', 'new'))
-      .order('desc')
-      .take(200);
-    const dupe = recent.some(
-      (l) => l.source === 'website' && l.createdAt > now - DEDUPE_WINDOW_MS && digits(l.phone) === digits(input.phone),
+      .withIndex('by_source_and_createdAt', (q) =>
+        q.eq('source', 'website').gt('createdAt', now - TRIAL_THROTTLE_WINDOW_MS),
+      )
+      .take(TRIAL_THROTTLE_MAX);
+    const decision = trialLeadDecision(
+      now,
+      recent.length,
+      samePhone.map((l) => l.createdAt),
     );
-    if (dupe) return { ok: true as const };
+    if (decision === 'duplicate') return { ok: true as const };
+    if (decision === 'throttled') {
+      throw new Error('We’re getting a lot of requests right now. Please try again in a minute, or message us on WhatsApp.');
+    }
 
     const notes = [
       'Free trial request from the website.',
@@ -51,6 +70,7 @@ export const submitTrialRequest = mutation({
       source: 'website',
       stage: 'new',
       notes,
+      phoneDigits: digits,
       createdAt: now,
       updatedAt: now,
     });
@@ -74,14 +94,10 @@ export function validateTrialRequest(a: {
   const preferredTime = a.preferredTime?.trim().slice(0, 60) || undefined;
   const message = a.message?.trim() || undefined;
   if (name.length < 2 || name.length > 80) return { ok: false, error: 'Please enter your name (2–80 characters).' };
-  if (!/^\+?[0-9\s\-().]{7,20}$/.test(phone) || digits(phone).length < 7)
+  if (!/^\+?[0-9\s\-().]{7,20}$/.test(phone) || phoneDigits(phone).length < 7)
     return { ok: false, error: 'Please enter a valid phone number, e.g. +971 50 123 4567.' };
   if (email && (email.length > 120 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)))
     return { ok: false, error: 'That email address doesn’t look right.' };
   if (message && message.length > 1000) return { ok: false, error: 'Please keep your message under 1000 characters.' };
   return { ok: true, name, phone, email, preferredTime, message };
-}
-
-function digits(s: string): string {
-  return s.replace(/\D/g, '');
 }

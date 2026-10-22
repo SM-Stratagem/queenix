@@ -1,8 +1,8 @@
 'use client';
 
-import React from 'react';
-import { useRouter } from 'next/navigation';
-import { LogOut } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { LogOut, Menu, X } from 'lucide-react';
 import { authClient } from '@/lib/auth-client';
 import { AdminNav } from './AdminNav';
 import { BranchProvider, BranchSwitcher } from './BranchSwitcher';
@@ -10,11 +10,15 @@ import { ThemeToggle } from './ThemeToggle';
 
 /** Admin chrome: sidebar nav + header (branch scope, signed-in user) + main. */
 export function AdminShell({ children }: { children: React.ReactNode }) {
+  // Below 760px the sidebar is a top bar and the nav a toggled drawer (globals.css).
+  const [navOpen, setNavOpen] = useState(false);
+  const pathname = usePathname();
+  useEffect(() => setNavOpen(false), [pathname]);
   return (
     <BranchProvider>
       <div className="admin-shell">
-        <aside className="admin-sidebar">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+        <aside className="admin-sidebar" data-open={navOpen ? 'true' : 'false'}>
+          <div className="admin-sidebar-brand">
             <div
               style={{
                 width: 40,
@@ -35,6 +39,16 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               <div style={{ fontWeight: 800, fontSize: 18, color: '#fff', letterSpacing: -0.02 }}>Queenix</div>
               <div style={{ fontSize: 11, color: 'rgba(255, 255, 255, 0.7)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1.4 }}>Admin</div>
             </div>
+            <button
+              type="button"
+              className="admin-nav-toggle"
+              aria-label={navOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={navOpen}
+              aria-controls="admin-nav"
+              onClick={() => setNavOpen((o) => !o)}
+            >
+              {navOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
           </div>
           <AdminNav />
         </aside>

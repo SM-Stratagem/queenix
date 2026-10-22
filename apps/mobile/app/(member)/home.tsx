@@ -26,6 +26,7 @@ import {
   QuickAction,
   StatCard,
 } from '@/components/member-home/Cards';
+import { getTimeGreeting } from '@/components/trainer-today/format';
 
 export default function MemberHome() {
   const router = useRouter();
@@ -70,7 +71,7 @@ export default function MemberHome() {
           justifyContent="space-between"
         >
           <YStack>
-            <Text variant="caption" color="muted">Good morning</Text>
+            <Text variant="caption" color="muted">{getTimeGreeting()}</Text>
             <Text variant="h2">{session?.fullName?.split(' ')[0] ?? 'Member'}</Text>
           </YStack>
           <Logo size="sm" />
@@ -193,3 +194,5 @@ export default function MemberHome() {
     </Screen>
   );
 }
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

@@ -29,7 +29,6 @@ import {
 import { useConvexQuery, useConvexMutation, api } from '@/lib/convex';
 import { Check, Crown, Sparkles, Star, X } from '@tamagui/lucide-icons-2';
 import { useAuth } from '@/lib/auth';
-import { openReceipt } from '@/lib/receipt';
 import { authClient, AUTH_BASE_URL } from '@queenix/auth';
 
 interface MembershipPlan {
@@ -89,17 +88,23 @@ export default function PlansScreen() {
         },
       });
       // better-fetch spreads our JSON body ({ error }) into `error`.
-      if (error || !intent) throw new Error((error as { error?: string })?.error ?? 'Failed to start checkout');
+      if (error || !intent) {
+        const e = error as { status?: number; error?: string } | null;
+        // 503 = production with no payment gateway configured (no fake success).
+        if (e?.status === 503) {
+          throw new Error("Online payment isn't available yet (payment gateway not configured). Please pay at the front desk.");
+        }
+        throw new Error(e?.error ?? 'Failed to start checkout');
+      }
       // Tap charges are handled via a hosted redirect page.
       if (intent.provider === 'tap' && intent.redirectUrl) {
         await Linking.openURL(intent.redirectUrl);
         toast.info('Complete payment in your browser');
         return;
       }
-      // Stripe: native PaymentSheet is the V1.5 follow-up; for now surface the
-      // test-card info and open the payment's receipt page.
-      toast.success('Stripe integration coming in V1.5 — using test card 4242 4242 4242 4242');
-      await openReceipt(result.paymentId);
+      // Stripe: native PaymentSheet is the V1.5 follow-up. The payment is still
+      // pending, so there is no receipt yet (the receipt route 409s until paid).
+      toast.info("Payment pending — we'll confirm your membership when it completes.");
     } catch (err: any) {
       toast.error(err?.message ?? 'Could not start checkout');
     } finally {
@@ -252,3 +257,5 @@ function PlanCard({
     </Card>
   );
 }
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

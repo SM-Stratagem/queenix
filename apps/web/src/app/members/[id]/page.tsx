@@ -6,6 +6,8 @@ import { useParams } from 'next/navigation';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@queenix/convex';
 import { errMsg } from '@/lib/errors';
+import { useSessionRoles } from '@/lib/access';
+import { canDo } from '@/components/admin/can';
 import { IdentityScan } from '@/components/ocr/IdentityScan';
 import { MemberDocuments } from '@/components/ocr/PaperForms';
 
@@ -25,6 +27,8 @@ export default function MemberDetailPage() {
   const freeze = useMutation(adminApi.mutations.membershipAdmin.freezeAnyMembership);
   const unfreeze = useMutation(adminApi.mutations.membershipAdmin.unfreezeAnyMembership);
   const cancel = useMutation(adminApi.mutations.membershipAdmin.cancelAnyMembership);
+  // Lifecycle actions are finance+ only (mutations/membershipAdmin).
+  const canManage = canDo(useSessionRoles(), 'membership.manage');
   const [days, setDays] = useState('14');
   const [reason, setReason] = useState('');
   const [msg, setMsg] = useState<string | null>(null);
@@ -77,7 +81,7 @@ export default function MemberDetailPage() {
                   <div style={{ fontWeight: 700 }}>{m.status} <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>· ends {new Date(m.endDate).toLocaleDateString()}</span></div>
                   <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Classes left: {m.remainingClasses} · PT left: {m.remainingPTSessions} · auto-renew: {m.autoRenew ? 'on' : 'off'}</div>
                   <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                    {m.status === 'active' && (
+                    {canManage && m.status === 'active' && (
                       <>
                         <input value={days} onChange={(e) => setDays(e.target.value)} placeholder="days" style={{ width: 70, padding: '6px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }} />
                         <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="reason (optional)" style={{ padding: '6px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', minWidth: 160 }} />
@@ -85,7 +89,7 @@ export default function MemberDetailPage() {
                         <button onClick={() => { if (confirm('Cancel this membership?')) run(() => cancel({ membershipId: m._id }), 'Cancel'); }} style={btn}>Cancel</button>
                       </>
                     )}
-                    {m.status === 'frozen' && (
+                    {canManage && m.status === 'frozen' && (
                       <button onClick={() => run(() => unfreeze({ membershipId: m._id }), 'Unfreeze')} style={btn}>Unfreeze</button>
                     )}
                   </div>
@@ -112,7 +116,12 @@ export default function MemberDetailPage() {
           ) : (
             <ul style={{ fontSize: 14, display: 'grid', gap: 6, paddingLeft: 18 }}>
               {detail.visits.map((v: any) => (
-                <li key={v._id}>{new Date(v.timestamp).toLocaleString()} — {v.direction}</li>
+                <li key={v._id}>
+                  {new Date(v.timestamp).toLocaleString()} — {v.direction}
+                  {v.granted === false && (
+                    <span style={{ color: 'var(--danger)' }}> · denied{v.reason ? `: ${v.reason}` : ''}</span>
+                  )}
+                </li>
               ))}
             </ul>
           )}

@@ -49,6 +49,9 @@ export const authClient = createAuthClient({
     expoClient({
       scheme: 'queenix',
       storagePrefix: 'queenix',
+      // Must match the server's advanced.cookiePrefix, or the client never
+      // stores the `queenix.session_token` Set-Cookie (defaults to 'better-auth').
+      cookiePrefix: 'queenix',
       storage: SecureStore,
     }),
     emailOTPClient(),

@@ -8,6 +8,8 @@ import { useMutation, useQuery } from 'convex/react';
 import { api } from '@queenix/convex';
 import { VenueGatewayCard, OrderPay } from '@/components/commerce/VenuePayments';
 import { errMsg } from '@/lib/errors';
+import { useSessionRoles } from '@/lib/access';
+import { canDo } from '@/components/admin/can';
 
 
 const card: React.CSSProperties = {
@@ -60,6 +62,17 @@ export default function WebSalonPage() {
   const remove = useMutation((api.mutations as any).commerce.deleteSalonService);
   const update = useMutation(api.mutations.commerce.updateSalonBookingStatus);
   const walkIn = useMutation((api.mutations as any).commerce.createCounterSalonBooking);
+  // Service add/(de)activate/remove is manager-only (mutations/commerce MANAGE); stylists run the queue.
+  const canEditServices = canDo(useSessionRoles(), 'venue.catalog');
+  const [queueErr, setQueueErr] = useState<string | null>(null);
+  async function act(fn: () => Promise<unknown>, fail: string, set: (m: string | null) => void) {
+    set(null);
+    try {
+      await fn();
+    } catch (e) {
+      set(errMsg(e, fail));
+    }
+  }
   const [walkService, setWalkService] = useState('');
   const [walkDate, setWalkDate] = useState('');
   const [walkTime, setWalkTime] = useState('');
@@ -106,7 +119,7 @@ export default function WebSalonPage() {
       setName('');
       setPrice('');
     } catch (e: any) {
-      setErr(e?.message ?? 'Failed to create service');
+      setErr(errMsg(e, 'Failed to create service'));
     }
   }
 
@@ -150,6 +163,7 @@ export default function WebSalonPage() {
         </div>
       </section>
 
+      {canEditServices && (
       <section style={card}>
         <h2 style={{ color: 'var(--text)', marginBottom: 8 }}>Add service</h2>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -163,8 +177,8 @@ export default function WebSalonPage() {
           />
           <button style={btnPrimary} onClick={onCreate}>Create service</button>
         </div>
-        {err && <p style={{ color: 'var(--danger)', marginTop: 8 }}>{err}</p>}
       </section>
+      )}
 
       <section style={card}>
         <h2 style={{ color: 'var(--text)', marginBottom: 8 }}>Services</h2>
@@ -179,7 +193,9 @@ export default function WebSalonPage() {
                 <span style={{ color: 'var(--text)' }}>
                   {s.name} · {fmt(s.priceCents)} · {s.durationMin} min
                 </span>
-                <button style={btnGhost} onClick={() => toggle({ serviceId: s._id, isActive: !s.isActive })}>
+                {canEditServices && (
+                <>
+                <button style={btnGhost} onClick={() => act(() => toggle({ serviceId: s._id, isActive: !s.isActive }), 'Update failed.', setErr)}>
                   {s.isActive ? 'Deactivate' : 'Activate'}
                 </button>
                 <button
@@ -196,10 +212,13 @@ export default function WebSalonPage() {
                 >
                   Remove
                 </button>
+                </>
+                )}
               </div>
             ))}
           </div>
         )}
+        {err && <p style={{ color: 'var(--danger)', marginTop: 8 }}>{err}</p>}
       </section>
 
       <section style={card}>
@@ -225,6 +244,7 @@ export default function WebSalonPage() {
 
       <section style={card}>
         <h2 style={{ color: 'var(--text)', marginBottom: 8 }}>Booking queue</h2>
+        {queueErr && <p style={{ color: 'var(--danger)', margin: '0 0 8px' }}>{queueErr}</p>}
         {queue === undefined ? (
           'Loading…'
         ) : queue.length === 0 ? (
@@ -238,15 +258,15 @@ export default function WebSalonPage() {
                   {b.status} · {b.paymentMode}
                 </span>
                 {b.status === 'pending' ? (
-                  <button style={btnGhost} onClick={() => update({ bookingId: b._id, status: 'confirmed' })}>
+                  <button style={btnGhost} onClick={() => act(() => update({ bookingId: b._id, status: 'confirmed' }), 'Confirm failed.', setQueueErr)}>
                     Confirm
                   </button>
                 ) : (
-                  <button style={btnGhost} onClick={() => update({ bookingId: b._id, status: 'completed' })}>
+                  <button style={btnGhost} onClick={() => act(() => update({ bookingId: b._id, status: 'completed' }), 'Complete failed.', setQueueErr)}>
                     Complete
                   </button>
                 )}
-                <button style={btnGhost} onClick={() => update({ bookingId: b._id, status: 'cancelled' })}>
+                <button style={btnGhost} onClick={() => act(() => update({ bookingId: b._id, status: 'cancelled' }), 'Cancel failed.', setQueueErr)}>
                   Cancel
                 </button>
                 <OrderPay

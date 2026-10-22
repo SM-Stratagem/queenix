@@ -100,3 +100,5 @@ export default function MemberCoffee() {
     </Screen>
   );
 }
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

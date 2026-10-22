@@ -5,6 +5,7 @@ import { useQuery, useMutation } from 'convex/react';
 import { api } from '@queenix/convex';
 import { downloadCsv } from '../../components/finance/CsvExport';
 import { stageMessage, buildWhatsAppUrl, buildMailtoUrl } from '@/lib/crm-contact';
+import { errMsg } from '@/lib/errors';
 
 
 const STAGES = ['new', 'contacted', 'trial', 'converted', 'lost'] as const;
@@ -41,6 +42,17 @@ export default function CrmPage() {
   const [editNotes, setEditNotes] = useState('');
   const [taskTitle, setTaskTitle] = useState('');
   const [msg, setMsg] = useState<string | null>(null);
+  // Surfaces mutation failures (FORBIDDEN, validation) instead of silent unhandled rejections.
+  const run = async (fn: () => Promise<unknown>, fail: string) => {
+    setMsg(null);
+    try {
+      await fn();
+      return true;
+    } catch (e) {
+      setMsg(errMsg(e, fail));
+      return false;
+    }
+  };
 
   const columns = pipeline?.columns ?? STAGES.map((stage) => ({ stage, count: 0, leads: [] as any[] }));
 
@@ -84,7 +96,7 @@ export default function CrmPage() {
               await createLead({ name, phone });
               setName(''); setPhone('');
               setMsg('Lead created.');
-            } catch (e: any) { setMsg(e?.message ?? 'Failed to create lead.'); }
+            } catch (e: any) { setMsg(errMsg(e, 'Failed to create lead.')); }
           }}
           style={primaryBtn}
         >
@@ -107,7 +119,7 @@ export default function CrmPage() {
                     <div style={{ color: 'var(--text-muted)' }}>{l.phone}</div>
                     <div style={{ display: 'flex', gap: 4, marginTop: 6, flexWrap: 'wrap' }}>
                       {STAGES.filter((s) => s !== l.stage).map((s) => (
-                        <button key={s} onClick={(e) => { e.stopPropagation(); moveLead({ leadId: l._id, stage: s }); }} style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, border: '1px solid var(--border)', background: 'var(--bg-muted)', color: 'var(--text)', cursor: 'pointer' }}>→ {s}</button>
+                        <button key={s} onClick={(e) => { e.stopPropagation(); run(() => moveLead({ leadId: l._id, stage: s }), 'Failed to move lead.'); }} style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, border: '1px solid var(--border)', background: 'var(--bg-muted)', color: 'var(--text)', cursor: 'pointer' }}>→ {s}</button>
                       ))}
                     </div>
                   </div>
@@ -170,7 +182,7 @@ export default function CrmPage() {
                           });
                           setEditing(false);
                           setMsg('Lead updated.');
-                        } catch (e: any) { setMsg(e?.message ?? 'Failed to update lead.'); }
+                        } catch (e: any) { setMsg(errMsg(e, 'Failed to update lead.')); }
                       }}
                       style={primaryBtn}
                     >
@@ -214,7 +226,7 @@ export default function CrmPage() {
                               setConverting(false);
                               setConvertSearch('');
                               setMsg('Lead converted and linked to member.');
-                            } catch (e: any) { setMsg(e?.message ?? 'Conversion failed.'); }
+                            } catch (e: any) { setMsg(errMsg(e, 'Conversion failed.')); }
                           }}
                           style={{ ...primaryBtn, padding: '4px 12px', fontSize: 12 }}
                         >
@@ -239,7 +251,7 @@ export default function CrmPage() {
               <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
                 <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Log a note / call…" style={{ ...input, flex: 1 }} />
                 <button
-                  onClick={async () => { if (selectedId && note) { await logInteraction({ leadId: selectedId as any, channel: 'note', summary: note }); setNote(''); } }}
+                  onClick={async () => { if (selectedId && note && (await run(() => logInteraction({ leadId: selectedId as any, channel: 'note', summary: note }), 'Failed to log note.'))) setNote(''); }}
                   style={primaryBtn}
                 >
                   Log
@@ -253,7 +265,7 @@ export default function CrmPage() {
           <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
             <input value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder="New task…" style={{ ...input, flex: 1 }} />
             <button
-              onClick={async () => { if (taskTitle) { await assignTask({ title: taskTitle, leadId: selectedId as any ?? undefined }); setTaskTitle(''); } }}
+              onClick={async () => { if (taskTitle && (await run(() => assignTask({ title: taskTitle, leadId: selectedId as any ?? undefined }), 'Failed to add task.'))) setTaskTitle(''); }}
               style={primaryBtn}
             >
               Add
@@ -269,7 +281,7 @@ export default function CrmPage() {
                 <li key={t._id}>
                   {t.title}
                   {t.dueAt && <span style={{ color: 'var(--text-muted)' }}> · due {new Date(t.dueAt).toLocaleDateString()}</span>}
-                  {' '}<button onClick={() => completeTask({ taskId: t._id })} style={{ fontSize: 12, color: 'var(--brand)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Done</button>
+                  {' '}<button onClick={() => run(() => completeTask({ taskId: t._id }), 'Failed to complete task.')} style={{ fontSize: 12, color: 'var(--brand)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Done</button>
                 </li>
               ))}
             </ul>

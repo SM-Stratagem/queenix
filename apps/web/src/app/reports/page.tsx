@@ -165,12 +165,14 @@ export default function ReportsPage() {
             <Text fontSize={13}>Gross collected: {formatAed(p.grossCents)}</Text>
             <Text fontSize={13}>Refunded: −{formatAed(p.refundedCents)}</Text>
             <Text fontSize={13}>Payouts issued: −{formatAed(p.payoutsCents)}</Text>
+            <Text fontSize={13}>Manual income: +{formatAed(p.manualIncomeCents ?? 0)}</Text>
+            <Text fontSize={13}>Manual expenses: −{formatAed(p.manualExpenseCents ?? 0)}</Text>
             <Text fontSize={16} fontWeight="800">
               Net: {formatAed(p.netCents)}
             </Text>
             <Text fontSize={12} opacity={0.6}>
               {p.succeededCount} succeeded · {p.refundedCount} refunded · {p.payoutsCount}{' '}
-              payouts
+              payouts · {p.journalCount ?? 0} journal entries
               {p.byType && Object.keys(p.byType).length > 0
                 ? ` · by type: ${Object.entries(p.byType)
                     .map(([t, c]) => `${t} ${formatAed(c as number)}`)

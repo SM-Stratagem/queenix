@@ -49,16 +49,20 @@ export function IdentityCard({ identity }: { identity: ProfileIdentity }) {
             label="Email"
             value={identity.email}
           />
-          <ContactRow
-            icon={<Phone size={14} color="$textMuted" />}
-            label="Phone"
-            value={identity.phone ?? ""}
-          />
-          <ContactRow
-            icon={<IdCard size={14} color="$textMuted" />}
-            label="Employee since"
-            value={identity.employeeSince ?? ""}
-          />
+          {identity.phone ? (
+            <ContactRow
+              icon={<Phone size={14} color="$textMuted" />}
+              label="Phone"
+              value={identity.phone}
+            />
+          ) : null}
+          {identity.employeeSince ? (
+            <ContactRow
+              icon={<IdCard size={14} color="$textMuted" />}
+              label="Employee since"
+              value={identity.employeeSince}
+            />
+          ) : null}
         </YStack>
       </Card>
     </YStack>

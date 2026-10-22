@@ -68,3 +68,5 @@ export default function OpsSalonQueue() {
     </Screen>
   );
 }
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

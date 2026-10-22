@@ -67,7 +67,7 @@ function UploadForm() {
       <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))' }}>
         <label style={label}>
           Image file (max 8 MB)
-          <input ref={fileRef} type="file" accept="image/*" onChange={(e) => pick(e.target.files?.[0] ?? null)} style={inputStyle} />
+          <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" onChange={(e) => pick(e.target.files?.[0] ?? null)} style={inputStyle} />
         </label>
         <label style={label}>
           Alt text (required)

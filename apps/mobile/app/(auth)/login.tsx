@@ -61,7 +61,7 @@ export default function LoginScreen() {
               }}
               variant={mode === m ? 'primary' : 'ghost'}
               size="sm"
-              fullWidth
+              flex={1}
             />
           ))}
         </XStack>
@@ -158,3 +158,5 @@ export default function LoginScreen() {
     </Screen>
   );
 }
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

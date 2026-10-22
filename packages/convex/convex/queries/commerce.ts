@@ -8,6 +8,7 @@ import { v } from 'convex/values';
 
 import { query, internalQuery } from '../_generated/server';
 import { requireRole, requireUser } from '../_helpers';
+import { safePaymentLink, scrubPaymentLink } from '../opsLogic';
 
 type CommerceRole =
   | 'superadmin'
@@ -24,6 +25,9 @@ const STAFF_COFFEE: CommerceRole[] = ['superadmin', 'admin', 'owner', 'operation
 
 const staff = (ctx: any, roles: CommerceRole[]) =>
   requireRole(ctx as any, roles as any);
+
+/** ponytail: per-status cap on the open queues; page them if a venue ever has more open at once. */
+const QUEUE_MAX = 200;
 
 /** Active salon service catalogue (any signed-in user). */
 export const listSalonServices = query({
@@ -76,7 +80,10 @@ export const mySalonBookings = query({
       .query('salonBookings')
       .withIndex('by_user', (q: any) => q.eq('userId', user._id))
       .collect();
-    return rows.sort((a: any, b: any) => b.createdAt - a.createdAt);
+    return rows
+      .filter((r: any) => !r.walkIn)
+      .sort((a: any, b: any) => b.createdAt - a.createdAt)
+      .map(scrubPaymentLink);
   },
 });
 
@@ -85,16 +92,21 @@ export const salonQueue = query({
   args: {},
   handler: async (ctx) => {
     await staff(ctx, STAFF_SALON);
-    // ponytail: full-table scan; add a by_status index when bookings grow.
-    const rows = (await ctx.db.query('salonBookings').collect())
-      .filter((b: any) => b.status === 'pending' || b.status === 'confirmed')
-      .sort((a: any, b: any) => a.startAt - b.startAt);
+    const open = await Promise.all(
+      (['pending', 'confirmed'] as const).map((status) =>
+        ctx.db
+          .query('salonBookings')
+          .withIndex('by_status', (q) => q.eq('status', status))
+          .take(QUEUE_MAX),
+      ),
+    );
+    const rows = open.flat().sort((a: any, b: any) => a.startAt - b.startAt);
     return Promise.all(
       rows.map(async (b: any) => {
         const [user, service] = await Promise.all([ctx.db.get(b.userId), ctx.db.get(b.serviceId)]);
         return {
-          ...b,
-          customerName: (user as any)?.fullName ?? 'Guest',
+          ...scrubPaymentLink(b),
+          customerName: b.walkIn ? 'Walk-in' : ((user as any)?.fullName ?? 'Guest'),
           serviceName: (service as any)?.name ?? 'Service',
         };
       }),
@@ -123,7 +135,10 @@ export const myCoffeeOrders = query({
       .query('coffeeOrders')
       .withIndex('by_user', (q: any) => q.eq('userId', user._id))
       .collect();
-    return rows.sort((a: any, b: any) => b.createdAt - a.createdAt);
+    return rows
+      .filter((r: any) => !r.walkIn)
+      .sort((a: any, b: any) => b.createdAt - a.createdAt)
+      .map(scrubPaymentLink);
   },
 });
 
@@ -133,17 +148,22 @@ export const coffeeQueue = query({
   handler: async (ctx) => {
     await staff(ctx, STAFF_COFFEE);
     // 'ready' stays in the queue until handed over (served) or cancelled.
-    // ponytail: full-table scan; add a by_status index when orders grow.
-    const rows = (await ctx.db.query('coffeeOrders').collect())
-      .filter((o: any) => o.status === 'queued' || o.status === 'preparing' || o.status === 'ready')
-      .sort((a: any, b: any) => a.createdAt - b.createdAt);
+    const open = await Promise.all(
+      (['queued', 'preparing', 'ready'] as const).map((status) =>
+        ctx.db
+          .query('coffeeOrders')
+          .withIndex('by_status', (q) => q.eq('status', status))
+          .take(QUEUE_MAX),
+      ),
+    );
+    const rows = open.flat().sort((a: any, b: any) => a.createdAt - b.createdAt);
     return Promise.all(
       rows.map(async (o: any) => {
         const user = await ctx.db.get(o.userId);
         const names = await Promise.all(
           o.items.map(async (l: any) => `${l.qty}× ${((await ctx.db.get(l.itemId)) as any)?.name ?? 'item'}`),
         );
-        return { ...o, customerName: (user as any)?.fullName ?? 'Guest', itemsLabel: names.join(', ') };
+        return { ...scrubPaymentLink(o), customerName: o.walkIn ? 'Walk-in' : ((user as any)?.fullName ?? 'Guest'), itemsLabel: names.join(', ') };
       }),
     );
   },
@@ -197,7 +217,7 @@ export const getOrderForPayment = internalQuery({
       amountCents,
       status: (row as any).status,
       paidAt: (row as any).paidAt ?? null,
-      paymentLink: (row as any).paymentLink ?? null,
+      paymentLink: safePaymentLink((row as any).paymentLink) ?? null,
       paymentProvider: (row as any).paymentProvider ?? null,
       table,
     };

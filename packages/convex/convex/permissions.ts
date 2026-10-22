@@ -225,3 +225,95 @@ export async function requireCapability(
 export async function requireSelf(ctx: any) {
   return requireUser(ctx);
 }
+
+// ============================================================
+// Pure authorization rules (unit-tested in tests/unit/authz.test.ts)
+// ============================================================
+
+/** Mirrors ROLE_RANK in packages/auth/src/roles.ts (same duplication note as normalizeRole). */
+export const ROLE_RANK: Record<Role, number> = {
+  superadmin: 7,
+  admin: 6,
+  finance: 5,
+  owner: 5,
+  operations: 4,
+  salon: 3,
+  coffee: 3,
+  trainer: 3,
+  member: 1,
+};
+
+/** Highest rank among a user's roles (0 for none). */
+export function topRank(roles: readonly Role[]): number {
+  return Math.max(0, ...roles.map((r) => ROLE_RANK[normalizeRole(r)] ?? 0));
+}
+
+type Subject = { id: string; roles: Role[] };
+
+/**
+ * Why `actor` may not set `target`'s roles to `nextRoles`, or null if allowed.
+ * Superadmin may assign anything; everyone else may only edit people ranked
+ * strictly below them and only assign roles strictly below their own rank
+ * (so only superadmin hands out superadmin/admin). Nobody edits themselves.
+ */
+export function roleChangeError(actor: Subject, target: Subject, nextRoles: Role[]): string | null {
+  if (actor.id === target.id) return 'You cannot change your own roles';
+  const rank = topRank(actor.roles);
+  if (rank >= ROLE_RANK.superadmin) return null;
+  if (topRank(target.roles) >= rank) {
+    return 'You cannot change the roles of someone at or above your level';
+  }
+  const tooHigh = nextRoles.filter((r) => ROLE_RANK[normalizeRole(r)] >= rank);
+  if (tooHigh.length > 0) return `You cannot assign: ${tooHigh.join(', ')}`;
+  return null;
+}
+
+/**
+ * Why `actor` may not grant (or revoke) `capability` for `target`, or null.
+ * The actor must hold the capability through their own roles (grants don't
+ * chain) and outrank the target — so platform.manage is superadmin-only.
+ * Self-grants are refused; dropping your own grant only removes access.
+ */
+export function grantChangeError(
+  actor: Subject,
+  target: Subject,
+  capability: Capability,
+  opts?: { revoke?: boolean },
+): string | null {
+  if (actor.id === target.id) {
+    return opts?.revoke ? null : 'You cannot grant capabilities to yourself';
+  }
+  if (!userHasCapability(actor.roles, capability)) {
+    return `You can only grant capabilities your role holds (${capability})`;
+  }
+  if (topRank(actor.roles) <= topRank(target.roles)) {
+    return 'You can only manage access for people ranked below you';
+  }
+  return null;
+}
+
+/** Money approvals (refunds, payouts) need finance.write; the rest staff.read (finance/ops). */
+export function approvalCapability(type: string): Capability {
+  return type.startsWith('payment.') || type.startsWith('payout.') ? 'finance.write' : 'staff.read';
+}
+
+/** Why `actor` may not decide `approval`, or null. Never your own request. */
+export function approvalDecisionError(
+  actor: Subject,
+  approval: { type: string; requestorId: string },
+  granted: Capability[] = [],
+): string | null {
+  if (actor.id === approval.requestorId) return 'You cannot decide your own request';
+  const cap = approvalCapability(approval.type);
+  if (!userHasCapabilityWithGrants(actor.roles, cap, granted)) {
+    return cap === 'finance.write'
+      ? 'Only finance can decide payment and payout requests'
+      : 'Only finance or operations can decide requests';
+  }
+  return null;
+}
+
+/** Throw FORBIDDEN with `message` when a rule above refuses. */
+export function forbidIf(message: string | null): void {
+  if (message) throw new ConvexError({ code: 'FORBIDDEN', message });
+}

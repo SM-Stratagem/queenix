@@ -91,3 +91,5 @@ export default function MemberHealthScreen() {
     </Screen>
   );
 }
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

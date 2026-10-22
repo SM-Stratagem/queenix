@@ -3,8 +3,10 @@
  *
  * Called by the operations team when installing a new physical
  * scanner. Validates the device against an allow-list (env var) and
- * returns a per-device API key + the webhook URL to configure into
- * the scanner firmware.
+ * returns the webhook URL + headers to configure into the scanner
+ * firmware. Webhooks authenticate with the shared SCANNER_API_KEY sent
+ * as `X-Scanner-Key` (see lib/scanner-auth); the returned `apiKey` is
+ * stored per device but not yet checked.
  *
  *   POST /api/scanner/register
  *   {
@@ -29,6 +31,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { convexAdmin } from '@queenix/auth/convex-admin';
 import { scannerKeyOk } from '@/lib/scanner-auth';
+import { scannerError } from '../errors';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -39,7 +42,6 @@ interface RegisterBody {
   location?: string;
   model?: string;
   ipAddress?: string;
-  apiKey?: string;
 }
 
 const ALLOWED_DEVICES = (process.env.ALLOWED_SCANNER_DEVICES ?? '')
@@ -78,7 +80,9 @@ export async function POST(req: NextRequest) {
   const location = body.location?.trim() || 'Unknown';
   const model = body.model?.trim();
   const ipAddress = body.ipAddress?.trim();
-  const apiKey = body.apiKey?.trim() || generateApiKey(deviceId ?? 'scanner');
+  // Always server-generated (a caller-chosen key was accepted before). Stored
+  // for a future per-device auth; the webhooks currently check X-Scanner-Key.
+  const apiKey = generateApiKey(deviceId ?? 'scanner');
 
   if (!deviceId) {
     return NextResponse.json(
@@ -107,11 +111,10 @@ export async function POST(req: NextRequest) {
       ipAddress,
       apiKey,
     });
-  } catch (err: any) {
-    return NextResponse.json(
-      { ok: false, error: `Failed to persist: ${err?.message ?? 'unknown'}` },
-      { status: 502 }
-    );
+  } catch (err) {
+    const { status, reason } = scannerError(err);
+    if (status >= 500) console.error('[scanner/register]', err);
+    return NextResponse.json({ ok: false, error: `Failed to register device: ${reason}` }, { status });
   }
 
   const base = getBaseUrl(req);
@@ -125,7 +128,9 @@ export async function POST(req: NextRequest) {
     healthUrl: `${base}/api/scanner/health`,
     instructions: {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Device-Key': apiKey },
+      // Same shared key this request was authorized with (SCANNER_API_KEY);
+      // /api/scanner/qr, /fingerprint and /health accept nothing else.
+      headers: { 'Content-Type': 'application/json', 'X-Scanner-Key': '<SCANNER_API_KEY>' },
       body: { token: '<qr-payload>', deviceId, direction: 'in' },
     },
   });

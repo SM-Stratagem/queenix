@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { YStack, XStack, Text } from 'tamagui';
+import { formatPrice } from './ui';
 
 export interface FinanceSummary {
   grossCents: number;
@@ -14,7 +15,7 @@ export interface FinanceSummary {
 }
 
 export function formatAed(cents: number): string {
-  return `${(cents / 100).toLocaleString('en-AE', { minimumFractionDigits: 2 })} AED`;
+  return formatPrice(cents, 'AED');
 }
 
 const CARDS: { key: keyof FinanceSummary; label: string; money: boolean }[] = [

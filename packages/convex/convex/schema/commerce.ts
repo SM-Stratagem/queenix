@@ -53,6 +53,12 @@ export const salonBookings = defineTable({
   paymentProvider: v.optional(v.union(v.literal('cash'), v.literal('tap'), v.literal('stripe'))),
   paymentLink: v.optional(v.string()),
   paidAt: v.optional(v.number()),
+  /**
+   * Counter sale for an unidentified walk-up customer. `userId` is then the
+   * staff member who rang it up, not a customer — readers show "Walk-in"
+   * and keep it out of that staff member's own order history.
+   */
+  walkIn: v.optional(v.boolean()),
 })
   .index('by_user', ['userId'])
   .index('by_service_start', ['serviceId', 'startAt'])
@@ -97,6 +103,12 @@ export const coffeeOrders = defineTable({
   paymentProvider: v.optional(v.union(v.literal('cash'), v.literal('tap'), v.literal('stripe'))),
   paymentLink: v.optional(v.string()),
   paidAt: v.optional(v.number()),
+  /**
+   * Counter sale for an unidentified walk-up customer. `userId` is then the
+   * staff member who rang it up, not a customer — readers show "Walk-in"
+   * and keep it out of that staff member's own order history.
+   */
+  walkIn: v.optional(v.boolean()),
 })
   .index('by_user', ['userId'])
   .index('by_status', ['status']);

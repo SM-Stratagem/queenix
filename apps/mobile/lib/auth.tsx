@@ -44,7 +44,7 @@ function authError(e: { code?: string; message?: string } | null | undefined, fa
   return e.message ?? fallback;
 }
 
-const homeFor = (role: Role | undefined) => (role && MOBILE_HOME[role]) || '/(member)/home';
+export const homeFor = (role: Role | undefined) => (role && MOBILE_HOME[role]) || '/(member)/home';
 
 interface AuthSession {
   userId: string;
@@ -62,6 +62,9 @@ type Result = { ok: boolean; error?: string };
 interface AuthContextValue {
   session: AuthSession | null;
   isLoading: boolean;
+  /** True right after sign-up until onboarding is finished (this app run). */
+  needsOnboarding: boolean;
+  finishOnboarding: () => void;
   signIn: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   signUp: (
     email: string,
@@ -94,6 +97,8 @@ export const useAuth = (): AuthContextValue => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  // ponytail: in-memory only — a sign-up killed mid-onboarding skips it next launch; persist (server flag) if that matters.
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const router = useRouter();
   const segments = useSegments();
 
@@ -129,8 +134,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
+    if (needsOnboarding) {
+      if ((segments as string[])[1] !== 'onboarding') router.replace('/(auth)/onboarding');
+      return;
+    }
     if (inAuthGroup) router.replace(homeFor(role) as any);
-  }, [session, segments, isLoading, router]);
+  }, [session, segments, isLoading, router, needsOnboarding]);
+
+  const finishOnboarding = useCallback(() => setNeedsOnboarding(false), []);
 
   const signIn = useCallback(async (email: string, password: string) => {
     try {
@@ -149,7 +160,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const res = await authClient.signUp.email({ email, password, name: fullName, fullName } as any);
       if (res.error) return { ok: false, error: res.error.message };
       const u: any = res.data?.user;
-      if (u) setSession(await toSession({ ...u, roles: ['member'], activeRole: 'member' }, fullName));
+      if (u) {
+        const next = await toSession({ ...u, roles: ['member'], activeRole: 'member' }, fullName);
+        setNeedsOnboarding(true);
+        setSession(next);
+      }
       return { ok: true };
     } catch (e: any) {
       return { ok: false, error: e?.message ?? 'Sign up failed' };
@@ -208,6 +223,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = useCallback(async () => {
     await clearPushToken(); // while the session can still call Convex
     await authClient.signOut();
+    setNeedsOnboarding(false);
     setSession(null);
     router.replace('/(auth)/login');
   }, [router]);
@@ -225,6 +241,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const value: AuthContextValue = {
     session,
     isLoading,
+    needsOnboarding,
+    finishOnboarding,
     signIn,
     signUp,
     signOut,

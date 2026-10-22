@@ -199,3 +199,30 @@ export function webLandingFor(userRoles: Role[]): string {
   }
   return '/login';
 }
+
+/** Highest rank among role strings ('owner' → finance). Unknown roles rank above everything. */
+function topRank(userRoles: readonly string[]): number {
+  return Math.max(0, ...userRoles.map((r) => (isRole(r) ? ROLE_RANK[r] : Infinity)));
+}
+
+/**
+ * May `actor` copy a user's roles from Convex into BetterAuth (POST /api/team/roles)?
+ * - superadmin: anyone.
+ * - self: only a non-escalating copy (new roles ⊆ current roles + member).
+ * - others: staff managers (canManageStaff) who strictly outrank both the
+ *   target's current and new roles — never a peer or a superior.
+ */
+export function canSyncRoles(
+  actorRoles: readonly string[],
+  target: { isSelf: boolean; currentRoles: readonly string[]; newRoles: readonly string[] },
+): boolean {
+  const norm = (rs: readonly string[]) => rs.map((r) => (r === 'owner' ? 'finance' : r));
+  const actor = norm(actorRoles);
+  const current = norm(target.currentRoles);
+  const next = norm(target.newRoles);
+  if (actor.includes('superadmin')) return true;
+  if (target.isSelf) return next.every((r) => r === 'member' || current.includes(r));
+  if (!canManageStaff(actor.filter(isRole))) return false;
+  const mine = topRank(actor.filter(isRole));
+  return mine > topRank(current) && mine > topRank(next);
+}

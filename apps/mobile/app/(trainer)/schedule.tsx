@@ -19,7 +19,7 @@ import {
 } from '@/components/trainer-schedule/ScheduleBits';
 import { WeekGrid, DAYS } from '@/components/trainer-schedule/WeekGrid';
 import type { GridSlot, ViewMode } from '@/components/trainer-schedule/types';
-import { getWeekRange, getDayNumbers } from '@/components/trainer-schedule/format';
+import { getWeekRange, getDayNumbers, getMonday } from '@/components/trainer-schedule/format';
 import { api } from '@queenix/convex';
 import { Calendar, Lock, Settings } from '@tamagui/lucide-icons-2';
 
@@ -33,10 +33,9 @@ export default function TrainerSchedule() {
   const dayNumbers = useMemo(() => getDayNumbers(weekOffset), [weekOffset]);
   const weekLabel = weekOffset === 0 ? 'This week' : weekOffset > 0 ? `In ${weekOffset}w` : `${-weekOffset}w ago`;
 
-  // For now we always show the current week from the DB.
-  // (The weekOffset selector is shown but data is from getWeekSchedule
-  // which returns the current week. Future: parameterize the query.)
-  const scheduleQuery = useConvexQuery(api.queries.users.getWeekSchedule, {});
+  // weekStart = local Monday 00:00 of the selected week (arrows load that week).
+  const weekStart = useMemo(() => getMonday(weekOffset).getTime(), [weekOffset]);
+  const scheduleQuery = useConvexQuery(api.queries.users.getWeekSchedule, { weekStart });
   const myProfile = useConvexQuery(api.queries.users.getMyTrainerProfile, {});
   const setAvailability = useConvexMutation(api.mutations.users.updateTrainerProfile);
   const isAvailable = (myProfile as any)?.isAvailable !== false;
@@ -77,7 +76,6 @@ export default function TrainerSchedule() {
   // Build grid slots from items
   const slots: GridSlot[] = useMemo(() => {
     if (isLoading) return [];
-    const weekStart = scheduleQuery!.weekStart;
     const out: GridSlot[] = [];
     for (const it of items as any[]) {
       const date = new Date(it.startsAt);
@@ -105,7 +103,7 @@ export default function TrainerSchedule() {
       }
     }
     return out;
-  }, [items, isLoading, scheduleQuery]);
+  }, [items, isLoading]);
 
   // Week stats
   const weekStats = useMemo(() => {
@@ -249,3 +247,5 @@ export default function TrainerSchedule() {
   );
 }
 
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

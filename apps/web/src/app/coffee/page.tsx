@@ -8,6 +8,8 @@ import { useMutation, useQuery } from 'convex/react';
 import { api } from '@queenix/convex';
 import { VenueGatewayCard, OrderPay } from '@/components/commerce/VenuePayments';
 import { errMsg } from '@/lib/errors';
+import { useSessionRoles } from '@/lib/access';
+import { canDo } from '@/components/admin/can';
 
 /** Next step per order status: queued → preparing → ready → served. */
 const NEXT_STEP: Record<string, { status: 'preparing' | 'ready' | 'served'; label: string }> = {
@@ -67,6 +69,17 @@ export default function WebCoffeePage() {
   const remove = useMutation((api.mutations as any).commerce.deleteCoffeeItem);
   const update = useMutation(api.mutations.commerce.updateCoffeeOrderStatus);
   const counterSale = useMutation((api.mutations as any).commerce.createCounterCoffeeOrder);
+  // Menu add/(de)activate/remove is manager-only (mutations/commerce MANAGE); baristas run the queue.
+  const canEditMenu = canDo(useSessionRoles(), 'venue.catalog');
+  const [queueErr, setQueueErr] = useState<string | null>(null);
+  async function act(fn: () => Promise<unknown>, fail: string, set: (m: string | null) => void) {
+    set(null);
+    try {
+      await fn();
+    } catch (e) {
+      set(errMsg(e, fail));
+    }
+  }
   const [saleItem, setSaleItem] = useState('');
   const [saleQty, setSaleQty] = useState('1');
   const [saleMsg, setSaleMsg] = useState<string | null>(null);
@@ -100,7 +113,7 @@ export default function WebCoffeePage() {
       setName('');
       setPrice('');
     } catch (e: any) {
-      setErr(e?.message ?? 'Failed to create item');
+      setErr(errMsg(e, 'Failed to create item'));
     }
   }
 
@@ -144,6 +157,7 @@ export default function WebCoffeePage() {
         </div>
       </section>
 
+      {canEditMenu && (
       <section style={card}>
         <h2 style={{ color: 'var(--text)', marginBottom: 8 }}>Add menu item</h2>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -151,8 +165,8 @@ export default function WebCoffeePage() {
           <input style={input} placeholder="Price" value={price} onChange={(e) => setPrice(e.target.value)} />
           <button style={btnPrimary} onClick={onCreate}>Create item</button>
         </div>
-        {err && <p style={{ color: 'var(--danger)', marginTop: 8 }}>{err}</p>}
       </section>
+      )}
 
       <section style={card}>
         <h2 style={{ color: 'var(--text)', marginBottom: 8 }}>Menu</h2>
@@ -168,7 +182,9 @@ export default function WebCoffeePage() {
                   {m.name} · {fmt(m.priceCents)}
                   {!m.isActive && ' (inactive)'}
                 </span>
-                <button style={btnGhost} onClick={() => toggle({ itemId: m._id, isActive: !m.isActive })}>
+                {canEditMenu && (
+                <>
+                <button style={btnGhost} onClick={() => act(() => toggle({ itemId: m._id, isActive: !m.isActive }), 'Update failed.', setErr)}>
                   {m.isActive ? 'Deactivate' : 'Activate'}
                 </button>
                 <button
@@ -185,10 +201,13 @@ export default function WebCoffeePage() {
                 >
                   Remove
                 </button>
+                </>
+                )}
               </div>
             ))}
           </div>
         )}
+        {err && <p style={{ color: 'var(--danger)', marginTop: 8 }}>{err}</p>}
       </section>
 
       <section style={card}>
@@ -213,6 +232,7 @@ export default function WebCoffeePage() {
 
       <section style={card}>
         <h2 style={{ color: 'var(--text)', marginBottom: 8 }}>Order queue</h2>
+        {queueErr && <p style={{ color: 'var(--danger)', margin: '0 0 8px' }}>{queueErr}</p>}
         {queue === undefined ? (
           'Loading…'
         ) : queue.length === 0 ? (
@@ -225,12 +245,12 @@ export default function WebCoffeePage() {
                   <strong>{o.customerName}</strong> · {o.itemsLabel} · {fmt(o.totalCents)} · {o.status} · {o.paymentMode}
                 </span>
                 {NEXT_STEP[o.status] && (
-                  <button style={btnGhost} onClick={() => update({ orderId: o._id, status: NEXT_STEP[o.status]!.status })}>
+                  <button style={btnGhost} onClick={() => act(() => update({ orderId: o._id, status: NEXT_STEP[o.status]!.status }), 'Status update failed.', setQueueErr)}>
                     {NEXT_STEP[o.status]!.label}
                   </button>
                 )}
                 {o.status !== 'ready' && (
-                  <button style={btnGhost} onClick={() => update({ orderId: o._id, status: 'cancelled' })}>
+                  <button style={btnGhost} onClick={() => act(() => update({ orderId: o._id, status: 'cancelled' }), 'Cancel failed.', setQueueErr)}>
                     Cancel
                   </button>
                 )}

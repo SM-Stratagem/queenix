@@ -4,7 +4,7 @@
  * The web route at /api/payments/[id]/receipt returns this HTML so the mobile
  * app can render it in a WebView, and members can print-to-PDF from the browser.
  *
- * UAE VAT (5%) is computed and displayed on the receipt.
+ * UAE VAT (5%) is included in the price; the receipt splits it out of the total.
  */
 
 export interface ReceiptLineItem {
@@ -267,15 +267,17 @@ export const renderReceiptHtml = (input: ReceiptInput): string => {
 };
 
 /**
- * Compute UAE VAT breakdown from a list of line items.
- * Subtotal is the sum of line item totals; VAT is 5% of subtotal (rounded to
- * nearest fils). Total = subtotal + VAT.
+ * UAE VAT breakdown for VAT-inclusive line items (Queenix prices include 5%
+ * VAT). Total is the sum of line item totals — what the customer paid — and
+ * VAT is split out of it: vat = round(total × rate / (1 + rate)),
+ * subtotal = total − vat. Basis-point integer maths avoids float drift.
  */
 export const computeVat = (
   lineItems: ReceiptLineItem[],
   rate = 0.05
 ): { subtotalCents: number; vatCents: number; totalCents: number } => {
-  const subtotalCents = lineItems.reduce((acc, li) => acc + li.totalCents, 0);
-  const vatCents = Math.round(subtotalCents * rate);
-  return { subtotalCents, vatCents, totalCents: subtotalCents + vatCents };
+  const totalCents = lineItems.reduce((acc, li) => acc + li.totalCents, 0);
+  const bp = Math.round(rate * 10000);
+  const vatCents = Math.round((totalCents * bp) / (10000 + bp));
+  return { subtotalCents: totalCents - vatCents, vatCents, totalCents };
 };

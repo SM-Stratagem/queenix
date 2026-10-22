@@ -7,6 +7,7 @@ import { v } from 'convex/values';
 import { ConvexError } from 'convex/values';
 import { mutation } from '../_generated/server';
 import { requireRole, requireUser, audit } from '../_helpers';
+import { forbidIf, roleChangeError, type Role } from '../permissions';
 
 const roleLiteral = v.union(
   v.literal('superadmin'),
@@ -72,7 +73,11 @@ export const upsertStaffProfile = mutation({
   },
 });
 
-/** Owner grants/revokes roles and sets the staffer's active role. */
+/**
+ * Finance+ grants/revokes roles and sets the staffer's active role, within
+ * roleChangeError's ceiling (only superadmin hands out admin/superadmin,
+ * never your own roles). Every change is audited.
+ */
 export const setStaffRoles = mutation({
   args: {
     userId: v.id('users'),
@@ -92,6 +97,13 @@ export const setStaffRoles = mutation({
     }
     const target = await ctx.db.get(userId);
     if (!target) throw new ConvexError({ code: 'NOT_FOUND', message: 'User not found' });
+    forbidIf(
+      roleChangeError(
+        { id: actor._id, roles: actor.roles as Role[] },
+        { id: target._id, roles: target.roles as Role[] },
+        roles as Role[],
+      ),
+    );
     const before = { roles: target.roles, activeRole: target.activeRole };
     await ctx.db.patch(userId, {
       roles: roles as any,
@@ -155,6 +167,9 @@ export const decideTimeOff = mutation({
     const actor = await requireRole(ctx, ['owner', 'operations']);
     const record = await ctx.db.get(timeOffId);
     if (!record) throw new ConvexError({ code: 'NOT_FOUND', message: 'Time-off record not found' });
+    if (record.userId === actor._id) {
+      throw new ConvexError({ code: 'FORBIDDEN', message: 'You cannot decide your own time off' });
+    }
     if (record.status !== 'pending') {
       throw new ConvexError({ code: 'INVALID', message: 'Record already decided' });
     }
@@ -244,6 +259,9 @@ export const requestTimeOff = mutation({
   },
   handler: async (ctx, { date, kind, note }) => {
     const user = await requireUser(ctx);
+    if ((user.roles ?? []).every((r: string) => r === 'member')) {
+      throw new ConvexError({ code: 'FORBIDDEN', message: 'Only staff can request time off' });
+    }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       throw new ConvexError({ code: 'INVALID', message: 'Date must be YYYY-MM-DD' });
     }

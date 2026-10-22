@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { YStack, XStack, ScrollView } from 'tamagui';
 import { useRouter } from 'expo-router';
+import { Share } from 'react-native';
 import { Screen, Text, useToast } from '@queenix/ui';
 import { useConvexQuery, useConvexMutation } from '@/lib/convex';
 import { TabPill } from '@/components/rewards/primitives';
@@ -70,10 +71,17 @@ export default function RewardsScreen() {
     try {
       const ref = await createReferral({});
       if (ref?.code) {
-        toast.success(`Referral link copied: queenix.gym/r/${ref.code}`)
+        // No clipboard module installed (expo-clipboard) — the share sheet
+        // offers Copy on iOS/Android and uses navigator.share on web.
+        const link = `queenix.gym/r/${ref.code}`;
+        try {
+          await Share.share({ message: `Join me at Queenix Gym: ${link}` });
+        } catch {
+          toast.info(`Your referral link: ${link}`);
+        }
       }
     } catch (err: any) {
-      toast.error(err?.message ?? 'Could not create referral');
+      toast.error(err?.data?.message ?? err?.message ?? 'Could not create referral');
     }
   }, [createReferral, toast]);
 
@@ -137,3 +145,5 @@ export default function RewardsScreen() {
   );
 }
 
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

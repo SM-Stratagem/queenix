@@ -48,6 +48,9 @@ export default function FinanceOverview() {
   const kpisQuery = useConvexQuery(api.queries.memberships.getOwnerKPIs, {});
   const approvalsQuery = useConvexQuery(api.queries.memberships.getPendingApprovalsCount, {});
   const liveStatusQuery = useConvexQuery(api.queries.access.getOperationsLiveStatus, {});
+  const revenueMonths = useConvexQuery(api.queries.financeReports.getRevenueAnalytics, { monthsBack: 6 }) as
+    | Array<{ month: string; netCents: number }>
+    | undefined;
 
   const isLoading = kpisQuery === undefined;
 
@@ -95,15 +98,15 @@ export default function FinanceOverview() {
     ];
   }, [kpisQuery]);
 
-  // 7-day revenue chart data — recompute from payments when available
-  // For now, show placeholder if no data
+  // Real net revenue per month (financeReports.getRevenueAnalytics), bars scaled to the max month.
   const revenueData = useMemo(() => {
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    // Without a per-day revenue query yet, show 7 zero bars if no data
-    // (the chart will improve once we add a per-day revenue query)
-    const values = [0.5, 0.6, 0.55, 0.7, 0.85, 0.75, 0.65];
-    return days.map((d, i) => ({ day: d, value: values[i] ?? 0 }));
-  }, []);
+    const rows = revenueMonths ?? [];
+    const max = Math.max(1, ...rows.map((r) => r.netCents));
+    return rows.map((r) => ({
+      day: new Date(`${r.month}-01T00:00:00`).toLocaleDateString('en-GB', { month: 'short' }),
+      value: Math.max(0, r.netCents) / max,
+    }));
+  }, [revenueMonths]);
 
   const alerts = useMemo(() => {
     const out: Alert[] = [];
@@ -205,3 +208,5 @@ export default function FinanceOverview() {
     </Screen>
   );
 }
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

@@ -264,3 +264,5 @@ export default function ScannerScreen() {
   );
 }
 
+
+export { ScreenError as ErrorBoundary } from '@/components/common/ScreenError';

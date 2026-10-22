@@ -36,16 +36,32 @@ export function ClientOverviewTab({
         )}
       </Section>
 
-      {profile && (
+      {profile && (asList(profile.goals).length > 0 || asList(profile.healthConditions).length > 0) && (
         <Section title="Profile">
-          {profile.goals && (
-            <YStack>
-              <Text variant="caption" color="muted">Goals</Text>
-              <Text variant="body" color="primary">{profile.goals}</Text>
-            </YStack>
-          )}
+          <TagList label="Goals" items={asList(profile.goals)} />
+          <TagList label="Health conditions" items={asList(profile.healthConditions)} variant="warning" />
         </Section>
       )}
+    </YStack>
+  )
+}
+
+/** goals/healthConditions are string[] now; older rows may hold a single string. */
+function asList(v: unknown): string[] {
+  if (Array.isArray(v)) return v.filter((x): x is string => typeof x === "string" && x.trim() !== "")
+  return typeof v === "string" && v.trim() ? [v] : []
+}
+
+function TagList({ label, items, variant = "brand" }: { label: string; items: string[]; variant?: "brand" | "warning" }) {
+  if (!items.length) return null
+  return (
+    <YStack gap="$1">
+      <Text variant="caption" color="muted">{label}</Text>
+      <XStack gap="$1.5" flexWrap="wrap">
+        {items.map((g) => (
+          <Badge key={g} label={g} variant={variant} />
+        ))}
+      </XStack>
     </YStack>
   )
 }
