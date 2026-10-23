@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { canOpen, useCapabilityGrants, useSessionRoles } from '@/lib/access';
+import { canOpen, useSessionRoles } from '@/lib/access';
+import { useCapabilityGrants } from '@/lib/use-capability-grants';
 import { useConvexAuth } from 'convex/react';
 import {
   LayoutDashboard,

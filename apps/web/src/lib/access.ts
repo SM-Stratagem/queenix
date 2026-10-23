@@ -6,8 +6,6 @@
  * show) and AdminShell (staff-only panel instead of a broken page).
  */
 import { WEB_LANDING, type Role } from '@queenix/auth/roles';
-import { useQuery } from 'convex/react';
-import { makeFunctionReference } from 'convex/server';
 import { authClient } from './auth-client';
 
 /** Canonical role names from a BetterAuth session user ('owner' → 'finance'). */
@@ -30,17 +28,6 @@ export function useSessionRoles(): string[] {
 }
 
 // packages/convex/convex/queries/capabilities.ts (by name: no codegen needed).
-const myGrantsRef = makeFunctionReference<'query', Record<string, never>, string[]>('queries/capabilities:mine');
-
-/**
- * The signed-in user's capability grants (Convex `capabilityGrants`, additive
- * to roles). undefined while loading; pass enabled=false to skip the query
- * (e.g. before Convex has accepted the auth token).
- */
-export function useCapabilityGrants(enabled = true): string[] | undefined {
-  return useQuery(myGrantsRef, enabled ? {} : 'skip');
-}
-
 export function isPureMember(roles: string[]): boolean {
   return roles.length > 0 && roles.every((r) => r === 'member');
 }
